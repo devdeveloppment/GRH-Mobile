@@ -1,0 +1,71 @@
+{
+  "groups": [
+    {
+      "name": "app",
+      "type": "com.grhmobile.config.AppProperties",
+      "sourceType": "com.grhmobile.config.AppProperties"
+    },
+    {
+      "name": "app.aws",
+      "type": "com.grhmobile.config.AppProperties$Aws",
+      "sourceType": "com.grhmobile.config.AppProperties",
+      "sourceMethod": "getAws()"
+    },
+    {
+      "name": "app.cors",
+      "type": "com.grhmobile.config.AppProperties$Cors",
+      "sourceType": "com.grhmobile.config.AppProperties",
+      "sourceMethod": "getCors()"
+    },
+    {
+      "name": "app.jwt",
+      "type": "com.grhmobile.config.AppProperties$Jwt",
+      "sourceType": "com.grhmobile.config.AppProperties",
+      "sourceMethod": "getJwt()"
+    }
+  ],
+  "properties": [
+    {
+      "name": "app.aws.cloud-front-domain",
+      "type": "java.lang.String",
+      "sourceType": "com.grhmobile.config.AppProperties$Aws",
+      "defaultValue": ""
+    },
+    {
+      "name": "app.aws.region",
+      "type": "java.lang.String",
+      "sourceType": "com.grhmobile.config.AppProperties$Aws",
+      "defaultValue": "eu-west-3"
+    },
+    {
+      "name": "app.aws.s3-bucket",
+      "type": "java.lang.String",
+      "sourceType": "com.grhmobile.config.AppProperties$Aws",
+      "defaultValue": "grh-mobile-documents"
+    },
+    {
+      "name": "app.cors.allowed-origins",
+      "type": "java.util.List<java.lang.String>",
+      "sourceType": "com.grhmobile.config.AppProperties$Cors"
+    },
+    {
+      "name": "app.jwt.access-token-expiration-minutes",
+      "type": "java.lang.Long",
+      "sourceType": "com.grhmobile.config.AppProperties$Jwt",
+      "defaultValue": 480
+    },
+    {
+      "name": "app.jwt.inactivity-timeout-minutes",
+      "type": "java.lang.Long",
+      "sourceType": "com.grhmobile.config.AppProperties$Jwt",
+      "defaultValue": 30
+    },
+    {
+      "name": "app.jwt.secret",
+      "type": "java.lang.String",
+      "sourceType": "com.grhmobile.config.AppProperties$Jwt",
+      "defaultValue": "change-me-change-me-change-me-change-me"
+    }
+  ],
+  "hints": []
+}
