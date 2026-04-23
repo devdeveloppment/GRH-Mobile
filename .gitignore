@@ -1,0 +1,22 @@
+# ENV (IMPORTANT)
+.env
+backend/.env
+
+# Java / Spring
+backend/target/
+*.log
+
+# Flutter
+.build/
+.dart_tool/
+
+# OS
+.DS_Store
+
+# IDE
+.vscode/
+.idea/
+
+# Autres
+.codex
+
