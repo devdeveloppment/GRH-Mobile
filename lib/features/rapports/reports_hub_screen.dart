@@ -43,12 +43,10 @@ class ReportsHubScreen extends ConsumerWidget {
                 isDrawer: true,
               ),
             ),
-      appBar: Builder(
-        builder: (scaffoldContext) => GrhAppBar(
+      appBar: GrhAppBar(
           title: 'Rapports RH',
           userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
-        ),
+          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
       ),
       body: Row(
         children: [

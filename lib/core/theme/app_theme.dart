@@ -69,7 +69,7 @@ class AppTheme {
           fontWeight: FontWeight.w700,
         ),
       ),
-      cardTheme: CardTheme(
+      cardTheme: CardThemeData(
         color: isDark ? AppColors.surfaceDark : Colors.white,
         surfaceTintColor: Colors.transparent,
         elevation: 2,
@@ -158,7 +158,7 @@ class AppTheme {
         backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
         surfaceTintColor: Colors.transparent,
       ),
-      dialogTheme: DialogTheme(
+      dialogTheme: DialogThemeData(
         backgroundColor: isDark ? AppColors.surfaceDark : Colors.white,
         surfaceTintColor: Colors.transparent,
         shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),

@@ -71,12 +71,10 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                 isDrawer: true,
               ),
             ),
-      appBar: Builder(
-        builder: (scaffoldContext) => GrhAppBar(
+      appBar: GrhAppBar(
           title: 'Employés',
           userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
-        ),
+          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
       ),
       floatingActionButton: FloatingActionButton.extended(
         backgroundColor: AppColors.secondary,

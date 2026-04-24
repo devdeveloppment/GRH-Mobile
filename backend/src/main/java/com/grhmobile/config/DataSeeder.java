@@ -42,10 +42,18 @@ public class DataSeeder {
         PresenceRepository presenceRepository,
         CongeRepository congeRepository,
         FichePaieRepository fichePaieRepository,
-        PasswordEncoder passwordEncoder
+        PasswordEncoder passwordEncoder,
+        AppProperties appProperties
     ) {
         return args -> {
-            if (utilisateurRepository.count() > 0) {
+            boolean databaseEmpty = utilisateurRepository.count() == 0;
+            Utilisateur admin = ensureBootstrapAdmin(
+                utilisateurRepository,
+                passwordEncoder,
+                appProperties.getBootstrapAdmin()
+            );
+
+            if (!databaseEmpty) {
                 return;
             }
 
@@ -54,7 +62,6 @@ public class DataSeeder {
             ServiceEntity commercial = saveService(serviceRepository, "Commercial", "Développement du portefeuille client", "Yaw Lawson");
             ServiceEntity operations = saveService(serviceRepository, "Opérations", "Pilotage des activités terrain", "Akouvi Edorh");
 
-            Utilisateur admin = saveUser(utilisateurRepository, passwordEncoder, "Bossi", "Kossi", "admin@grh-mobile.com", Role.ADMIN);
             Utilisateur hrManager = saveUser(utilisateurRepository, passwordEncoder, "Aminata", "Sanni", "rh@grh-mobile.com", Role.RH_MANAGER);
             Utilisateur employeeUser = saveUser(utilisateurRepository, passwordEncoder, "Ama", "Tossou", "employee@grh-mobile.com", Role.EMPLOYEE);
             Utilisateur direction = saveUser(utilisateurRepository, passwordEncoder, "Komi", "Tsevi", "direction@grh-mobile.com", Role.DIRECTION);
@@ -75,6 +82,36 @@ public class DataSeeder {
             admin.setDateCreation(OffsetDateTime.now().minusMonths(8));
             utilisateurRepository.save(admin);
         };
+    }
+
+    private Utilisateur ensureBootstrapAdmin(
+        UtilisateurRepository repository,
+        PasswordEncoder encoder,
+        AppProperties.BootstrapAdmin config
+    ) {
+        if (!config.isEnabled()) {
+            return null;
+        }
+
+        Utilisateur admin = repository.findByEmailIgnoreCase(config.getEmail())
+            .orElseGet(Utilisateur::new);
+
+        boolean isNewUser = admin.getId() == null;
+        admin.setNom(config.getNom());
+        admin.setPrenom(config.getPrenom());
+        admin.setEmail(config.getEmail());
+        admin.setRole(Role.ADMIN);
+        admin.setActif(true);
+
+        if (isNewUser) {
+            admin.setDateCreation(OffsetDateTime.now().minusMonths(8));
+        }
+
+        if (isNewUser || config.isResetPasswordOnStartup()) {
+            admin.setMotDePasse(encoder.encode(config.getPassword()));
+        }
+
+        return repository.save(admin);
     }
 
     private ServiceEntity saveService(

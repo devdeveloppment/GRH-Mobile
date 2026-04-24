@@ -11,6 +11,7 @@ public class AppProperties {
     private final Jwt jwt = new Jwt();
     private final Cors cors = new Cors();
     private final Aws aws = new Aws();
+    private final BootstrapAdmin bootstrapAdmin = new BootstrapAdmin();
 
     public Jwt getJwt() {
         return jwt;
@@ -22,6 +23,10 @@ public class AppProperties {
 
     public Aws getAws() {
         return aws;
+    }
+
+    public BootstrapAdmin getBootstrapAdmin() {
+        return bootstrapAdmin;
     }
 
     public static class Jwt {
@@ -99,6 +104,63 @@ public class AppProperties {
 
         public void setCloudFrontDomain(String cloudFrontDomain) {
             this.cloudFrontDomain = cloudFrontDomain;
+        }
+    }
+
+    public static class BootstrapAdmin {
+        private boolean enabled = true;
+        private String nom = "Super";
+        private String prenom = "Admin";
+        private String email = "admin@grh-mobile.com";
+        private String password = "Admin@12345";
+        private boolean resetPasswordOnStartup = true;
+
+        public boolean isEnabled() {
+            return enabled;
+        }
+
+        public void setEnabled(boolean enabled) {
+            this.enabled = enabled;
+        }
+
+        public String getNom() {
+            return nom;
+        }
+
+        public void setNom(String nom) {
+            this.nom = nom;
+        }
+
+        public String getPrenom() {
+            return prenom;
+        }
+
+        public void setPrenom(String prenom) {
+            this.prenom = prenom;
+        }
+
+        public String getEmail() {
+            return email;
+        }
+
+        public void setEmail(String email) {
+            this.email = email;
+        }
+
+        public String getPassword() {
+            return password;
+        }
+
+        public void setPassword(String password) {
+            this.password = password;
+        }
+
+        public boolean isResetPasswordOnStartup() {
+            return resetPasswordOnStartup;
+        }
+
+        public void setResetPasswordOnStartup(boolean resetPasswordOnStartup) {
+            this.resetPasswordOnStartup = resetPasswordOnStartup;
         }
     }
 }

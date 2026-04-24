@@ -49,6 +49,13 @@ app:
     secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-change-me-1234567890}
     access-token-expiration-minutes: ${JWT_EXPIRATION_MINUTES:480}
     inactivity-timeout-minutes: ${AUTO_LOGOUT_MINUTES:30}
+  bootstrap-admin:
+    enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}
+    nom: ${BOOTSTRAP_ADMIN_LAST_NAME:Super}
+    prenom: ${BOOTSTRAP_ADMIN_FIRST_NAME:Admin}
+    email: ${BOOTSTRAP_ADMIN_EMAIL:admin@grh-mobile.com}
+    password: ${BOOTSTRAP_ADMIN_PASSWORD:Admin@12345}
+    reset-password-on-startup: ${BOOTSTRAP_ADMIN_RESET_PASSWORD:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
   aws:

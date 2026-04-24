@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:convert';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -107,8 +108,23 @@ class AuthNotifier extends ChangeNotifier {
       _setLoading(false);
       notifyListeners();
       return true;
+    } on DioException catch (error) {
+      final statusCode = error.response?.statusCode;
+      if (statusCode == 401) {
+        _errorMessage = 'Identifiants invalides ou compte inactif.';
+      } else if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout ||
+          error.type == DioExceptionType.receiveTimeout) {
+        _errorMessage = 'Serveur indisponible. Vérifiez que le backend et la base de données sont démarrés.';
+      } else {
+        _errorMessage = error.response?.data?['message']?.toString() ??
+            'Connexion impossible au serveur.';
+      }
+      _setLoading(false);
+      notifyListeners();
+      return false;
     } catch (_) {
-      _errorMessage = 'Identifiants invalides ou compte inactif.';
+      _errorMessage = 'Connexion impossible au serveur.';
       _setLoading(false);
       notifyListeners();
       return false;

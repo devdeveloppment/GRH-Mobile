@@ -36,29 +36,32 @@ class RhDashboardScreen extends ConsumerWidget {
                 isDrawer: true,
               ),
             ),
-      appBar: Builder(
-        builder: (scaffoldContext) => GrhAppBar(
-          title: 'Dashboard RH',
-          userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
-          actions: [
-            IconButton(
-              onPressed: () {},
-              icon: Badge(
-                backgroundColor: AppColors.secondary,
-                label: const Text('3'),
-                child: const Icon(Icons.notifications_none_rounded),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(76),
+        child: Builder(
+          builder: (scaffoldContext) => GrhAppBar(
+            title: 'Dashboard RH',
+            userName: auth.user?.fullName,
+            onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
+            actions: [
+              IconButton(
+                onPressed: () {},
+                icon: Badge(
+                  backgroundColor: AppColors.secondary,
+                  label: const Text('3'),
+                  child: const Icon(Icons.notifications_none_rounded),
+                ),
               ),
-            ),
-            Padding(
-              padding: const EdgeInsets.only(right: 18),
-              child: EmployeeAvatar(
-                name: auth.user?.fullName ?? 'Utilisateur',
-                imageUrl: auth.user?.avatarUrl,
-                size: 38,
+              Padding(
+                padding: const EdgeInsets.only(right: 18),
+                child: EmployeeAvatar(
+                  name: auth.user?.fullName ?? 'Utilisateur',
+                  imageUrl: auth.user?.avatarUrl,
+                  size: 38,
+                ),
               ),
-            ),
-          ],
+            ],
+          ),
         ),
       ),
       body: Row(

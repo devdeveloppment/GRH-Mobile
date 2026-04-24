@@ -44,12 +44,10 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
                 isDrawer: true,
               ),
             ),
-      appBar: Builder(
-        builder: (scaffoldContext) => GrhAppBar(
+      appBar: GrhAppBar(
           title: 'Administration',
           userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
-        ),
+          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
       ),
       body: Row(
         children: [
