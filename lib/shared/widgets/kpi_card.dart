@@ -23,77 +23,75 @@ class KpiCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final content = Container(
-      padding: const EdgeInsets.all(18),
       decoration: BoxDecoration(
-        gradient: AppColors.cardGradient(color),
-        borderRadius: BorderRadius.circular(18),
-        boxShadow: [
-          BoxShadow(
-            color: Colors.black.withOpacity(0.04),
-            blurRadius: 18,
-            offset: const Offset(0, 10),
-          ),
-        ],
+        color: AppColors.background,
+        borderRadius: BorderRadius.circular(10),
+        border: Border(
+          left:   BorderSide(color: color, width: 3),
+          top:    const BorderSide(color: AppColors.border, width: 0.5),
+          right:  const BorderSide(color: AppColors.border, width: 0.5),
+          bottom: const BorderSide(color: AppColors.border, width: 0.5),
+        ),
       ),
+      padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
+        mainAxisSize: MainAxisSize.min,
         children: [
+          // ── Label + trend ────────────────────────────────────────────
           Row(
             children: [
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: color.withOpacity(0.14),
-                  borderRadius: BorderRadius.circular(14),
+              Expanded(
+                child: Text(
+                  title,
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.text2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
                 ),
-                child: Icon(icon, color: color),
               ),
-              const Spacer(),
-              if (trend != null)
-                Row(
-                  children: [
-                    Icon(
-                      trend! >= 0 ? Icons.trending_up : Icons.trending_down,
-                      size: 18,
-                      color: trend! >= 0 ? AppColors.success : AppColors.danger,
-                    ),
-                    const SizedBox(width: 4),
-                    Text(
-                      '${trend!.abs().toStringAsFixed(1)}%',
-                      style: Theme.of(context).textTheme.labelLarge?.copyWith(
-                            color: trend! >= 0 ? AppColors.success : AppColors.danger,
-                          ),
-                    ),
-                  ],
+              if (trend != null) ...[
+                const SizedBox(width: 4),
+                Icon(
+                  trend! >= 0 ? Icons.trending_up : Icons.trending_down,
+                  size: 14,
+                  color: trend! >= 0 ? AppColors.success : AppColors.error,
                 ),
+                const SizedBox(width: 2),
+                Text(
+                  '${trend!.abs().toStringAsFixed(1)}%',
+                  style: TextStyle(
+                    fontSize: 11,
+                    fontWeight: FontWeight.w600,
+                    color: trend! >= 0 ? AppColors.success : AppColors.error,
+                  ),
+                ),
+              ],
             ],
           ),
-          const Spacer(),
+          const SizedBox(height: 10),
+
+          // ── Valeur ──────────────────────────────────────────────────
           Text(
             value,
-            style: Theme.of(context).textTheme.headlineMedium?.copyWith(
-                  fontWeight: FontWeight.w800,
-                  fontSize: 32,
-                ),
-          ),
-          const SizedBox(height: 6),
-          Text(
-            title,
-            style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                ),
+            style: const TextStyle(
+              fontSize: 20,
+              fontWeight: FontWeight.w700,
+              color: AppColors.text1,
+            ),
           ),
         ],
       ),
     );
 
-    if (!isLoading) {
-      return content;
-    }
+    if (!isLoading) return content;
 
     return Shimmer.fromColors(
-      baseColor: Theme.of(context).colorScheme.surface.withOpacity(0.95),
-      highlightColor: Colors.white.withOpacity(0.45),
+      baseColor: AppColors.surface,
+      highlightColor: Colors.white.withOpacity(0.6),
       child: content,
     );
   }

@@ -58,6 +58,7 @@ app:
     reset-password-on-startup: ${BOOTSTRAP_ADMIN_RESET_PASSWORD:true}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,http://localhost:8081}
+    allowed-origin-patterns: ${CORS_ALLOWED_ORIGIN_PATTERNS:http://localhost:*,http://127.0.0.1:*}
   aws:
     region: ${AWS_REGION:eu-west-3}
     s3-bucket: ${AWS_S3_BUCKET:grh-mobile-documents}

@@ -4,12 +4,20 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/shared/models/dashboard_summary.dart';
+import 'package:grh_mobile/shared/models/dashboard_models.dart';
 
 final dashboardNotifierProvider =
     ChangeNotifierProvider.autoDispose<DashboardNotifier>((ref) {
   final notifier = DashboardNotifier(ref);
   unawaited(notifier.load());
   return notifier;
+});
+
+final enhancedDashboardProvider = 
+    FutureProvider.autoDispose<EnhancedDashboard>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final response = await api.get<Map<String, dynamic>>('/dashboard/enhanced');
+  return EnhancedDashboard.fromJson(response.data ?? <String, dynamic>{});
 });
 
 class DashboardNotifier extends ChangeNotifier {

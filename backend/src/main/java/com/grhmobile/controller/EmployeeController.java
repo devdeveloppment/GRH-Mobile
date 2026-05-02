@@ -3,8 +3,13 @@ package com.grhmobile.controller;
 import java.util.Map;
 
 import com.grhmobile.dto.common.PagedResponse;
+import com.grhmobile.dto.employee.CompetenceDto;
+import com.grhmobile.dto.employee.DocumentDto;
 import com.grhmobile.dto.employee.EmployeeRequest;
 import com.grhmobile.dto.employee.EmployeeResponse;
+import com.grhmobile.entity.Employe;
+import com.grhmobile.repository.CompetenceRepository;
+import com.grhmobile.repository.DocumentRepository;
 import com.grhmobile.service.CongeService;
 import com.grhmobile.service.EmployeeService;
 import com.grhmobile.service.PaieService;
@@ -31,17 +36,23 @@ public class EmployeeController {
     private final PresenceService presenceService;
     private final CongeService congeService;
     private final PaieService paieService;
+    private final DocumentRepository documentRepository;
+    private final CompetenceRepository competenceRepository;
 
     public EmployeeController(
         EmployeeService employeeService,
         PresenceService presenceService,
         CongeService congeService,
-        PaieService paieService
+        PaieService paieService,
+        DocumentRepository documentRepository,
+        CompetenceRepository competenceRepository
     ) {
         this.employeeService = employeeService;
         this.presenceService = presenceService;
         this.congeService = congeService;
         this.paieService = paieService;
+        this.documentRepository = documentRepository;
+        this.competenceRepository = competenceRepository;
     }
 
     @GetMapping
@@ -90,5 +101,19 @@ public class EmployeeController {
     @GetMapping("/{matricule}/paie")
     public Map<String, Object> paie(@PathVariable String matricule) {
         return Map.of("items", paieService.listByMatricule(matricule));
+    }
+
+    @GetMapping("/{matricule}/documents")
+    public Map<String, Object> documents(@PathVariable String matricule) {
+        Employe employe = employeeService.findByMatricule(matricule);
+        return Map.of("items", documentRepository.findByEmployeIdOrderByCreatedAtDesc(employe.getId())
+                .stream().map(DocumentDto::fromEntity).toList());
+    }
+
+    @GetMapping("/{matricule}/competences")
+    public Map<String, Object> competences(@PathVariable String matricule) {
+        Employe employe = employeeService.findByMatricule(matricule);
+        return Map.of("items", competenceRepository.findByEmployeIdOrderByNiveauDesc(employe.getId())
+                .stream().map(CompetenceDto::fromEntity).toList());
     }
 }

@@ -1,6 +1,7 @@
 package com.grhmobile.controller;
 
 import com.grhmobile.dto.dashboard.DashboardSummaryResponse;
+import com.grhmobile.dto.dashboard.EnhancedDashboardResponse;
 import com.grhmobile.service.DashboardService;
 
 import org.springframework.web.bind.annotation.GetMapping;
@@ -20,5 +21,10 @@ public class DashboardController {
     @GetMapping("/summary")
     public DashboardSummaryResponse summary() {
         return dashboardService.getSummary();
+    }
+
+    @GetMapping("/enhanced")
+    public EnhancedDashboardResponse enhanced() {
+        return dashboardService.getEnhancedDashboard();
     }
 }

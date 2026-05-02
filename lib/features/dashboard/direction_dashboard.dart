@@ -34,36 +34,41 @@ class DirectionDashboardScreen extends ConsumerWidget {
             '/reports/export?format=$format',
             'rapport-direction.${format == 'excel' ? 'xlsx' : 'pdf'}',
           );
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
         SnackBar(
-          content: Text(path == null ? 'Export impossible.' : 'Export $format généré avec succès.'),
+          content: Text(path == null
+              ? 'Export impossible.'
+              : 'Export $format généré avec succès.'),
         ),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppColors.surface,
       drawer: isWide || auth.role == null
           ? null
           : Drawer(
               child: GrhSidebar(
-                currentRoute: isReportMode ? AppRoutes.rapports : AppRoutes.directionDashboard,
+                currentRoute: isReportMode
+                    ? AppRoutes.rapports
+                    : AppRoutes.directionDashboard,
                 role: auth.role!,
                 isDrawer: true,
               ),
             ),
       appBar: GrhAppBar(
-          title: title,
-          userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
+        title: title,
+        userName: auth.user?.fullName,
+        onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
       ),
       body: Row(
         children: [
           if (isWide && auth.role != null)
             GrhSidebar(
-              currentRoute: isReportMode ? AppRoutes.rapports : AppRoutes.directionDashboard,
+              currentRoute: isReportMode
+                  ? AppRoutes.rapports
+                  : AppRoutes.directionDashboard,
               role: auth.role!,
             ),
           Expanded(
@@ -73,31 +78,33 @@ class DirectionDashboardScreen extends ConsumerWidget {
                 crossAxisAlignment: CrossAxisAlignment.start,
                 children: [
                   Wrap(
-                    spacing: 16,
-                    runSpacing: 16,
+                    spacing: 14,
+                    runSpacing: 14,
                     children: [
                       SizedBox(
-                        width: isWide ? 280 : double.infinity,
+                        width: isWide ? 260 : double.infinity,
                         child: KpiCard(
                           title: 'Masse Salariale',
-                          value: AppFormatters.currency(summary?.payrollMass ?? 0),
+                          value:
+                              AppFormatters.currency(summary?.payrollMass ?? 0),
                           icon: Icons.payments_outlined,
                           color: AppColors.primary,
                           trend: 8.6,
                         ),
                       ),
                       SizedBox(
-                        width: isWide ? 280 : double.infinity,
+                        width: isWide ? 260 : double.infinity,
                         child: KpiCard(
                           title: 'Taux de présence',
-                          value: '${(summary?.attendanceRate ?? 0).toStringAsFixed(1)}%',
+                          value:
+                              '${(summary?.attendanceRate ?? 0).toStringAsFixed(1)}%',
                           icon: Icons.checklist_rtl_outlined,
                           color: AppColors.success,
                           trend: 1.8,
                         ),
                       ),
                       SizedBox(
-                        width: isWide ? 280 : double.infinity,
+                        width: isWide ? 260 : double.infinity,
                         child: KpiCard(
                           title: 'Congés accordés',
                           value: '${summary?.approvedLeaves ?? 0}',
@@ -107,92 +114,151 @@ class DirectionDashboardScreen extends ConsumerWidget {
                         ),
                       ),
                       SizedBox(
-                        width: isWide ? 280 : double.infinity,
+                        width: isWide ? 260 : double.infinity,
                         child: KpiCard(
                           title: 'Turnover',
-                          value: '${(summary?.turnoverRate ?? 0).toStringAsFixed(1)}%',
+                          value:
+                              '${(summary?.turnoverRate ?? 0).toStringAsFixed(1)}%',
                           icon: Icons.sync_alt_outlined,
-                          color: AppColors.secondary,
+                          color: AppColors.accent,
                           trend: -0.7,
                         ),
                       ),
                     ],
                   ),
-                  const SizedBox(height: 24),
+                  const SizedBox(height: 20),
                   Wrap(
-                    spacing: 12,
-                    runSpacing: 12,
+                    spacing: 10,
+                    runSpacing: 10,
                     children: [
-                      ElevatedButton.icon(
-                        onPressed: () => export('pdf'),
-                        icon: const Icon(Icons.picture_as_pdf_outlined),
-                        label: const Text('Exporter PDF'),
-                      ),
-                      OutlinedButton.icon(
-                        onPressed: () => export('excel'),
-                        icon: const Icon(Icons.table_view_outlined),
-                        label: const Text('Exporter Excel'),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 24),
-                  Flex(
-                    direction: isWide ? Axis.horizontal : Axis.vertical,
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Expanded(
-                        flex: 6,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const SectionHeader(title: 'Évolution de la masse salariale'),
-                                const SizedBox(height: 20),
-                                SizedBox(
-                                  height: 280,
-                                  child: _PayrollAreaChart(
-                                    points: summary?.payrollEvolution ?? const [],
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
+                      SizedBox(
+                        height: 40,
+                        child: ElevatedButton.icon(
+                          onPressed: () => export('pdf'),
+                          icon: const Icon(Icons.picture_as_pdf_outlined,
+                              size: 16),
+                          label: const Text('Exporter PDF'),
                         ),
                       ),
-                      SizedBox(width: isWide ? 18 : 0, height: isWide ? 0 : 18),
-                      Expanded(
-                        flex: 4,
-                        child: Card(
-                          child: Padding(
-                            padding: const EdgeInsets.all(20),
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                SectionHeader(
-                                  title: isReportMode ? 'Répartition RH' : 'Répartition par département',
-                                  actionLabel: !isReportMode ? 'Voir RH' : null,
-                                  onAction: !isReportMode ? () => context.go(AppRoutes.rhDashboard) : null,
-                                ),
-                                const SizedBox(height: 20),
-                                SizedBox(
-                                  height: 280,
-                                  child: _DepartmentDonutChart(
-                                    points: summary?.departmentBreakdown ?? const [],
-                                  ),
-                                ),
-                              ],
+                      SizedBox(
+                        height: 40,
+                        child: OutlinedButton.icon(
+                          onPressed: () => export('excel'),
+                          style: OutlinedButton.styleFrom(
+                            foregroundColor: AppColors.primary,
+                            side: const BorderSide(
+                                color: AppColors.border, width: 1),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(8),
                             ),
                           ),
+                          icon: const Icon(Icons.table_view_outlined, size: 16),
+                          label: const Text('Exporter Excel'),
                         ),
                       ),
                     ],
                   ),
+                  const SizedBox(height: 20),
+                  isWide
+                      ? Row(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Expanded(
+                              flex: 6,
+                              child: _ChartCard(
+                                title: 'Évolution de la masse salariale',
+                                child: _PayrollAreaChart(
+                                  points:
+                                      summary?.payrollEvolution ?? const [],
+                                ),
+                              ),
+                            ),
+                            const SizedBox(width: 16),
+                            Expanded(
+                              flex: 4,
+                              child: _ChartCard(
+                                title: isReportMode
+                                    ? 'Répartition RH'
+                                    : 'Répartition par département',
+                                actionLabel:
+                                    !isReportMode ? 'Voir RH' : null,
+                                onAction: !isReportMode
+                                    ? () => context.go(AppRoutes.rhDashboard)
+                                    : null,
+                                child: _DepartmentDonutChart(
+                                  points:
+                                      summary?.departmentBreakdown ?? const [],
+                                ),
+                              ),
+                            ),
+                          ],
+                        )
+                      : Column(
+                          children: [
+                            _ChartCard(
+                              title: 'Évolution de la masse salariale',
+                              child: _PayrollAreaChart(
+                                points: summary?.payrollEvolution ?? const [],
+                              ),
+                            ),
+                            const SizedBox(height: 16),
+                            _ChartCard(
+                              title: isReportMode
+                                  ? 'Répartition RH'
+                                  : 'Répartition par département',
+                              actionLabel: !isReportMode ? 'Voir RH' : null,
+                              onAction: !isReportMode
+                                  ? () => context.go(AppRoutes.rhDashboard)
+                                  : null,
+                              child: _DepartmentDonutChart(
+                                points:
+                                    summary?.departmentBreakdown ?? const [],
+                              ),
+                            ),
+                          ],
+                        ),
                 ],
               ),
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _ChartCard extends StatelessWidget {
+  const _ChartCard({
+    required this.title,
+    required this.child,
+    this.actionLabel,
+    this.onAction,
+  });
+
+  final String title;
+  final Widget child;
+  final String? actionLabel;
+  final VoidCallback? onAction;
+
+  @override
+  Widget build(BuildContext context) {
+    return Container(
+      padding: const EdgeInsets.all(20),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          SectionHeader(
+            title: title,
+            actionLabel: actionLabel,
+            onAction: onAction,
+          ),
+          const SizedBox(height: 20),
+          SizedBox(height: 260, child: child),
         ],
       ),
     );
@@ -219,11 +285,23 @@ class _PayrollAreaChart extends StatelessWidget {
 
     return LineChart(
       LineChartData(
-        borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: true, drawVerticalLine: false),
+        borderData: FlBorderData(
+          show: true,
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (_) => const FlLine(
+            color: AppColors.border,
+            strokeWidth: 0.5,
+          ),
+        ),
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
+          rightTitles: const AxisTitles(
+              sideTitles: SideTitles(showTitles: false)),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
@@ -234,7 +312,11 @@ class _PayrollAreaChart extends StatelessWidget {
                 }
                 return Padding(
                   padding: const EdgeInsets.only(top: 8),
-                  child: Text(values[index].label),
+                  child: Text(
+                    values[index].label,
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.text2),
+                  ),
                 );
               },
             ),
@@ -245,7 +327,8 @@ class _PayrollAreaChart extends StatelessWidget {
               reservedSize: 54,
               getTitlesWidget: (value, meta) => Text(
                 '${(value / 1000000).toStringAsFixed(1)}M',
-                style: Theme.of(context).textTheme.bodySmall,
+                style: const TextStyle(
+                    fontSize: 10, color: AppColors.text2),
               ),
             ),
           ),
@@ -258,18 +341,20 @@ class _PayrollAreaChart extends StatelessWidget {
             ],
             isCurved: true,
             color: AppColors.primary,
-            barWidth: 3,
-            dotData: const FlDotData(show: true),
+            barWidth: 2.5,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (spot, percent, barData, index) =>
+                  FlDotCirclePainter(
+                radius: 3,
+                color: AppColors.primary,
+                strokeWidth: 1.5,
+                strokeColor: Colors.white,
+              ),
+            ),
             belowBarData: BarAreaData(
               show: true,
-              gradient: LinearGradient(
-                colors: [
-                  AppColors.primary.withOpacity(0.28),
-                  AppColors.accent.withOpacity(0.08),
-                ],
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-              ),
+              color: AppColors.primary.withOpacity(0.08),
             ),
           ),
         ],
@@ -293,11 +378,11 @@ class _DepartmentDonutChart extends StatelessWidget {
             DashboardPoint(label: 'Support', value: 20),
           ]
         : points;
-    final colors = <Color>[
+    const colors = <Color>[
       AppColors.primary,
-      AppColors.secondary,
+      AppColors.accent,
       AppColors.warning,
-      AppColors.info,
+      AppColors.success,
     ];
 
     return Row(
@@ -305,25 +390,26 @@ class _DepartmentDonutChart extends StatelessWidget {
         Expanded(
           child: PieChart(
             PieChartData(
-              centerSpaceRadius: 50,
-              sectionsSpace: 3,
+              centerSpaceRadius: 46,
+              sectionsSpace: 2,
               sections: [
                 for (int index = 0; index < values.length; index++)
                   PieChartSectionData(
                     color: colors[index % colors.length],
                     value: values[index].value,
                     title: '${values[index].value.toStringAsFixed(0)}%',
-                    radius: 54,
-                    titleStyle: Theme.of(context).textTheme.labelMedium?.copyWith(
-                          color: Colors.white,
-                          fontWeight: FontWeight.w800,
-                        ),
+                    radius: 50,
+                    titleStyle: const TextStyle(
+                      fontSize: 10,
+                      color: Colors.white,
+                      fontWeight: FontWeight.w700,
+                    ),
                   ),
               ],
             ),
           ),
         ),
-        const SizedBox(width: 16),
+        const SizedBox(width: 12),
         Expanded(
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
@@ -331,19 +417,25 @@ class _DepartmentDonutChart extends StatelessWidget {
             children: [
               for (int index = 0; index < values.length; index++)
                 Padding(
-                  padding: const EdgeInsets.only(bottom: 12),
+                  padding: const EdgeInsets.only(bottom: 10),
                   child: Row(
                     children: [
                       Container(
-                        width: 12,
-                        height: 12,
+                        width: 10,
+                        height: 10,
                         decoration: BoxDecoration(
                           color: colors[index % colors.length],
                           shape: BoxShape.circle,
                         ),
                       ),
-                      const SizedBox(width: 10),
-                      Expanded(child: Text(values[index].label)),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          values[index].label,
+                          style: const TextStyle(
+                              fontSize: 11, color: AppColors.text1),
+                        ),
+                      ),
                     ],
                   ),
                 ),

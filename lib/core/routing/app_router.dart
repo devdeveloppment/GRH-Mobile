@@ -3,12 +3,15 @@ import 'package:go_router/go_router.dart';
 import 'package:grh_mobile/core/constants/app_globals.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/features/admin/admin_users_screen.dart';
+import 'package:grh_mobile/features/admin/admin_settings_screen.dart';
+import 'package:grh_mobile/features/admin/admin_roles_screen.dart';
 import 'package:grh_mobile/features/auth/login_screen.dart';
 import 'package:grh_mobile/features/conges/conge_request_screen.dart';
 import 'package:grh_mobile/features/dashboard/admin_console_screen.dart';
 import 'package:grh_mobile/features/dashboard/direction_dashboard.dart';
 import 'package:grh_mobile/features/dashboard/employee_workspace_screen.dart';
-import 'package:grh_mobile/features/dashboard/rh_dashboard.dart';
+import 'package:grh_mobile/features/dashboard/rh_dashboard_modern.dart';
 import 'package:grh_mobile/features/employees/employee_detail_screen.dart';
 import 'package:grh_mobile/features/employees/employee_list_screen.dart';
 import 'package:grh_mobile/features/paie/paie_calculation_screen.dart';
@@ -23,7 +26,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   bool canAccess(String location, UserRole role) {
     switch (role) {
       case UserRole.admin:
-        return location.startsWith('/admin');
+        return true; // accès total
       case UserRole.rhManager:
         return location.startsWith('/rh');
       case UserRole.employee:
@@ -62,7 +65,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.rhDashboard,
-        builder: (context, state) => const RhDashboardScreen(),
+        builder: (context, state) => const RhDashboardModernScreen(),
       ),
       GoRoute(
         path: AppRoutes.employees,
@@ -101,15 +104,19 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       ),
       GoRoute(
         path: AppRoutes.adminUsers,
-        builder: (context, state) => const AdminConsoleScreen(sectionTitle: 'Utilisateurs'),
+        builder: (context, state) => const AdminUsersManagementScreen(),
       ),
       GoRoute(
         path: AppRoutes.adminRoles,
-        builder: (context, state) => const AdminConsoleScreen(sectionTitle: 'Rôles'),
+        builder: (context, state) => const AdminRolesScreen(),
       ),
       GoRoute(
         path: AppRoutes.adminSettings,
-        builder: (context, state) => const AdminConsoleScreen(sectionTitle: 'Paramètres'),
+        builder: (context, state) => const AdminSettingsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.departments,
+        builder: (context, state) => const AdminConsoleScreen(sectionTitle: 'Départements'),
       ),
       GoRoute(
         path: AppRoutes.rapports,

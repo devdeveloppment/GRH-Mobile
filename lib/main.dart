@@ -1,3 +1,4 @@
+
 import 'package:flutter/material.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
@@ -21,15 +22,12 @@ Future<void> main() async {
   runApp(const ProviderScope(child: GrhMobileApp()));
 }
 
-final themeModeProvider = StateProvider<ThemeMode>((ref) => ThemeMode.system);
-
 class GrhMobileApp extends ConsumerWidget {
   const GrhMobileApp({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final router = ref.watch(appRouterProvider);
-    final themeMode = ref.watch(themeModeProvider);
 
     return Listener(
       behavior: HitTestBehavior.translucent,
@@ -39,8 +37,7 @@ class GrhMobileApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         theme: AppTheme.lightTheme,
-        darkTheme: AppTheme.darkTheme,
-        themeMode: themeMode,
+        themeMode: ThemeMode.light,
         locale: const Locale('fr', 'TG'),
         supportedLocales: const [Locale('fr', 'TG'), Locale('fr', 'FR')],
         localizationsDelegates: const [

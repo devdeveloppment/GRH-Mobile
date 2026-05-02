@@ -14,10 +14,12 @@ class PresenceOverviewScreen extends ConsumerStatefulWidget {
   const PresenceOverviewScreen({super.key});
 
   @override
-  ConsumerState<PresenceOverviewScreen> createState() => _PresenceOverviewScreenState();
+  ConsumerState<PresenceOverviewScreen> createState() =>
+      _PresenceOverviewScreenState();
 }
 
-class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen> {
+class _PresenceOverviewScreenState
+    extends ConsumerState<PresenceOverviewScreen> {
   late Future<List<Presence>> _future;
 
   @override
@@ -27,7 +29,9 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
   }
 
   Future<List<Presence>> _loadPresences() async {
-    final response = await ref.read(apiServiceProvider).get<Map<String, dynamic>>('/presences');
+    final response = await ref
+        .read(apiServiceProvider)
+        .get<Map<String, dynamic>>('/presences');
     final raw = response.data?['items'] as List<dynamic>? ?? <dynamic>[];
     return raw
         .whereType<Map<String, dynamic>>()
@@ -41,6 +45,7 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
     final isWide = MediaQuery.sizeOf(context).width >= 1024;
 
     return Scaffold(
+      backgroundColor: AppColors.surface,
       drawer: isWide || auth.role == null
           ? null
           : Drawer(
@@ -50,10 +55,15 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
                 isDrawer: true,
               ),
             ),
-      appBar: GrhAppBar(
-          title: 'Présences',
-          userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(72),
+        child: Builder(
+          builder: (ctx) => GrhAppBar(
+            title: 'Présences',
+            userName: auth.user?.fullName,
+            onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
       ),
       body: Row(
         children: [
@@ -64,22 +74,38 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
               future: _future,
               builder: (context, snapshot) {
                 if (!snapshot.hasData) {
-                  return const Center(child: CircularProgressIndicator());
+                  return const Center(
+                    child: CircularProgressIndicator(
+                      color: AppColors.primary,
+                      strokeWidth: 2,
+                    ),
+                  );
+                }
+                if (snapshot.hasError) {
+                  return const Center(
+                    child: Text(
+                      'Impossible de charger les présences.',
+                      style: TextStyle(color: AppColors.text2, fontSize: 13),
+                    ),
+                  );
                 }
                 final items = snapshot.data!;
-                final presentCount = items.where((item) => item.statut == 'PRESENT').length;
-                final lateCount = items.where((item) => item.statut == 'RETARD').length;
-                final absentCount = items.where((item) => item.statut == 'ABSENT').length;
+                final presentCount =
+                    items.where((item) => item.statut == 'PRESENT').length;
+                final lateCount =
+                    items.where((item) => item.statut == 'RETARD').length;
+                final absentCount =
+                    items.where((item) => item.statut == 'ABSENT').length;
 
                 return ListView(
                   padding: const EdgeInsets.all(20),
                   children: [
                     Wrap(
-                      spacing: 16,
-                      runSpacing: 16,
+                      spacing: 14,
+                      runSpacing: 14,
                       children: [
                         SizedBox(
-                          width: isWide ? 260 : double.infinity,
+                          width: isWide ? 240 : double.infinity,
                           child: KpiCard(
                             title: 'Présents',
                             value: '$presentCount',
@@ -89,7 +115,7 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
                           ),
                         ),
                         SizedBox(
-                          width: isWide ? 260 : double.infinity,
+                          width: isWide ? 240 : double.infinity,
                           child: KpiCard(
                             title: 'Retards',
                             value: '$lateCount',
@@ -99,45 +125,119 @@ class _PresenceOverviewScreenState extends ConsumerState<PresenceOverviewScreen>
                           ),
                         ),
                         SizedBox(
-                          width: isWide ? 260 : double.infinity,
+                          width: isWide ? 240 : double.infinity,
                           child: KpiCard(
                             title: 'Absences',
                             value: '$absentCount',
                             icon: Icons.person_off_outlined,
-                            color: AppColors.danger,
+                            color: AppColors.error,
                             trend: -0.8,
                           ),
                         ),
                       ],
                     ),
                     const SizedBox(height: 20),
-                    ...items.map(
-                      (item) => Padding(
-                        padding: const EdgeInsets.only(bottom: 12),
-                        child: Card(
-                          child: ListTile(
-                            leading: const Icon(Icons.fact_check_outlined),
-                            title: Text(AppFormatters.longDate(item.date)),
-                            subtitle: Text(
-                              'Arrivée ${AppFormatters.time(item.heureArrivee)} • Départ ${AppFormatters.time(item.heureDepart)}',
-                            ),
-                            trailing: StatusBadge(
-                              label: item.statut,
-                              type: item.statut == 'PRESENT'
-                                  ? 'success'
-                                  : item.statut == 'RETARD'
-                                      ? 'warning'
-                                      : 'error',
-                            ),
+                    if (items.isEmpty)
+                      Container(
+                        padding: const EdgeInsets.all(32),
+                        decoration: BoxDecoration(
+                          color: Colors.white,
+                          borderRadius: BorderRadius.circular(10),
+                          border:
+                              Border.all(color: AppColors.border, width: 0.5),
+                        ),
+                        child: const Center(
+                          child: Text(
+                            'Aucune présence enregistrée.',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.text2),
                           ),
                         ),
+                      )
+                    else
+                      ...items.map(
+                        (item) => Padding(
+                          padding: const EdgeInsets.only(bottom: 10),
+                          child: _PresenceTile(item: item),
+                        ),
                       ),
-                    ),
                   ],
                 );
               },
             ),
           ),
+        ],
+      ),
+    );
+  }
+}
+
+class _PresenceTile extends StatelessWidget {
+  const _PresenceTile({required this.item});
+
+  final Presence item;
+
+  @override
+  Widget build(BuildContext context) {
+    final statusType = switch (item.statut) {
+      'PRESENT' => 'active',
+      'RETARD' => 'pending',
+      _ => 'rejected',
+    };
+    final statusLabel = switch (item.statut) {
+      'PRESENT' => 'Présent',
+      'RETARD' => 'Retard',
+      _ => 'Absent',
+    };
+
+    return Container(
+      padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 12),
+      decoration: BoxDecoration(
+        color: Colors.white,
+        borderRadius: BorderRadius.circular(10),
+        border: Border.all(color: AppColors.border, width: 0.5),
+      ),
+      child: Row(
+        children: [
+          Container(
+            width: 40,
+            height: 40,
+            decoration: BoxDecoration(
+              color: AppColors.surface,
+              borderRadius: BorderRadius.circular(8),
+              border: Border.all(color: AppColors.border, width: 0.5),
+            ),
+            child: const Icon(
+              Icons.fact_check_outlined,
+              color: AppColors.primary,
+              size: 20,
+            ),
+          ),
+          const SizedBox(width: 12),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  AppFormatters.longDate(item.date),
+                  style: const TextStyle(
+                    fontSize: 13,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text1,
+                  ),
+                ),
+                const SizedBox(height: 2),
+                Text(
+                  'Arrivée ${AppFormatters.time(item.heureArrivee)} • Départ ${AppFormatters.time(item.heureDepart)}',
+                  style: const TextStyle(
+                    fontSize: 11,
+                    color: AppColors.text2,
+                  ),
+                ),
+              ],
+            ),
+          ),
+          StatusBadge(label: statusLabel, type: statusType),
         ],
       ),
     );

@@ -59,4 +59,9 @@ class AppFormatters {
     }
     return shortDate(value);
   }
-}
+  static String percentage(num? value) {
+    if (value == null) {
+      return '0.0%';
+    }
+    return '${value.toStringAsFixed(1)}%';
+  }}

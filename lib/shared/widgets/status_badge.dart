@@ -9,30 +9,33 @@ class StatusBadge extends StatelessWidget {
   });
 
   final String label;
+  // Valeurs reconnues : 'active' | 'leave' | 'rejected' | 'pending'
+  // Alias legacy      : 'success' | 'warning' | 'error' | 'info'
   final String type;
 
   @override
   Widget build(BuildContext context) {
-    final Color color = switch (type) {
-      'success' => AppColors.success,
-      'warning' => AppColors.warning,
-      'error' => AppColors.danger,
-      'info' => AppColors.info,
-      _ => AppColors.neutral,
+    final (bg, fg) = switch (type) {
+      'active'  || 'success' => (AppColors.badgeSuccessBg, AppColors.badgeSuccessFg),
+      'leave'   || 'warning' || 'pending' || 'info'
+                             => (AppColors.badgeWarnBg,    AppColors.badgeWarnFg),
+      'rejected'|| 'error'   => (AppColors.badgeDangerBg,  AppColors.badgeDangerFg),
+      _                      => (AppColors.surface,         AppColors.text2),
     };
 
     return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
+      padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.12),
-        borderRadius: BorderRadius.circular(999),
+        color: bg,
+        borderRadius: BorderRadius.circular(6),
       ),
       child: Text(
         label,
-        style: Theme.of(context).textTheme.labelMedium?.copyWith(
-              color: color,
-              fontWeight: FontWeight.w700,
-            ),
+        style: TextStyle(
+          fontSize: 11,
+          fontWeight: FontWeight.w600,
+          color: fg,
+        ),
       ),
     );
   }

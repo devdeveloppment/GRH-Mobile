@@ -8,7 +8,6 @@ import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 import 'package:grh_mobile/shared/widgets/kpi_card.dart';
-import 'package:grh_mobile/shared/widgets/section_header.dart';
 
 class ReportsHubScreen extends ConsumerWidget {
   const ReportsHubScreen({super.key});
@@ -25,15 +24,16 @@ class ReportsHubScreen extends ConsumerWidget {
             '/reports/export?format=$format',
             'rapport-rh.${format == 'excel' ? 'xlsx' : 'pdf'}',
           );
-      if (!context.mounted) {
-        return;
-      }
+      if (!context.mounted) return;
       ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(file == null ? 'Export impossible.' : 'Export $format prêt.')),
+        SnackBar(
+            content: Text(
+                file == null ? 'Export impossible.' : 'Export $format prêt.')),
       );
     }
 
     return Scaffold(
+      backgroundColor: AppColors.surface,
       drawer: isWide || auth.role == null
           ? null
           : Drawer(
@@ -43,10 +43,15 @@ class ReportsHubScreen extends ConsumerWidget {
                 isDrawer: true,
               ),
             ),
-      appBar: GrhAppBar(
-          title: 'Rapports RH',
-          userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(72),
+        child: Builder(
+          builder: (ctx) => GrhAppBar(
+            title: 'Rapports RH',
+            userName: auth.user?.fullName,
+            onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
       ),
       body: Row(
         children: [
@@ -57,31 +62,33 @@ class ReportsHubScreen extends ConsumerWidget {
               padding: const EdgeInsets.all(20),
               children: [
                 Wrap(
-                  spacing: 16,
-                  runSpacing: 16,
+                  spacing: 14,
+                  runSpacing: 14,
                   children: [
                     SizedBox(
-                      width: isWide ? 280 : double.infinity,
+                      width: isWide ? 260 : double.infinity,
                       child: KpiCard(
                         title: 'Masse salariale',
-                        value: AppFormatters.currency(summary?.payrollMass ?? 0),
+                        value:
+                            AppFormatters.currency(summary?.payrollMass ?? 0),
                         icon: Icons.payments_outlined,
                         color: AppColors.primary,
                         trend: 8.1,
                       ),
                     ),
                     SizedBox(
-                      width: isWide ? 280 : double.infinity,
+                      width: isWide ? 260 : double.infinity,
                       child: KpiCard(
                         title: 'Taux de présence',
-                        value: '${(summary?.attendanceRate ?? 0).toStringAsFixed(1)}%',
+                        value:
+                            '${(summary?.attendanceRate ?? 0).toStringAsFixed(1)}%',
                         icon: Icons.analytics_outlined,
-                        color: AppColors.info,
+                        color: AppColors.accent,
                         trend: 2.2,
                       ),
                     ),
                     SizedBox(
-                      width: isWide ? 280 : double.infinity,
+                      width: isWide ? 260 : double.infinity,
                       child: KpiCard(
                         title: 'Congés accordés',
                         value: '${summary?.approvedLeaves ?? 0}',
@@ -92,49 +99,80 @@ class ReportsHubScreen extends ConsumerWidget {
                     ),
                   ],
                 ),
-                const SizedBox(height: 24),
-                Card(
-                  child: Padding(
-                    padding: const EdgeInsets.all(20),
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        const SectionHeader(title: 'Exports disponibles'),
-                        const SizedBox(height: 12),
-                        Wrap(
-                          spacing: 12,
-                          runSpacing: 12,
-                          children: [
-                            ElevatedButton.icon(
+                const SizedBox(height: 22),
+                Container(
+                  padding: const EdgeInsets.all(20),
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(10),
+                    border: Border.all(color: AppColors.border, width: 0.5),
+                  ),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      const Text(
+                        'Exports disponibles',
+                        style: TextStyle(
+                          fontSize: 14,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text1,
+                        ),
+                      ),
+                      const SizedBox(height: 14),
+                      Wrap(
+                        spacing: 10,
+                        runSpacing: 10,
+                        children: [
+                          SizedBox(
+                            height: 40,
+                            child: ElevatedButton.icon(
                               onPressed: () => export('pdf'),
-                              icon: const Icon(Icons.picture_as_pdf_outlined),
+                              icon: const Icon(Icons.picture_as_pdf_outlined,
+                                  size: 16),
                               label: const Text('Rapport PDF'),
                             ),
-                            OutlinedButton.icon(
+                          ),
+                          SizedBox(
+                            height: 40,
+                            child: OutlinedButton.icon(
                               onPressed: () => export('excel'),
-                              icon: const Icon(Icons.grid_on_outlined),
+                              style: OutlinedButton.styleFrom(
+                                foregroundColor: AppColors.primary,
+                                side: const BorderSide(
+                                    color: AppColors.border, width: 1),
+                                shape: RoundedRectangleBorder(
+                                  borderRadius: BorderRadius.circular(8),
+                                ),
+                              ),
+                              icon: const Icon(Icons.grid_on_outlined, size: 16),
                               label: const Text('Rapport Excel'),
                             ),
-                          ],
-                        ),
-                        const SizedBox(height: 20),
-                        const ListTile(
-                          leading: Icon(Icons.description_outlined),
-                          title: Text('Rapport de masse salariale'),
-                          subtitle: Text('Vue consolidée mensuelle par département.'),
-                        ),
-                        const ListTile(
-                          leading: Icon(Icons.groups_outlined),
-                          title: Text('Rapport d’effectif'),
-                          subtitle: Text('Analyse des recrutements, départs et turn-over.'),
-                        ),
-                        const ListTile(
-                          leading: Icon(Icons.fact_check_outlined),
-                          title: Text('Rapport de présence'),
-                          subtitle: Text('Punctualité, assiduité et anomalies de pointage.'),
-                        ),
-                      ],
-                    ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 20),
+                      const Divider(
+                          height: 1, thickness: 0.5, color: AppColors.border),
+                      const SizedBox(height: 12),
+                      _ReportTile(
+                        icon: Icons.description_outlined,
+                        title: 'Rapport de masse salariale',
+                        subtitle: 'Vue consolidée mensuelle par département.',
+                      ),
+                      _ReportTile(
+                        icon: Icons.groups_outlined,
+                        title: "Rapport d'effectif",
+                        subtitle:
+                            'Analyse des recrutements, départs et turn-over.',
+                      ),
+                      _ReportTile(
+                        icon: Icons.fact_check_outlined,
+                        title: 'Rapport de présence',
+                        subtitle:
+                            'Ponctualité, assiduité et anomalies de pointage.',
+                        isLast: true,
+                      ),
+                    ],
                   ),
                 ),
               ],
@@ -142,6 +180,69 @@ class ReportsHubScreen extends ConsumerWidget {
           ),
         ],
       ),
+    );
+  }
+}
+
+class _ReportTile extends StatelessWidget {
+  const _ReportTile({
+    required this.icon,
+    required this.title,
+    required this.subtitle,
+    this.isLast = false,
+  });
+
+  final IconData icon;
+  final String title;
+  final String subtitle;
+  final bool isLast;
+
+  @override
+  Widget build(BuildContext context) {
+    return Column(
+      children: [
+        Padding(
+          padding: const EdgeInsets.symmetric(vertical: 10),
+          child: Row(
+            children: [
+              Container(
+                width: 36,
+                height: 36,
+                decoration: BoxDecoration(
+                  color: AppColors.surface,
+                  borderRadius: BorderRadius.circular(8),
+                  border: Border.all(color: AppColors.border, width: 0.5),
+                ),
+                child: Icon(icon, color: AppColors.primary, size: 18),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    Text(
+                      title,
+                      style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text1,
+                      ),
+                    ),
+                    const SizedBox(height: 2),
+                    Text(
+                      subtitle,
+                      style: const TextStyle(
+                          fontSize: 11, color: AppColors.text2),
+                    ),
+                  ],
+                ),
+              ),
+            ],
+          ),
+        ),
+        if (!isLast)
+          const Divider(height: 1, thickness: 0.5, color: AppColors.border),
+      ],
     );
   }
 }

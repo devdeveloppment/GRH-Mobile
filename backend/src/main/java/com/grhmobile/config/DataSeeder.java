@@ -7,7 +7,9 @@ import java.time.OffsetDateTime;
 import java.time.YearMonth;
 import java.util.List;
 
+import com.grhmobile.entity.Competence;
 import com.grhmobile.entity.Conge;
+import com.grhmobile.entity.Document;
 import com.grhmobile.entity.Employe;
 import com.grhmobile.entity.FichePaie;
 import com.grhmobile.entity.Presence;
@@ -19,7 +21,9 @@ import com.grhmobile.enums.StatutConge;
 import com.grhmobile.enums.StatutPresence;
 import com.grhmobile.enums.TypeConge;
 import com.grhmobile.enums.TypeContrat;
+import com.grhmobile.repository.CompetenceRepository;
 import com.grhmobile.repository.CongeRepository;
+import com.grhmobile.repository.DocumentRepository;
 import com.grhmobile.repository.EmployeRepository;
 import com.grhmobile.repository.FichePaieRepository;
 import com.grhmobile.repository.PresenceRepository;
@@ -42,6 +46,8 @@ public class DataSeeder {
         PresenceRepository presenceRepository,
         CongeRepository congeRepository,
         FichePaieRepository fichePaieRepository,
+        DocumentRepository documentRepository,
+        CompetenceRepository competenceRepository,
         PasswordEncoder passwordEncoder,
         AppProperties appProperties
     ) {
@@ -78,6 +84,8 @@ public class DataSeeder {
             seedPresences(presenceRepository, employees);
             seedConges(congeRepository, e1, e3, e5);
             seedPaie(fichePaieRepository, employees);
+            seedDocuments(documentRepository, employees);
+            seedCompetences(competenceRepository, employees);
 
             admin.setDateCreation(OffsetDateTime.now().minusMonths(8));
             utilisateurRepository.save(admin);
@@ -230,6 +238,46 @@ public class DataSeeder {
         rejected.setStatut(StatutConge.REFUSE);
         rejected.setCommentaire("Période sensible pour la clôture RH.");
         repository.save(rejected);
+    }
+
+    private void seedDocuments(DocumentRepository repository, List<Employe> employees) {
+        String[][] types = {
+            {"CV", "PDF", "1240"},
+            {"Diplôme Master", "PDF", "1820"},
+            {"Carte d'identité", "PDF", "820"},
+            {"Contrat de travail", "PDF", "2100"},
+            {"Certificat de travail", "PDF", "980"},
+            {"Photo d'identité", "IMG", "640"},
+        };
+        for (Employe employe : employees) {
+            for (String[] t : types) {
+                Document doc = new Document();
+                doc.setEmploye(employe);
+                doc.setNom(t[0] + " - " + employe.getPrenom() + " " + employe.getNom() + "." + (t[1].equals("IMG") ? "jpg" : "pdf"));
+                doc.setType(t[1]);
+                doc.setTailleKo(Integer.parseInt(t[2]));
+                repository.save(doc);
+            }
+        }
+    }
+
+    private void seedCompetences(CompetenceRepository repository, List<Employe> employees) {
+        String[][] competences = {
+            {"Communication", "85"},
+            {"Gestion de projet", "75"},
+            {"Travail en équipe", "90"},
+            {"Maîtrise des outils bureautiques", "80"},
+            {"Analyse et résolution de problèmes", "70"},
+        };
+        for (Employe employe : employees) {
+            for (String[] c : competences) {
+                Competence comp = new Competence();
+                comp.setEmploye(employe);
+                comp.setLibelle(c[0]);
+                comp.setNiveau(Integer.parseInt(c[1]));
+                repository.save(comp);
+            }
+        }
     }
 
     private void seedPaie(FichePaieRepository repository, List<Employe> employees) {

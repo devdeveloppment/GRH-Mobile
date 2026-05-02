@@ -1,0 +1,989 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>GRH-MOBILE — Écrans 4·5·6</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com" />
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&display=swap" rel="stylesheet" />
+  <style>
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    :root {
+      --primary:   #0E3D34;
+      --primary-dk:#072B25;
+      --primary-lt:#E7F1EE;
+      --accent:    #F68A1E;
+      --accent-lt: #FFF1E3;
+      --success:   #23936B;
+      --success-lt:#E6F6F0;
+      --warning:   #F2A900;
+      --warning-lt:#FFF8E1;
+      --danger:    #E24C4B;
+      --danger-lt: #FFEDED;
+      --info:      #2F8F83;
+      --info-lt:   #E6F3F2;
+      --bg:        #F9FBFA;
+      --surface:   #FFFFFF;
+      --border:    #DCE7E2;
+      --text-1:    #10241F;
+      --text-2:    #62736D;
+      --text-3:    #A0B0AA;
+    }
+
+    body {
+      font-family: 'Inter', sans-serif;
+      background: linear-gradient(135deg, #0B3D34 0%, #135446 50%, #0B3D34 100%);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 48px 24px 64px;
+      gap: 32px;
+    }
+
+    /* ── Labels page ───────────────────────────────── */
+    .page-title {
+      color: rgba(255,255,255,.65);
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: .14em;
+      text-transform: uppercase;
+    }
+    .page-label {
+      color: white;
+      font-size: 26px;
+      font-weight: 800;
+      margin-top: 6px;
+      text-align: center;
+    }
+    .page-sub {
+      color: rgba(255,255,255,.5);
+      font-size: 13px;
+      margin-top: 4px;
+      text-align: center;
+    }
+
+    /* ── Wrapper ───────────────────────────────────── */
+    .phones {
+      display: flex;
+      gap: 32px;
+      align-items: flex-start;
+      flex-wrap: wrap;
+      justify-content: center;
+    }
+
+    /* ── Phone shell ───────────────────────────────── */
+    .phone-wrap {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 16px;
+    }
+    .phone-label {
+      color: rgba(255,255,255,.8);
+      font-size: 13px;
+      font-weight: 700;
+    }
+    .phone-num {
+      display: inline-flex;
+      align-items: center;
+      justify-content: center;
+      width: 22px; height: 22px;
+      background: var(--accent);
+      border-radius: 999px;
+      color: white;
+      font-size: 11px;
+      font-weight: 800;
+      margin-right: 6px;
+    }
+    .phone {
+      width: 375px;
+      height: 812px;
+      background: var(--bg);
+      border-radius: 52px;
+      position: relative;
+      overflow: hidden;
+      box-shadow:
+        0 0 0 10px #1a1a1a,
+        0 0 0 12px #2e2e2e,
+        0 32px 80px rgba(0,0,0,.55),
+        0 8px 24px rgba(0,0,0,.3);
+      display: flex;
+      flex-direction: column;
+    }
+    /* Notch */
+    .phone::before {
+      content: '';
+      position: absolute;
+      top: 14px; left: 50%;
+      transform: translateX(-50%);
+      width: 120px; height: 34px;
+      background: #1a1a1a;
+      border-radius: 999px;
+      z-index: 100;
+    }
+
+    /* ── Status bar ────────────────────────────────── */
+    .status-bar {
+      height: 52px;
+      padding: 14px 28px 0;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+      flex-shrink: 0;
+      position: relative;
+      z-index: 10;
+    }
+    .s-time { font-size: 13px; font-weight: 700; color: white; }
+    .s-icons { display: flex; gap: 6px; align-items: center; }
+    svg { display: block; }
+
+    /* ── Screen / scroll area ──────────────────────── */
+    .screen {
+      flex: 1;
+      overflow: hidden;
+      display: flex;
+      flex-direction: column;
+    }
+    .scroll {
+      flex: 1;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .scroll::-webkit-scrollbar { display: none; }
+
+    /* ── Topbar (vert) ─────────────────────────────── */
+    .topbar {
+      background: var(--primary);
+      padding: 16px 20px 18px;
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      flex-shrink: 0;
+    }
+    .back-btn {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,.12);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .topbar-title {
+      font-size: 17px;
+      font-weight: 800;
+      color: white;
+      flex: 1;
+    }
+    .topbar-action {
+      width: 36px; height: 36px;
+      background: rgba(255,255,255,.1);
+      border-radius: 12px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    /* ── Bottom nav ────────────────────────────────── */
+    .bottom-nav {
+      height: 72px;
+      background: white;
+      border-top: 1px solid var(--border);
+      display: flex;
+      align-items: center;
+      justify-content: space-around;
+      flex-shrink: 0;
+    }
+    .nav-item {
+      display: flex; flex-direction: column;
+      align-items: center; gap: 4px;
+      flex: 1; opacity: .45;
+    }
+    .nav-item.active { opacity: 1; }
+    .nav-label {
+      font-size: 10px; font-weight: 600;
+      color: var(--text-2);
+    }
+    .nav-item.active .nav-label { color: var(--accent); }
+
+    /* ── Shared card ───────────────────────────────── */
+    .card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 18px;
+      box-shadow: 0 4px 16px rgba(14,61,52,.05);
+    }
+    .card + .card { margin-top: 14px; }
+
+    .section-lbl {
+      font-size: 12px;
+      font-weight: 800;
+      color: var(--text-2);
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      margin-bottom: 12px;
+    }
+
+    /* ── Btn orange ─────────────────────────────────── */
+    .btn-orange {
+      width: 100%;
+      background: var(--accent);
+      color: white;
+      border: none;
+      border-radius: 16px;
+      padding: 16px;
+      font-size: 15px;
+      font-weight: 700;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+    .btn-outline {
+      width: 100%;
+      background: transparent;
+      color: var(--primary);
+      border: 1.5px solid var(--border);
+      border-radius: 16px;
+      padding: 14px;
+      font-size: 14px;
+      font-weight: 700;
+      text-align: center;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      cursor: pointer;
+    }
+
+    /* ── Badges ─────────────────────────────────────── */
+    .badge {
+      display: inline-flex;
+      align-items: center;
+      gap: 5px;
+      padding: 5px 12px;
+      border-radius: 999px;
+      font-size: 11px;
+      font-weight: 700;
+    }
+    .badge-orange { background: var(--accent-lt);   color: var(--accent);  }
+    .badge-green  { background: var(--success-lt);  color: var(--success); }
+    .badge-red    { background: var(--danger-lt);   color: var(--danger);  }
+    .badge-info   { background: var(--info-lt);     color: var(--info);    }
+
+    /* ── Form fields ────────────────────────────────── */
+    .field-group { display: flex; flex-direction: column; gap: 6px; }
+    .field-label {
+      font-size: 11px;
+      font-weight: 700;
+      color: var(--text-2);
+      letter-spacing: .06em;
+      text-transform: uppercase;
+    }
+    .field-box {
+      background: var(--bg);
+      border: 1.5px solid var(--border);
+      border-radius: 14px;
+      padding: 13px 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .field-box.focused { border-color: var(--accent); background: var(--accent-lt); }
+    .field-value {
+      font-size: 14px;
+      font-weight: 600;
+      color: var(--text-1);
+      flex: 1;
+    }
+    .field-placeholder {
+      font-size: 14px;
+      color: var(--text-3);
+      flex: 1;
+    }
+    .field-icon { flex-shrink: 0; }
+
+    /* ─────────────────────────────────────────────────
+       SCREEN 4 — DOCUMENTS
+    ───────────────────────────────────────────────── */
+
+    .doc-upload-zone {
+      border: 2px dashed var(--accent);
+      border-radius: 20px;
+      background: var(--accent-lt);
+      padding: 28px 20px;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      gap: 10px;
+    }
+    .doc-upload-icon {
+      width: 56px; height: 56px;
+      background: rgba(246,138,30,.15);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+    }
+    .doc-upload-title {
+      font-size: 14px;
+      font-weight: 700;
+      color: var(--text-1);
+      text-align: center;
+    }
+    .doc-upload-sub {
+      font-size: 11px;
+      color: var(--text-2);
+      text-align: center;
+    }
+    .doc-upload-formats {
+      display: flex;
+      gap: 6px;
+    }
+    .doc-format-chip {
+      padding: 3px 10px;
+      background: rgba(246,138,30,.12);
+      border-radius: 999px;
+      font-size: 10px;
+      font-weight: 700;
+      color: var(--accent);
+    }
+
+    .doc-item {
+      display: flex;
+      align-items: center;
+      gap: 12px;
+      padding: 13px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .doc-item:last-child { border-bottom: none; padding-bottom: 0; }
+    .doc-pdf-icon {
+      width: 44px; height: 44px;
+      background: var(--danger-lt);
+      border-radius: 13px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+    .doc-pdf-text {
+      font-size: 11px;
+      font-weight: 800;
+      color: var(--danger);
+    }
+    .doc-name {
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--text-1);
+      line-height: 1.3;
+    }
+    .doc-meta {
+      font-size: 11px;
+      color: var(--text-2);
+      margin-top: 2px;
+    }
+    .doc-dl-btn {
+      width: 34px; height: 34px;
+      background: var(--primary-lt);
+      border-radius: 10px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+      margin-left: auto;
+    }
+    .doc-more-btn {
+      width: 28px; height: 28px;
+      display: flex; align-items: center; justify-content: center;
+      flex-shrink: 0;
+    }
+
+    /* ─────────────────────────────────────────────────
+       SCREEN 5 — DEMANDE DE CONGÉ
+    ───────────────────────────────────────────────── */
+
+    .solde-banner {
+      background: linear-gradient(135deg, var(--primary) 0%, #135446 100%);
+      border-radius: 18px;
+      padding: 16px 18px;
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .solde-val {
+      font-size: 28px;
+      font-weight: 900;
+      color: white;
+    }
+    .solde-lbl {
+      font-size: 11px;
+      color: rgba(255,255,255,.6);
+      margin-top: 2px;
+    }
+    .solde-icon {
+      width: 48px; height: 48px;
+      background: rgba(255,255,255,.12);
+      border-radius: 15px;
+      display: flex; align-items: center; justify-content: center;
+    }
+
+    .date-row {
+      display: grid;
+      grid-template-columns: 1fr 1fr;
+      gap: 10px;
+    }
+
+    .duration-chip {
+      display: inline-flex;
+      align-items: center;
+      gap: 6px;
+      padding: 8px 16px;
+      background: var(--primary-lt);
+      border-radius: 999px;
+      font-size: 13px;
+      font-weight: 700;
+      color: var(--primary);
+      margin-top: 4px;
+    }
+
+    /* ─────────────────────────────────────────────────
+       SCREEN 6 — MES DEMANDES
+    ───────────────────────────────────────────────── */
+
+    .tabs-bar {
+      display: flex;
+      padding: 0 20px;
+      gap: 0;
+      border-bottom: 2px solid var(--border);
+      background: white;
+      flex-shrink: 0;
+    }
+    .tab-item {
+      flex: 1;
+      padding: 14px 0;
+      text-align: center;
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      position: relative;
+    }
+    .tab-item.active {
+      color: var(--accent);
+    }
+    .tab-item.active::after {
+      content: '';
+      position: absolute;
+      bottom: -2px; left: 10%; right: 10%;
+      height: 2.5px;
+      background: var(--accent);
+      border-radius: 999px;
+    }
+
+    .request-card {
+      background: white;
+      border: 1px solid var(--border);
+      border-radius: 20px;
+      padding: 16px;
+      display: flex;
+      flex-direction: column;
+      gap: 12px;
+      box-shadow: 0 3px 12px rgba(14,61,52,.05);
+    }
+    .request-header {
+      display: flex;
+      align-items: flex-start;
+      justify-content: space-between;
+      gap: 8px;
+    }
+    .request-type {
+      font-size: 14px;
+      font-weight: 800;
+      color: var(--text-1);
+    }
+    .request-dates {
+      font-size: 11px;
+      color: var(--text-2);
+      margin-top: 3px;
+    }
+    .request-divider {
+      height: 1px;
+      background: var(--border);
+    }
+    .request-footer {
+      display: flex;
+      align-items: center;
+      justify-content: space-between;
+    }
+    .request-days {
+      font-size: 12px;
+      font-weight: 700;
+      color: var(--text-2);
+      display: flex;
+      align-items: center;
+      gap: 5px;
+    }
+    .request-days strong {
+      color: var(--text-1);
+      font-size: 15px;
+      font-weight: 800;
+    }
+    .status-dot {
+      width: 8px; height: 8px;
+      border-radius: 999px;
+      display: inline-block;
+    }
+
+    .empty-state {
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      padding: 32px 20px;
+    }
+    .empty-icon {
+      width: 56px; height: 56px;
+      background: var(--border);
+      border-radius: 18px;
+      display: flex; align-items: center; justify-content: center;
+      opacity: .5;
+    }
+    .empty-text {
+      font-size: 13px;
+      color: var(--text-3);
+      font-weight: 600;
+      text-align: center;
+    }
+  </style>
+</head>
+<body>
+
+  <p class="page-title">GRH-MOBILE</p>
+  <h1 class="page-label">Interfaces Mobile — Employé</h1>
+  <p class="page-sub">Écrans 4 · 5 · 6 &nbsp;·&nbsp; 375 × 812 px · Style iOS</p>
+
+  <div class="phones">
+
+    <!-- ══════════════════════════════════════════
+         PHONE 4 — DOCUMENTS
+    ══════════════════════════════════════════ -->
+    <div class="phone-wrap">
+      <div class="phone-label"><span class="phone-num">4</span>Documents (CV &amp; autres)</div>
+      <div class="phone">
+
+        <div class="status-bar" style="background:var(--primary);">
+          <span class="s-time">9:41</span>
+          <div class="s-icons">
+            <svg width="16" height="12" fill="white" viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="7" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/></svg>
+            <svg width="15" height="12" fill="white" viewBox="0 0 15 12"><circle cx="7.5" cy="10.5" r="1.5"/><path d="M4.9 8.3a3.5 3.5 0 015.2 0"/><path d="M2.5 5.9a6.8 6.8 0 0110 0" opacity=".4"/></svg>
+            <svg width="22" height="12" fill="white" viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2.5" stroke="white" stroke-width="1.2" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.5"/><path d="M19 4.5v3a1.5 1.5 0 000-3z"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <!-- Topbar -->
+          <div class="topbar">
+            <div class="back-btn">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </div>
+            <span class="topbar-title">Mes documents</span>
+            <div class="topbar-action">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><circle cx="11" cy="11" r="8"/><path d="M21 21l-4.35-4.35"/></svg>
+            </div>
+          </div>
+
+          <div class="scroll">
+            <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+
+              <!-- Zone upload -->
+              <div class="doc-upload-zone">
+                <div class="doc-upload-icon">
+                  <svg width="28" height="28" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24">
+                    <path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/>
+                    <polyline points="17 8 12 3 7 8"/>
+                    <line x1="12" y1="3" x2="12" y2="15"/>
+                  </svg>
+                </div>
+                <div class="doc-upload-title">Glissez vos fichiers ici<br/>ou</div>
+                <div class="btn-orange" style="width:auto;padding:12px 28px;border-radius:12px;font-size:14px;">
+                  <svg width="16" height="16" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="17 8 12 3 7 8"/><line x1="12" y1="3" x2="12" y2="15"/></svg>
+                  Choisir un fichier
+                </div>
+                <div class="doc-upload-sub">Taille max : 10 Mo par fichier</div>
+                <div class="doc-upload-formats">
+                  <span class="doc-format-chip">PDF</span>
+                  <span class="doc-format-chip">JPG</span>
+                  <span class="doc-format-chip">PNG</span>
+                  <span class="doc-format-chip">Doc</span>
+                </div>
+              </div>
+
+              <!-- Liste docs -->
+              <div class="card">
+                <div class="section-lbl">Mes documents</div>
+
+                <!-- CV -->
+                <div class="doc-item">
+                  <div class="doc-pdf-icon">
+                    <span class="doc-pdf-text">PDF</span>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div class="doc-name">CV - Koffi A. Jean.pdf</div>
+                    <div class="doc-meta">12/05/2024 · 1,3 Mo</div>
+                  </div>
+                  <div class="doc-dl-btn">
+                    <svg width="16" height="16" fill="none" stroke="var(--primary)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </div>
+                  <div class="doc-more-btn">
+                    <svg width="18" height="18" fill="var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  </div>
+                </div>
+
+                <!-- Diplôme -->
+                <div class="doc-item">
+                  <div class="doc-pdf-icon">
+                    <span class="doc-pdf-text">PDF</span>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div class="doc-name">Diplôme Master.pdf</div>
+                    <div class="doc-meta">03/02/2023 · 1,8 Mo</div>
+                  </div>
+                  <div class="doc-dl-btn">
+                    <svg width="16" height="16" fill="none" stroke="var(--primary)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </div>
+                  <div class="doc-more-btn">
+                    <svg width="18" height="18" fill="var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  </div>
+                </div>
+
+                <!-- CIN -->
+                <div class="doc-item">
+                  <div class="doc-pdf-icon">
+                    <span class="doc-pdf-text">PDF</span>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div class="doc-name">Carte d'identité.pdf</div>
+                    <div class="doc-meta">12/05/2024 · 0,8 Mo</div>
+                  </div>
+                  <div class="doc-dl-btn">
+                    <svg width="16" height="16" fill="none" stroke="var(--primary)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </div>
+                  <div class="doc-more-btn">
+                    <svg width="18" height="18" fill="var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  </div>
+                </div>
+
+                <!-- Contrat -->
+                <div class="doc-item">
+                  <div class="doc-pdf-icon">
+                    <span class="doc-pdf-text">PDF</span>
+                  </div>
+                  <div style="flex:1;min-width:0;">
+                    <div class="doc-name">Contrat de travail.pdf</div>
+                    <div class="doc-meta">01/01/2024 · 2,1 Mo</div>
+                  </div>
+                  <div class="doc-dl-btn">
+                    <svg width="16" height="16" fill="none" stroke="var(--primary)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M21 15v4a2 2 0 01-2 2H5a2 2 0 01-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
+                  </div>
+                  <div class="doc-more-btn">
+                    <svg width="18" height="18" fill="var(--text-3)" viewBox="0 0 24 24"><circle cx="12" cy="5" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="12" cy="19" r="1.5"/></svg>
+                  </div>
+                </div>
+              </div>
+
+            </div><!-- /padding -->
+          </div><!-- /scroll -->
+
+          <div class="bottom-nav">
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="nav-label">Accueil</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg><span class="nav-label">Congés</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="nav-label">Paie</span></div>
+            <div class="nav-item active"><svg width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nav-label" style="color:var(--accent);">Profil</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PHONE 5 — DEMANDE DE CONGÉ
+    ══════════════════════════════════════════ -->
+    <div class="phone-wrap">
+      <div class="phone-label"><span class="phone-num">5</span>Demande de congé</div>
+      <div class="phone">
+
+        <div class="status-bar" style="background:var(--primary);">
+          <span class="s-time">9:41</span>
+          <div class="s-icons">
+            <svg width="16" height="12" fill="white" viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="7" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/></svg>
+            <svg width="15" height="12" fill="white" viewBox="0 0 15 12"><circle cx="7.5" cy="10.5" r="1.5"/><path d="M4.9 8.3a3.5 3.5 0 015.2 0"/></svg>
+            <svg width="22" height="12" fill="white" viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2.5" stroke="white" stroke-width="1.2" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.5"/><path d="M19 4.5v3a1.5 1.5 0 000-3z"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="topbar">
+            <div class="back-btn">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </div>
+            <span class="topbar-title">Demande de congé</span>
+            <div style="width:36px;"></div>
+          </div>
+
+          <div class="scroll">
+            <div style="padding:20px;display:flex;flex-direction:column;gap:16px;">
+
+              <!-- Solde banner -->
+              <div class="solde-banner">
+                <div>
+                  <div class="solde-val">15 <span style="font-size:16px;font-weight:600;opacity:.7;">jours</span></div>
+                  <div class="solde-lbl">Solde de congés disponible</div>
+                </div>
+                <div class="solde-icon">
+                  <svg width="24" height="24" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24">
+                    <rect x="3" y="4" width="18" height="18" rx="2"/>
+                    <path d="M16 2v4M8 2v4M3 10h18"/>
+                    <path d="M8 14h.01M12 14h.01M16 14h.01M8 18h.01M12 18h.01"/>
+                  </svg>
+                </div>
+              </div>
+
+              <!-- Formulaire -->
+              <div class="card" style="display:flex;flex-direction:column;gap:16px;">
+
+                <!-- Type de congé -->
+                <div class="field-group">
+                  <div class="field-label">Type de congé</div>
+                  <div class="field-box focused">
+                    <svg class="field-icon" width="18" height="18" fill="none" stroke="var(--accent)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                    <span class="field-value">Congé annuel</span>
+                    <svg width="18" height="18" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                </div>
+
+                <!-- Dates -->
+                <div class="date-row">
+                  <div class="field-group">
+                    <div class="field-label">Date de début</div>
+                    <div class="field-box">
+                      <svg class="field-icon" width="16" height="16" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      <span class="field-value" style="font-size:13px;">20/06/2024</span>
+                    </div>
+                  </div>
+                  <div class="field-group">
+                    <div class="field-label">Date de fin</div>
+                    <div class="field-box">
+                      <svg class="field-icon" width="16" height="16" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="18" rx="2"/><path d="M16 2v4M8 2v4M3 10h18"/></svg>
+                      <span class="field-value" style="font-size:13px;">27/06/2024</span>
+                    </div>
+                  </div>
+                </div>
+
+                <!-- Durée calculée -->
+                <div style="display:flex;align-items:center;gap:8px;">
+                  <svg width="16" height="16" fill="none" stroke="var(--success)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                  <span style="font-size:12px;color:var(--text-2);">Durée calculée :</span>
+                  <span class="duration-chip">
+                    <svg width="14" height="14" fill="none" stroke="var(--primary)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    8 jours ouvrables
+                  </span>
+                </div>
+
+                <!-- Motif -->
+                <div class="field-group">
+                  <div class="field-label">Motif (optionnel)</div>
+                  <div class="field-box" style="align-items:flex-start;min-height:72px;">
+                    <span class="field-placeholder">Vacances en famille...</span>
+                  </div>
+                </div>
+
+                <!-- Remplaçant -->
+                <div class="field-group">
+                  <div class="field-label">Remplaçant (optionnel)</div>
+                  <div class="field-box">
+                    <svg class="field-icon" width="18" height="18" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg>
+                    <span class="field-placeholder">Choisir un collègue...</span>
+                    <svg width="18" height="18" fill="none" stroke="var(--text-3)" stroke-width="2" viewBox="0 0 24 24"><polyline points="6 9 12 15 18 9"/></svg>
+                  </div>
+                </div>
+              </div>
+
+              <!-- Alerte info -->
+              <div style="background:var(--info-lt);border:1px solid rgba(47,143,131,.2);border-radius:14px;padding:12px 14px;display:flex;gap:10px;align-items:flex-start;">
+                <svg width="18" height="18" fill="none" stroke="var(--info)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                <span style="font-size:12px;color:var(--info);font-weight:500;line-height:1.5;">La demande sera soumise à validation par votre responsable RH.</span>
+              </div>
+
+              <!-- CTA -->
+              <div class="btn-orange">
+                <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M22 2L11 13"/><path d="M22 2L15 22 11 13 2 9l20-7z"/></svg>
+                Soumettre la demande
+              </div>
+
+              <div style="height:8px;"></div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="nav-label">Accueil</span></div>
+            <div class="nav-item active"><svg width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg><span class="nav-label" style="color:var(--accent);">Congés</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="nav-label">Paie</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nav-label">Profil</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ══════════════════════════════════════════
+         PHONE 6 — MES DEMANDES
+    ══════════════════════════════════════════ -->
+    <div class="phone-wrap">
+      <div class="phone-label"><span class="phone-num">6</span>Mes demandes</div>
+      <div class="phone">
+
+        <div class="status-bar" style="background:var(--primary);">
+          <span class="s-time">9:41</span>
+          <div class="s-icons">
+            <svg width="16" height="12" fill="white" viewBox="0 0 16 12"><rect x="0" y="8" width="3" height="4" rx="1"/><rect x="4.5" y="5" width="3" height="7" rx="1"/><rect x="9" y="2" width="3" height="10" rx="1"/></svg>
+            <svg width="15" height="12" fill="white" viewBox="0 0 15 12"><circle cx="7.5" cy="10.5" r="1.5"/><path d="M4.9 8.3a3.5 3.5 0 015.2 0"/></svg>
+            <svg width="22" height="12" fill="white" viewBox="0 0 22 12"><rect x="0" y="1" width="18" height="10" rx="2.5" stroke="white" stroke-width="1.2" fill="none"/><rect x="1.5" y="2.5" width="13" height="7" rx="1.5"/><path d="M19 4.5v3a1.5 1.5 0 000-3z"/></svg>
+          </div>
+        </div>
+
+        <div class="screen">
+          <div class="topbar">
+            <div class="back-btn">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><path d="M19 12H5M12 19l-7-7 7-7"/></svg>
+            </div>
+            <span class="topbar-title">Mes demandes</span>
+            <div class="topbar-action">
+              <svg width="18" height="18" fill="none" stroke="white" stroke-width="2" viewBox="0 0 24 24"><line x1="8" y1="6" x2="21" y2="6"/><line x1="8" y1="12" x2="21" y2="12"/><line x1="8" y1="18" x2="21" y2="18"/><line x1="3" y1="6" x2="3.01" y2="6"/><line x1="3" y1="12" x2="3.01" y2="12"/><line x1="3" y1="18" x2="3.01" y2="18"/></svg>
+            </div>
+          </div>
+
+          <!-- Onglets En cours / Approuvées / Refusées -->
+          <div class="tabs-bar">
+            <div class="tab-item active">En cours</div>
+            <div class="tab-item">Approuvées</div>
+            <div class="tab-item">Refusées</div>
+          </div>
+
+          <div class="scroll">
+            <div style="padding:16px 20px;display:flex;flex-direction:column;gap:12px;">
+
+              <!-- Demande 1 — En attente (orange) -->
+              <div class="request-card">
+                <div class="request-header">
+                  <div>
+                    <div class="request-type">Congé annuel</div>
+                    <div class="request-dates">Du 20/06/2024 au 27/06/2024</div>
+                  </div>
+                  <span class="badge badge-orange">
+                    <span class="status-dot" style="background:var(--accent);"></span>
+                    En attente
+                  </span>
+                </div>
+                <div class="request-divider"></div>
+                <div class="request-footer">
+                  <div class="request-days">
+                    <svg width="14" height="14" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Durée : <strong>8 j</strong>
+                  </div>
+                  <span style="font-size:11px;color:var(--text-3);">Soumis le 15/05/2024</span>
+                </div>
+              </div>
+
+              <!-- Demande 2 — Approuvé (vert) -->
+              <div class="request-card">
+                <div class="request-header">
+                  <div>
+                    <div class="request-type">Congé exceptionnel</div>
+                    <div class="request-dates">Du 10/05/2024 au 12/05/2024</div>
+                  </div>
+                  <span class="badge badge-green">
+                    <span class="status-dot" style="background:var(--success);"></span>
+                    Approuvé
+                  </span>
+                </div>
+                <div class="request-divider"></div>
+                <div class="request-footer">
+                  <div class="request-days">
+                    <svg width="14" height="14" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Durée : <strong>3 j</strong>
+                  </div>
+                  <span style="font-size:11px;color:var(--success);font-weight:600;">✓ Validé par RH</span>
+                </div>
+              </div>
+
+              <!-- Demande 3 — Approuvé (vert) -->
+              <div class="request-card">
+                <div class="request-header">
+                  <div>
+                    <div class="request-type">Congé annuel</div>
+                    <div class="request-dates">Du 15/03/2024 au 22/03/2024</div>
+                  </div>
+                  <span class="badge badge-green">
+                    <span class="status-dot" style="background:var(--success);"></span>
+                    Approuvé
+                  </span>
+                </div>
+                <div class="request-divider"></div>
+                <div class="request-footer">
+                  <div class="request-days">
+                    <svg width="14" height="14" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Durée : <strong>8 j</strong>
+                  </div>
+                  <span style="font-size:11px;color:var(--success);font-weight:600;">✓ Validé par RH</span>
+                </div>
+              </div>
+
+              <!-- Demande 4 — Refusé (rouge) -->
+              <div class="request-card">
+                <div class="request-header">
+                  <div>
+                    <div class="request-type">Congé sans solde</div>
+                    <div class="request-dates">Du 02/02/2024 au 09/02/2024</div>
+                  </div>
+                  <span class="badge badge-red">
+                    <span class="status-dot" style="background:var(--danger);"></span>
+                    Refusé
+                  </span>
+                </div>
+                <!-- Motif refus -->
+                <div style="background:var(--danger-lt);border-radius:10px;padding:10px 12px;display:flex;gap:8px;align-items:flex-start;">
+                  <svg width="14" height="14" fill="none" stroke="var(--danger)" stroke-width="2" viewBox="0 0 24 24" style="flex-shrink:0;margin-top:1px;"><circle cx="12" cy="12" r="10"/><line x1="12" y1="8" x2="12" y2="12"/><line x1="12" y1="16" x2="12.01" y2="16"/></svg>
+                  <span style="font-size:11px;color:var(--danger);line-height:1.4;">Période de forte activité. Veuillez reporter votre demande.</span>
+                </div>
+                <div class="request-footer">
+                  <div class="request-days">
+                    <svg width="14" height="14" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><circle cx="12" cy="12" r="10"/><polyline points="12 6 12 12 16 14"/></svg>
+                    Durée : <strong>8 j</strong>
+                  </div>
+                  <span style="font-size:11px;color:var(--danger);font-weight:600;">✕ Refusé par RH</span>
+                </div>
+              </div>
+
+              <!-- Nouvelle demande -->
+              <div class="btn-orange" style="margin-top:4px;">
+                <svg width="18" height="18" fill="none" stroke="white" stroke-width="2.5" viewBox="0 0 24 24"><line x1="12" y1="5" x2="12" y2="19"/><line x1="5" y1="12" x2="19" y2="12"/></svg>
+                Nouvelle demande
+              </div>
+
+              <div style="height:8px;"></div>
+            </div>
+          </div>
+
+          <div class="bottom-nav">
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/></svg><span class="nav-label">Accueil</span></div>
+            <div class="nav-item active"><svg width="22" height="22" fill="none" stroke="var(--accent)" stroke-width="2.2" viewBox="0 0 24 24"><path d="M3 9l9-7 9 7v11a2 2 0 01-2 2H5a2 2 0 01-2-2z"/><path d="M9 22V12h6v10"/></svg><span class="nav-label" style="color:var(--accent);">Congés</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M14 2H6a2 2 0 00-2 2v16a2 2 0 002 2h12a2 2 0 002-2V8z"/><path d="M14 2v6h6"/></svg><span class="nav-label">Paie</span></div>
+            <div class="nav-item"><svg width="22" height="22" fill="none" stroke="var(--text-2)" stroke-width="2" viewBox="0 0 24 24"><path d="M20 21v-2a4 4 0 00-4-4H8a4 4 0 00-4 4v2"/><circle cx="12" cy="7" r="4"/></svg><span class="nav-label">Profil</span></div>
+          </div>
+        </div>
+      </div>
+    </div>
+
+  </div><!-- /phones -->
+
+  <p style="color:rgba(255,255,255,.3);font-size:12px;text-align:center;margin-top:8px;">
+    GRH-MOBILE · Charte #0E3D34 / #F68A1E · Police Inter · Mockup iOS 375×812
+  </p>
+
+</body>
+</html>

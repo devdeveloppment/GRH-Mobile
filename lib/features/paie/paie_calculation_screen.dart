@@ -2,12 +2,14 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/paie_provider.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
+import 'package:grh_mobile/shared/widgets/grh_surface_card.dart';
 import 'package:grh_mobile/shared/widgets/status_badge.dart';
 
 class PaieCalculationScreen extends ConsumerWidget {
@@ -17,7 +19,7 @@ class PaieCalculationScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authNotifierProvider);
     final paie = ref.watch(paieNotifierProvider);
-    final isWide = MediaQuery.sizeOf(context).width >= 1024;
+    final isWide = MediaQuery.sizeOf(context).width >= 1120;
 
     Future<void> pickMonth() async {
       final picked = await showDatePicker(
@@ -26,13 +28,32 @@ class PaieCalculationScreen extends ConsumerWidget {
         firstDate: DateTime(2021),
         lastDate: DateTime(2100),
         locale: const Locale('fr', 'TG'),
+        builder: (context, child) => Theme(
+          data: Theme.of(context).copyWith(
+            colorScheme: const ColorScheme.light(
+              primary: AppColors.primary,
+              onPrimary: Colors.white,
+              secondary: AppColors.accent,
+              onSecondary: Colors.white,
+            ),
+          ),
+          child: child!,
+        ),
       );
       if (picked != null) {
-        await ref.read(paieNotifierProvider).loadForPeriod(DateTime(picked.year, picked.month));
+        await ref
+            .read(paieNotifierProvider)
+            .loadForPeriod(DateTime(picked.year, picked.month));
       }
     }
 
+    final totalNet =
+        paie.bulletins.fold<double>(0, (sum, item) => sum + item.salaireNet);
+    final totalBrut =
+        paie.bulletins.fold<double>(0, (sum, item) => sum + item.salaireBrut);
+
     return Scaffold(
+      backgroundColor: AppColors.surface,
       drawer: isWide || auth.role == null
           ? null
           : Drawer(
@@ -42,10 +63,16 @@ class PaieCalculationScreen extends ConsumerWidget {
                 isDrawer: true,
               ),
             ),
-      appBar: GrhAppBar(
-          title: 'Calcul de Paie',
-          userName: auth.user?.fullName,
-          onMenuTap: isWide ? null : () => Scaffold.of(context).openDrawer(),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(84),
+        child: Builder(
+          builder: (scaffoldContext) => GrhAppBar(
+            title: 'Paie',
+            userName: auth.user?.fullName,
+            onMenuTap:
+                isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
+          ),
+        ),
       ),
       body: Row(
         children: [
@@ -53,116 +80,278 @@ class PaieCalculationScreen extends ConsumerWidget {
             GrhSidebar(currentRoute: AppRoutes.paie, role: auth.role!),
           Expanded(
             child: ListView(
-              padding: const EdgeInsets.all(20),
+              padding: const EdgeInsets.all(24),
               children: [
+                GrhPageHeader(
+                  title: 'Calcul et suivi de la paie',
+                  subtitle:
+                      'Vue synthèse des bulletins, masse salariale mensuelle et téléchargement PDF.',
+                  trailing: isWide
+                      ? Wrap(
+                          spacing: 10,
+                          children: [
+                            _PeriodButton(
+                              label: AppFormatters.monthYear(
+                                  paie.selectedPeriod),
+                              onTap: pickMonth,
+                            ),
+                            ElevatedButton.icon(
+                              onPressed: paie.isLoading
+                                  ? null
+                                  : () async {
+                                      await ref
+                                          .read(paieNotifierProvider)
+                                          .calculateAll();
+                                      if (!context.mounted) return;
+                                      ScaffoldMessenger.of(context)
+                                          .showSnackBar(
+                                        const SnackBar(
+                                          content: Text(
+                                              'Calcul de paie effectué avec succès.'),
+                                        ),
+                                      );
+                                    },
+                              icon: const Icon(Icons.calculate_outlined,
+                                  size: 16),
+                              label: const Text('Calculer tout'),
+                            ),
+                          ],
+                        )
+                      : null,
+                ),
+                if (!isWide) ...[
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Expanded(
+                        child: _PeriodButton(
+                          label: AppFormatters.monthYear(paie.selectedPeriod),
+                          onTap: pickMonth,
+                        ),
+                      ),
+                      const SizedBox(width: 10),
+                      Expanded(
+                        child: ElevatedButton.icon(
+                          onPressed: paie.isLoading
+                              ? null
+                              : () async {
+                                  await ref
+                                      .read(paieNotifierProvider)
+                                      .calculateAll();
+                                  if (!context.mounted) return;
+                                  ScaffoldMessenger.of(context).showSnackBar(
+                                    const SnackBar(
+                                        content: Text(
+                                            'Calcul de paie effectué avec succès.')),
+                                  );
+                                },
+                          icon: const Icon(Icons.calculate_outlined, size: 16),
+                          label: const Text('Calculer tout'),
+                        ),
+                      ),
+                    ],
+                  ),
+                ],
+                const SizedBox(height: 22),
                 Wrap(
-                  spacing: 12,
-                  runSpacing: 12,
-                  crossAxisAlignment: WrapCrossAlignment.center,
+                  spacing: 14,
+                  runSpacing: 14,
                   children: [
-                    FilledButton.tonalIcon(
-                      onPressed: pickMonth,
-                      icon: const Icon(Icons.calendar_month_outlined),
-                      label: Text(AppFormatters.monthYear(paie.selectedPeriod)),
+                    SizedBox(
+                      width: isWide ? 220 : double.infinity,
+                      child: GrhMiniMetric(
+                        label: 'Bulletins',
+                        value: '${paie.bulletins.length}',
+                        color: AppColors.primary,
+                        icon: Icons.receipt_long_outlined,
+                      ),
                     ),
-                    ElevatedButton.icon(
-                      onPressed: paie.isLoading
-                          ? null
-                          : () async {
-                              await ref.read(paieNotifierProvider).calculateAll();
-                              if (!context.mounted) {
-                                return;
-                              }
-                              ScaffoldMessenger.of(context).showSnackBar(
-                                const SnackBar(content: Text('Calcul de paie effectué avec succès.')),
-                              );
-                            },
-                      icon: const Icon(Icons.calculate_outlined),
-                      label: const Text('CALCULER TOUT'),
+                    SizedBox(
+                      width: isWide ? 220 : double.infinity,
+                      child: GrhMiniMetric(
+                        label: 'Total net',
+                        value: AppFormatters.currency(totalNet),
+                        color: AppColors.accent,
+                        icon: Icons.account_balance_wallet_outlined,
+                      ),
+                    ),
+                    SizedBox(
+                      width: isWide ? 220 : double.infinity,
+                      child: GrhMiniMetric(
+                        label: 'Total brut',
+                        value: AppFormatters.currency(totalBrut),
+                        color: AppColors.success,
+                        icon: Icons.payments_outlined,
+                      ),
                     ),
                   ],
                 ),
-                const SizedBox(height: 18),
+                const SizedBox(height: 22),
                 if (paie.isLoading && paie.bulletins.isEmpty)
-                  const Center(child: CircularProgressIndicator())
+                  const Center(
+                    child: Padding(
+                      padding: EdgeInsets.all(40),
+                      child: CircularProgressIndicator(
+                        color: AppColors.primary,
+                        strokeWidth: 2,
+                      ),
+                    ),
+                  )
+                else if (paie.bulletins.isEmpty)
+                  Container(
+                    padding: const EdgeInsets.all(32),
+                    decoration: BoxDecoration(
+                      color: Colors.white,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: AppColors.border, width: 0.5),
+                    ),
+                    child: const Center(
+                      child: Text(
+                        'Aucun bulletin pour cette période.',
+                        style: TextStyle(
+                          fontSize: 13,
+                          color: AppColors.text2,
+                        ),
+                      ),
+                    ),
+                  )
                 else
                   ...paie.bulletins.map(
                     (item) => Padding(
                       padding: const EdgeInsets.only(bottom: 14),
-                      child: Card(
-                        child: Padding(
-                          padding: const EdgeInsets.all(18),
-                          child: Column(
-                            crossAxisAlignment: CrossAxisAlignment.start,
-                            children: [
-                              Row(
-                                children: [
-                                  Expanded(
-                                    child: Column(
-                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                      children: [
-                                        Text(
-                                          item.nomEmploye ?? 'Employé',
-                                          style: Theme.of(context).textTheme.titleMedium?.copyWith(
-                                                fontWeight: FontWeight.w800,
-                                              ),
+                      child: GrhSurfaceCard(
+                        child: Column(
+                          crossAxisAlignment: CrossAxisAlignment.start,
+                          children: [
+                            Row(
+                              children: [
+                                Container(
+                                  width: 40,
+                                  height: 40,
+                                  decoration: BoxDecoration(
+                                    color: AppColors.surface,
+                                    borderRadius: BorderRadius.circular(8),
+                                    border: Border.all(
+                                        color: AppColors.border, width: 0.5),
+                                  ),
+                                  child: const Icon(
+                                    Icons.receipt_long_outlined,
+                                    color: AppColors.primary,
+                                    size: 20,
+                                  ),
+                                ),
+                                const SizedBox(width: 12),
+                                Expanded(
+                                  child: Column(
+                                    crossAxisAlignment:
+                                        CrossAxisAlignment.start,
+                                    children: [
+                                      Text(
+                                        item.nomEmploye ?? 'Employé',
+                                        style: const TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w700,
+                                          color: AppColors.text1,
                                         ),
-                                        const SizedBox(height: 4),
-                                        Text(item.periode),
-                                      ],
-                                    ),
+                                      ),
+                                      const SizedBox(height: 2),
+                                      Text(
+                                        item.periode,
+                                        style: const TextStyle(
+                                          fontSize: 12,
+                                          color: AppColors.text2,
+                                        ),
+                                      ),
+                                    ],
                                   ),
-                                  StatusBadge(
-                                    label: item.calculee ? 'Calculé' : 'Non calculé',
-                                    type: item.calculee ? 'success' : 'warning',
-                                  ),
-                                ],
-                              ),
-                              const SizedBox(height: 16),
-                              Wrap(
-                                spacing: 14,
-                                runSpacing: 14,
-                                children: [
-                                  _PayMetric(label: 'Salaire brut', value: AppFormatters.currency(item.salaireBrut)),
-                                  _PayMetric(label: 'CNSS', value: AppFormatters.currency(item.cotisations)),
-                                  _PayMetric(label: 'Impôts', value: AppFormatters.currency(item.impots)),
-                                  _PayMetric(label: 'Indemnités', value: AppFormatters.currency(item.indemnites)),
-                                  _PayMetric(label: 'Salaire net', value: AppFormatters.currency(item.salaireNet)),
-                                ],
-                              ),
-                              const SizedBox(height: 14),
-                              Align(
-                                alignment: Alignment.centerRight,
+                                ),
+                                StatusBadge(
+                                  label: item.calculee
+                                      ? 'Calculé'
+                                      : 'Non calculé',
+                                  type: item.calculee ? 'active' : 'pending',
+                                ),
+                              ],
+                            ),
+                            const SizedBox(height: 16),
+                            const Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: AppColors.border,
+                            ),
+                            const SizedBox(height: 14),
+                            Wrap(
+                              spacing: 10,
+                              runSpacing: 10,
+                              children: [
+                                _PayMetric(
+                                    label: 'Salaire brut',
+                                    value: AppFormatters.currency(
+                                        item.salaireBrut)),
+                                _PayMetric(
+                                    label: 'CNSS',
+                                    value: AppFormatters.currency(
+                                        item.cotisations),
+                                    isDeduction: true),
+                                _PayMetric(
+                                    label: 'Impôts',
+                                    value:
+                                        AppFormatters.currency(item.impots),
+                                    isDeduction: true),
+                                _PayMetric(
+                                    label: 'Indemnités',
+                                    value: AppFormatters.currency(
+                                        item.indemnites)),
+                                _PayMetric(
+                                    label: 'Salaire net',
+                                    value: AppFormatters.currency(
+                                        item.salaireNet),
+                                    highlight: true),
+                              ],
+                            ),
+                            const SizedBox(height: 14),
+                            Align(
+                              alignment: Alignment.centerRight,
+                              child: SizedBox(
+                                height: 36,
                                 child: OutlinedButton.icon(
                                   onPressed: () async {
-                                    final filePath = await ref.read(paieNotifierProvider).downloadPayslip(
+                                    final filePath = await ref
+                                        .read(paieNotifierProvider)
+                                        .downloadPayslip(
                                           item.id,
                                           item.nomEmploye ?? 'employe',
                                         );
-                                    if (!context.mounted) {
-                                      return;
-                                    }
+                                    if (!context.mounted) return;
                                     if (filePath != null && !kIsWeb) {
                                       await OpenFilex.open(filePath);
                                     }
                                     ScaffoldMessenger.of(context).showSnackBar(
                                       const SnackBar(
-                                        content: Row(
-                                          children: [
-                                            Icon(Icons.check_circle_outline, color: Colors.white),
-                                            SizedBox(width: 8),
-                                            Text('Bulletin généré et prêt à être consulté.'),
-                                          ],
-                                        ),
+                                        content: Text(
+                                            'Bulletin généré et prêt à être consulté.'),
                                       ),
                                     );
                                   },
-                                  icon: const Icon(Icons.picture_as_pdf_outlined),
-                                  label: const Text('PDF'),
+                                  style: OutlinedButton.styleFrom(
+                                    foregroundColor: AppColors.primary,
+                                    side: const BorderSide(
+                                        color: AppColors.primary, width: 1),
+                                    shape: RoundedRectangleBorder(
+                                      borderRadius: BorderRadius.circular(8),
+                                    ),
+                                  ),
+                                  icon: const Icon(
+                                      Icons.picture_as_pdf_outlined,
+                                      size: 16),
+                                  label: const Text(
+                                    'Télécharger PDF',
+                                    style: TextStyle(fontSize: 12),
+                                  ),
                                 ),
                               ),
-                            ],
-                          ),
+                            ),
+                          ],
                         ),
                       ),
                     ),
@@ -176,35 +365,98 @@ class PaieCalculationScreen extends ConsumerWidget {
   }
 }
 
+class _PeriodButton extends StatelessWidget {
+  const _PeriodButton({required this.label, required this.onTap});
+
+  final String label;
+  final VoidCallback onTap;
+
+  @override
+  Widget build(BuildContext context) {
+    return GestureDetector(
+      onTap: onTap,
+      child: Container(
+        height: 40,
+        padding: const EdgeInsets.symmetric(horizontal: 14),
+        decoration: BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.circular(8),
+          border: Border.all(color: AppColors.border, width: 0.5),
+        ),
+        child: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            const Icon(Icons.calendar_month_outlined,
+                size: 16, color: AppColors.primary),
+            const SizedBox(width: 6),
+            Text(
+              label,
+              style: const TextStyle(
+                fontSize: 13,
+                fontWeight: FontWeight.w500,
+                color: AppColors.text1,
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
 class _PayMetric extends StatelessWidget {
   const _PayMetric({
     required this.label,
     required this.value,
+    this.isDeduction = false,
+    this.highlight = false,
   });
 
   final String label;
   final String value;
+  final bool isDeduction;
+  final bool highlight;
 
   @override
   Widget build(BuildContext context) {
+    final Color accent = highlight
+        ? AppColors.primary
+        : isDeduction
+            ? AppColors.error
+            : AppColors.text2;
+
     return Container(
-      width: 180,
-      padding: const EdgeInsets.all(14),
+      width: 160,
+      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
       decoration: BoxDecoration(
-        color: Theme.of(context).colorScheme.surfaceContainerHighest.withOpacity(0.25),
-        borderRadius: BorderRadius.circular(14),
+        color: highlight
+            ? AppColors.primary.withOpacity(0.06)
+            : AppColors.surface,
+        borderRadius: BorderRadius.circular(8),
+        border: Border.all(
+          color: highlight ? AppColors.primary.withOpacity(0.2) : AppColors.border,
+          width: 0.5,
+        ),
       ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Text(
             label,
-            style: Theme.of(context).textTheme.bodySmall,
+            style: TextStyle(
+              fontSize: 11,
+              color: accent,
+              fontWeight: highlight ? FontWeight.w600 : FontWeight.w400,
+            ),
           ),
-          const SizedBox(height: 6),
+          const SizedBox(height: 4),
           Text(
             value,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w800),
+            style: TextStyle(
+              fontSize: 13,
+              fontWeight: FontWeight.w700,
+              color: highlight ? AppColors.primary : AppColors.text1,
+            ),
           ),
         ],
       ),

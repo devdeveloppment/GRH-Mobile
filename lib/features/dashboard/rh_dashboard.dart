@@ -8,25 +8,24 @@ import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/dashboard_provider.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/models/dashboard_summary.dart';
-import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
+import 'package:grh_mobile/shared/widgets/grh_surface_card.dart';
 import 'package:grh_mobile/shared/widgets/kpi_card.dart';
-import 'package:grh_mobile/shared/widgets/loading_overlay.dart';
-import 'package:grh_mobile/shared/widgets/section_header.dart';
 
 class RhDashboardScreen extends ConsumerWidget {
   const RhDashboardScreen({super.key});
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth = ref.watch(authNotifierProvider);
+    final auth      = ref.watch(authNotifierProvider);
     final dashboard = ref.watch(dashboardNotifierProvider);
-    final summary = dashboard.summary;
-    final isWide = MediaQuery.sizeOf(context).width >= 1024;
+    final summary   = dashboard.summary;
+    final isWide    = MediaQuery.sizeOf(context).width >= 1120;
 
     return Scaffold(
+      backgroundColor: AppColors.surface,
       drawer: isWide || auth.role == null
           ? null
           : Drawer(
@@ -37,27 +36,30 @@ class RhDashboardScreen extends ConsumerWidget {
               ),
             ),
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(76),
+        preferredSize: const Size.fromHeight(72),
         child: Builder(
-          builder: (scaffoldContext) => GrhAppBar(
-            title: 'Dashboard RH',
-            userName: auth.user?.fullName,
-            onMenuTap: isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
+          builder: (ctx) => GrhAppBar(
+            title: 'Bonjour, ${auth.user?.fullName ?? ""}',
+            userName: 'Bienvenue sur votre espace RH',
+            onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
             actions: [
               IconButton(
                 onPressed: () {},
                 icon: Badge(
-                  backgroundColor: AppColors.secondary,
+                  backgroundColor: AppColors.accent,
                   label: const Text('3'),
-                  child: const Icon(Icons.notifications_none_rounded),
+                  child: const Icon(
+                    Icons.notifications_none_rounded,
+                    color: AppColors.text2,
+                  ),
                 ),
               ),
               Padding(
-                padding: const EdgeInsets.only(right: 18),
+                padding: const EdgeInsets.only(right: 16),
                 child: EmployeeAvatar(
                   name: auth.user?.fullName ?? 'Utilisateur',
                   imageUrl: auth.user?.avatarUrl,
-                  size: 38,
+                  size: 36,
                 ),
               ),
             ],
@@ -65,168 +67,249 @@ class RhDashboardScreen extends ConsumerWidget {
         ),
       ),
       body: Row(
+        crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           if (isWide && auth.role != null)
             GrhSidebar(currentRoute: AppRoutes.rhDashboard, role: auth.role!),
           Expanded(
             child: RefreshIndicator(
+              color: AppColors.accent,
               onRefresh: () => ref.read(dashboardNotifierProvider).load(),
-              child: SingleChildScrollView(
-                physics: const AlwaysScrollableScrollPhysics(),
-                padding: const EdgeInsets.all(20),
-                child: LoadingOverlay(
-                  isLoading: dashboard.isLoading && summary == null,
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+              child: ListView(
+                padding: const EdgeInsets.all(24),
+                children: [
+                  // ── En-tête ────────────────────────────────────────────
+                  GrhPageHeader(
+                    title: 'Vue opérationnelle RH',
+                    subtitle:
+                        'Suivi global des effectifs, présences, congés et paie au '
+                        '${AppFormatters.longDate(DateTime.now())}.',
+                    trailing: isWide
+                        ? ElevatedButton.icon(
+                            onPressed: () => context.go(AppRoutes.employees),
+                            icon: const Icon(Icons.people_alt_outlined, size: 16),
+                            label: const Text('Employés'),
+                          )
+                        : null,
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── KPI cards ──────────────────────────────────────────
+                  GridView.count(
+                    shrinkWrap: true,
+                    crossAxisCount: isWide ? 4 : 2,
+                    crossAxisSpacing: 14,
+                    mainAxisSpacing: 14,
+                    physics: const NeverScrollableScrollPhysics(),
+                    childAspectRatio: isWide ? 1.6 : 1.2,
                     children: [
-                      Text(
-                        'Vue opérationnelle RH',
-                        style: Theme.of(context).textTheme.headlineSmall?.copyWith(
-                              fontWeight: FontWeight.w800,
-                            ),
+                      KpiCard(
+                        title: 'Employés',
+                        value: '${summary?.totalEmployees ?? 0}',
+                        icon: Icons.groups_2_outlined,
+                        color: AppColors.primary,
+                        trend: 4.8,
+                        isLoading: dashboard.isLoading && summary == null,
                       ),
-                      const SizedBox(height: 6),
-                      Text(
-                        AppFormatters.longDate(DateTime.now()),
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                              color: Theme.of(context).colorScheme.onSurface.withOpacity(0.7),
-                            ),
+                      KpiCard(
+                        title: 'Taux de présence',
+                        value:
+                            '${(summary?.attendanceRate ?? 0).toStringAsFixed(0)}%',
+                        icon: Icons.trending_up_rounded,
+                        color: AppColors.success,
+                        trend: 2.4,
+                        isLoading: dashboard.isLoading && summary == null,
                       ),
-                      const SizedBox(height: 22),
-                      GridView.count(
-                        shrinkWrap: true,
-                        crossAxisCount: isWide ? 4 : 2,
-                        crossAxisSpacing: 16,
-                        mainAxisSpacing: 16,
-                        childAspectRatio: isWide ? 1.55 : 1.1,
-                        physics: const NeverScrollableScrollPhysics(),
-                        children: [
-                          KpiCard(
-                            title: 'Total Employés',
-                            value: '${summary?.totalEmployees ?? 0}',
-                            icon: Icons.people_alt_outlined,
-                            color: AppColors.navy,
-                            trend: 4.8,
-                            isLoading: dashboard.isLoading && summary == null,
-                          ),
-                          KpiCard(
-                            title: 'Présents Aujourd’hui',
-                            value: '${summary?.presentToday ?? 0}',
-                            icon: Icons.check_circle_outline,
-                            color: AppColors.success,
-                            trend: 2.3,
-                            isLoading: dashboard.isLoading && summary == null,
-                          ),
-                          KpiCard(
-                            title: 'Congés en Attente',
-                            value: '${summary?.pendingLeaves ?? 0}',
-                            icon: Icons.hourglass_top_rounded,
-                            color: AppColors.warning,
-                            trend: -1.2,
-                            isLoading: dashboard.isLoading && summary == null,
-                          ),
-                          KpiCard(
-                            title: 'Bulletins du Mois',
-                            value: '${summary?.payslipsThisMonth ?? 0}',
-                            icon: Icons.description_outlined,
-                            color: AppColors.info,
-                            trend: 5.1,
-                            isLoading: dashboard.isLoading && summary == null,
-                          ),
-                        ],
+                      KpiCard(
+                        title: 'Demandes de congés',
+                        value: '${summary?.pendingLeaves ?? 0}',
+                        icon: Icons.event_available_outlined,
+                        color: AppColors.accent,
+                        trend: -1.3,
+                        isLoading: dashboard.isLoading && summary == null,
                       ),
-                      const SizedBox(height: 24),
-                      Flex(
-                        direction: isWide ? Axis.horizontal : Axis.vertical,
-                        crossAxisAlignment: CrossAxisAlignment.start,
-                        children: [
-                          Expanded(
-                            flex: 6,
-                            child: Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    SectionHeader(
-                                      title: 'Présences de la semaine',
-                                      actionLabel: 'Voir détail',
-                                      onAction: () => context.go(AppRoutes.rapports),
-                                    ),
-                                    const SizedBox(height: 18),
-                                    SizedBox(
-                                      height: 260,
-                                      child: _AttendanceChart(points: summary?.weeklyAttendance ?? const []),
-                                    ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                          SizedBox(width: isWide ? 18 : 0, height: isWide ? 0 : 18),
-                          Expanded(
-                            flex: 5,
-                            child: Card(
-                              child: Padding(
-                                padding: const EdgeInsets.all(20),
-                                child: Column(
-                                  crossAxisAlignment: CrossAxisAlignment.start,
-                                  children: [
-                                    const SectionHeader(title: 'Activités Récentes'),
-                                    const SizedBox(height: 12),
-                                    if (summary?.recentActivities.isEmpty ?? true)
-                                      Padding(
-                                        padding: const EdgeInsets.symmetric(vertical: 16),
-                                        child: Text(
-                                          'Aucune activité récente disponible.',
-                                          style: Theme.of(context).textTheme.bodyMedium,
-                                        ),
-                                      )
-                                    else
-                                      ...summary!.recentActivities.take(6).map(
-                                            (activity) => Padding(
-                                              padding: const EdgeInsets.only(bottom: 14),
-                                              child: Row(
-                                                children: [
-                                                  EmployeeAvatar(
-                                                    name: activity.employeeName,
-                                                    imageUrl: activity.avatarUrl,
-                                                    size: 42,
-                                                  ),
-                                                  const SizedBox(width: 12),
-                                                  Expanded(
-                                                    child: Column(
-                                                      crossAxisAlignment: CrossAxisAlignment.start,
-                                                      children: [
-                                                        Text(
-                                                          activity.employeeName,
-                                                          style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                                                                fontWeight: FontWeight.w700,
-                                                              ),
-                                                        ),
-                                                        const SizedBox(height: 2),
-                                                        Text(activity.action),
-                                                      ],
-                                                    ),
-                                                  ),
-                                                  Text(
-                                                    AppFormatters.relativeTime(activity.timestamp),
-                                                    style: Theme.of(context).textTheme.bodySmall,
-                                                  ),
-                                                ],
-                                              ),
-                                            ),
-                                          ),
-                                  ],
-                                ),
-                              ),
-                            ),
-                          ),
-                        ],
+                      KpiCard(
+                        title: 'Masse salariale',
+                        value: AppFormatters.currency(summary?.payrollMass ?? 0),
+                        icon: Icons.account_balance_wallet_outlined,
+                        color: AppColors.error,
+                        trend: 3.6,
+                        isLoading: dashboard.isLoading && summary == null,
                       ),
                     ],
                   ),
-                ),
+                  const SizedBox(height: 20),
+
+                  // ── Graphiques ─────────────────────────────────────────
+                  Flex(
+                    direction: isWide ? Axis.horizontal : Axis.vertical,
+                    crossAxisAlignment: CrossAxisAlignment.start,
+                    children: [
+                      Expanded(
+                        flex: 7,
+                        child: GrhSurfaceCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const GrhPageHeader(
+                                title: 'Statistiques des présences',
+                                subtitle: 'Tendance hebdomadaire des pointages.',
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 260,
+                                child: _AttendanceLineChart(
+                                  points: summary?.weeklyAttendance ?? const [],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                      SizedBox(
+                          width: isWide ? 14 : 0,
+                          height: isWide ? 0 : 14),
+                      Expanded(
+                        flex: 5,
+                        child: GrhSurfaceCard(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const GrhPageHeader(
+                                title: 'Répartition par département',
+                                subtitle: 'Poids relatif des équipes.',
+                              ),
+                              const SizedBox(height: 16),
+                              SizedBox(
+                                height: 260,
+                                child: _DepartmentDonutChart(
+                                  points:
+                                      summary?.departmentBreakdown ?? const [],
+                                ),
+                              ),
+                            ],
+                          ),
+                        ),
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+
+                  // ── Activités récentes ─────────────────────────────────
+                  GrhSurfaceCard(
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        const GrhPageHeader(
+                          title: 'Activités récentes',
+                          subtitle: 'Événements RH les plus récents.',
+                        ),
+                        const SizedBox(height: 16),
+                        if (summary == null && dashboard.isLoading)
+                          const Center(
+                            child: Padding(
+                              padding: EdgeInsets.symmetric(vertical: 24),
+                              child: CircularProgressIndicator(
+                                  color: AppColors.accent),
+                            ),
+                          )
+                        else if (summary?.recentActivities.isEmpty ?? true)
+                          const Text(
+                            'Aucune activité récente disponible.',
+                            style: TextStyle(
+                                fontSize: 13, color: AppColors.text2),
+                          )
+                        else
+                          ...summary!.recentActivities.take(5).map(
+                                (a) => Padding(
+                                  padding: const EdgeInsets.only(bottom: 14),
+                                  child: Row(
+                                    children: [
+                                      EmployeeAvatar(
+                                        name: a.employeeName,
+                                        imageUrl: a.avatarUrl,
+                                        size: 40,
+                                      ),
+                                      const SizedBox(width: 12),
+                                      Expanded(
+                                        child: Column(
+                                          crossAxisAlignment:
+                                              CrossAxisAlignment.start,
+                                          children: [
+                                            Text(
+                                              a.employeeName,
+                                              style: const TextStyle(
+                                                fontSize: 13,
+                                                fontWeight: FontWeight.w700,
+                                                color: AppColors.text1,
+                                              ),
+                                            ),
+                                            const SizedBox(height: 2),
+                                            Text(
+                                              a.action,
+                                              style: const TextStyle(
+                                                fontSize: 12,
+                                                color: AppColors.text2,
+                                              ),
+                                            ),
+                                          ],
+                                        ),
+                                      ),
+                                      Text(
+                                        AppFormatters.relativeTime(
+                                            a.timestamp),
+                                        style: const TextStyle(
+                                          fontSize: 11,
+                                          color: AppColors.text2,
+                                        ),
+                                      ),
+                                    ],
+                                  ),
+                                ),
+                              ),
+                      ],
+                    ),
+                  ),
+
+                  // ── Mini métriques ─────────────────────────────────────
+                  if (summary != null) ...[
+                    const SizedBox(height: 20),
+                    Wrap(
+                      spacing: 14,
+                      runSpacing: 14,
+                      children: [
+                        SizedBox(
+                          width: isWide ? 240 : double.infinity,
+                          child: GrhMiniMetric(
+                            label: 'Congés approuvés',
+                            value: '${summary.approvedLeaves}',
+                            color: AppColors.success,
+                            icon: Icons.task_alt_rounded,
+                          ),
+                        ),
+                        SizedBox(
+                          width: isWide ? 240 : double.infinity,
+                          child: GrhMiniMetric(
+                            label: 'Bulletins du mois',
+                            value: '${summary.payslipsThisMonth}',
+                            color: AppColors.accent,
+                            icon: Icons.receipt_long_outlined,
+                          ),
+                        ),
+                        SizedBox(
+                          width: isWide ? 240 : double.infinity,
+                          child: GrhMiniMetric(
+                            label: 'Turnover',
+                            value:
+                                '${summary.turnoverRate.toStringAsFixed(1)}%',
+                            color: AppColors.warning,
+                            icon: Icons.swap_horiz_rounded,
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
+                ],
               ),
             ),
           ),
@@ -236,75 +319,201 @@ class RhDashboardScreen extends ConsumerWidget {
   }
 }
 
-class _AttendanceChart extends StatelessWidget {
-  const _AttendanceChart({required this.points});
+// ── Line chart présences ───────────────────────────────────────────────────
+class _AttendanceLineChart extends StatelessWidget {
+  const _AttendanceLineChart({required this.points});
 
   final List<DashboardPoint> points;
 
   @override
   Widget build(BuildContext context) {
-    final chartPoints = points.isEmpty
+    final values = points.isEmpty
         ? const [
-            DashboardPoint(label: 'Lun', value: 20),
-            DashboardPoint(label: 'Mar', value: 24),
-            DashboardPoint(label: 'Mer', value: 22),
-            DashboardPoint(label: 'Jeu', value: 27),
-            DashboardPoint(label: 'Ven', value: 25),
+            DashboardPoint(label: 'Jan',  value: 28),
+            DashboardPoint(label: 'Fév',  value: 64),
+            DashboardPoint(label: 'Mar',  value: 48),
+            DashboardPoint(label: 'Avr',  value: 73),
+            DashboardPoint(label: 'Mai',  value: 61),
+            DashboardPoint(label: 'Juin', value: 84),
+            DashboardPoint(label: 'Juil', value: 78),
           ]
         : points;
 
-    return BarChart(
-      BarChartData(
+    return LineChart(
+      LineChartData(
+        minY: 0,
+        gridData: FlGridData(
+          show: true,
+          drawVerticalLine: false,
+          getDrawingHorizontalLine: (_) => const FlLine(
+            color: AppColors.border,
+            strokeWidth: 0.5,
+          ),
+        ),
         borderData: FlBorderData(show: false),
-        gridData: FlGridData(show: true, drawVerticalLine: false),
-        barGroups: [
-          for (int index = 0; index < chartPoints.length; index++)
-            BarChartGroupData(
-              x: index,
-              barRods: [
-                BarChartRodData(
-                  toY: chartPoints[index].value,
-                  width: 18,
-                  borderRadius: BorderRadius.circular(8),
-                  gradient: const LinearGradient(
-                    colors: [AppColors.navy, AppColors.accent],
-                    begin: Alignment.bottomCenter,
-                    end: Alignment.topCenter,
-                  ),
-                ),
-              ],
-            ),
-        ],
         titlesData: FlTitlesData(
-          topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
-          rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          topTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+          rightTitles:
+              const AxisTitles(sideTitles: SideTitles(showTitles: false)),
           leftTitles: AxisTitles(
             sideTitles: SideTitles(
+              reservedSize: 30,
               showTitles: true,
-              reservedSize: 34,
-              getTitlesWidget: (value, meta) => Text(
-                value.toInt().toString(),
-                style: Theme.of(context).textTheme.bodySmall,
+              interval: 20,
+              getTitlesWidget: (v, _) => Text(
+                v.toInt().toString(),
+                style: const TextStyle(
+                    fontSize: 10, color: AppColors.text2),
               ),
             ),
           ),
           bottomTitles: AxisTitles(
             sideTitles: SideTitles(
               showTitles: true,
-              getTitlesWidget: (value, meta) {
-                final index = value.toInt();
-                if (index < 0 || index >= chartPoints.length) {
+              getTitlesWidget: (v, _) {
+                final i = v.toInt();
+                if (i < 0 || i >= values.length) {
                   return const SizedBox.shrink();
                 }
                 return Padding(
-                  padding: const EdgeInsets.only(top: 8),
-                  child: Text(chartPoints[index].label),
+                  padding: const EdgeInsets.only(top: 6),
+                  child: Text(
+                    values[i].label,
+                    style: const TextStyle(
+                        fontSize: 10, color: AppColors.text2),
+                  ),
                 );
               },
             ),
           ),
         ),
+        lineBarsData: [
+          LineChartBarData(
+            isCurved: true,
+            color: AppColors.accent,
+            barWidth: 2.5,
+            dotData: FlDotData(
+              show: true,
+              getDotPainter: (_, __, ___, ____) => FlDotCirclePainter(
+                radius: 3.5,
+                color: AppColors.accent,
+                strokeWidth: 1.5,
+                strokeColor: Colors.white,
+              ),
+            ),
+            // Aucun gradient — fond de courbe uni semi-transparent
+            belowBarData: BarAreaData(
+              show: true,
+              color: AppColors.accent.withOpacity(0.08),
+            ),
+            spots: [
+              for (var i = 0; i < values.length; i++)
+                FlSpot(i.toDouble(), values[i].value),
+            ],
+          ),
+        ],
       ),
     );
   }
 }
+
+// ── Donut chart départements ───────────────────────────────────────────────
+class _DepartmentDonutChart extends StatelessWidget {
+  const _DepartmentDonutChart({required this.points});
+
+  final List<DashboardPoint> points;
+
+  static const _palette = <Color>[
+    AppColors.primary,
+    AppColors.accent,
+    AppColors.success,
+    AppColors.warning,
+    AppColors.text2,
+  ];
+
+  @override
+  Widget build(BuildContext context) {
+    final values = points.isEmpty
+        ? const [
+            DashboardPoint(label: 'Informatique', value: 25),
+            DashboardPoint(label: 'Finance',       value: 20),
+            DashboardPoint(label: 'Commercial',    value: 20),
+            DashboardPoint(label: 'RH',            value: 15),
+            DashboardPoint(label: 'Autres',        value: 20),
+          ]
+        : points;
+
+    return Row(
+      children: [
+        Expanded(
+          child: PieChart(
+            PieChartData(
+              sectionsSpace: 2,
+              centerSpaceRadius: 40,
+              sections: [
+                for (var i = 0; i < values.length; i++)
+                  PieChartSectionData(
+                    color: _palette[i % _palette.length],
+                    value: values[i].value,
+                    title: '${values[i].value.toStringAsFixed(0)}%',
+                    radius: 48,
+                    titleStyle: const TextStyle(
+                      color: Colors.white,
+                      fontSize: 11,
+                      fontWeight: FontWeight.w700,
+                    ),
+                  ),
+              ],
+            ),
+          ),
+        ),
+        const SizedBox(width: 16),
+        Expanded(
+          child: Column(
+            mainAxisAlignment: MainAxisAlignment.center,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              for (var i = 0; i < values.length; i++)
+                Padding(
+                  padding: const EdgeInsets.only(bottom: 10),
+                  child: Row(
+                    children: [
+                      Container(
+                        width: 10,
+                        height: 10,
+                        decoration: BoxDecoration(
+                          color: _palette[i % _palette.length],
+                          shape: BoxShape.circle,
+                        ),
+                      ),
+                      const SizedBox(width: 8),
+                      Expanded(
+                        child: Text(
+                          values[i].label,
+                          style: const TextStyle(
+                            fontSize: 12,
+                            fontWeight: FontWeight.w500,
+                            color: AppColors.text1,
+                          ),
+                        ),
+                      ),
+                      Text(
+                        '${values[i].value.toStringAsFixed(0)}%',
+                        style: const TextStyle(
+                          fontSize: 12,
+                          color: AppColors.text2,
+                        ),
+                      ),
+                    ],
+                  ),
+                ),
+            ],
+          ),
+        ),
+      ],
+    );
+  }
+}
+
+// ── Tile insight ─────────────────────────────────────────────────────────────

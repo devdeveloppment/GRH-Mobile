@@ -79,6 +79,7 @@ public class SecurityConfig {
     CorsConfigurationSource corsConfigurationSource(AppProperties properties) {
         CorsConfiguration configuration = new CorsConfiguration();
         configuration.setAllowedOrigins(properties.getCors().getAllowedOrigins());
+        configuration.setAllowedOriginPatterns(properties.getCors().getAllowedOriginPatterns());
         configuration.setAllowedMethods(List.of("GET", "POST", "PUT", "PATCH", "DELETE", "OPTIONS"));
         configuration.setAllowedHeaders(List.of("*"));
         configuration.setExposedHeaders(List.of("Authorization", "Content-Disposition"));

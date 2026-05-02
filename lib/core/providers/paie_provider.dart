@@ -17,17 +17,28 @@ class PaieNotifier extends ChangeNotifier {
   final Ref _ref;
   List<FichePaie> bulletins = <FichePaie>[];
   bool isLoading = false;
+  String? errorMessage;
   DateTime selectedPeriod = DateTime(DateTime.now().year, DateTime.now().month);
+  Map<String, dynamic> monthlySummary = {};
+
+  // Computed properties
+  double get totalGrossMass => bulletins.fold(0.0, (sum, b) => sum + (b.salaireBrut ?? 0));
+  double get totalDeductions => bulletins.fold(0.0, (sum, b) => sum + ((b.cotisations ?? 0) + (b.impots ?? 0)));
+  double get totalNetMass => bulletins.fold(0.0, (sum, b) => sum + (b.salaireNet ?? 0));
 
   Future<void> loadForPeriod(DateTime period) async {
     selectedPeriod = DateTime(period.year, period.month);
     isLoading = true;
+    errorMessage = null;
     final cacheKey = 'paie-${selectedPeriod.year}-${selectedPeriod.month}';
+    
+    // Charger du cache d'abord
     final cached = await _ref.read(cacheServiceProvider).readList(cacheKey);
     if (cached.isNotEmpty && bulletins.isEmpty) {
       bulletins = cached.map(FichePaie.fromJson).toList(growable: false);
     }
     notifyListeners();
+
     try {
       final api = _ref.read(apiServiceProvider);
       final response = await api.get<Map<String, dynamic>>(
@@ -45,10 +56,16 @@ class PaieNotifier extends ChangeNotifier {
           .whereType<Map<String, dynamic>>()
           .map(FichePaie.fromJson)
           .toList(growable: false);
+      
+      // Sauvegarder le résumé mensuel
+      monthlySummary = payload['summary'] as Map<String, dynamic>? ?? {};
+      
       await _ref.read(cacheServiceProvider).writeList(
             cacheKey,
             bulletins.map((item) => item.toJson()).toList(growable: false),
           );
+    } catch (e) {
+      errorMessage = 'Erreur lors du chargement des bulletins';
     } finally {
       isLoading = false;
       notifyListeners();
@@ -56,22 +73,76 @@ class PaieNotifier extends ChangeNotifier {
   }
 
   Future<void> calculateAll() async {
-    final api = _ref.read(apiServiceProvider);
-    await api.post<void>(
-      '/paie/calculate',
-      data: {
-        'month': selectedPeriod.month,
-        'year': selectedPeriod.year,
-      },
-    );
-    await loadForPeriod(selectedPeriod);
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final api = _ref.read(apiServiceProvider);
+      await api.post<void>(
+        '/paie/calculate',
+        data: {
+          'month': selectedPeriod.month,
+          'year': selectedPeriod.year,
+        },
+      );
+      await loadForPeriod(selectedPeriod);
+    } catch (e) {
+      errorMessage = 'Erreur lors du calcul de la paie';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
   }
 
   Future<String?> downloadPayslip(int payslipId, String employeeName) async {
-    final api = _ref.read(apiServiceProvider);
-    return api.downloadFile(
-      '/paie/$payslipId/bulletin/pdf',
-      'bulletin-${employeeName.toLowerCase().replaceAll(' ', '-')}-${selectedPeriod.year}-${selectedPeriod.month}.pdf',
-    );
+    try {
+      final api = _ref.read(apiServiceProvider);
+      return api.downloadFile(
+        '/paie/$payslipId/bulletin/pdf',
+        'bulletin-${employeeName.toLowerCase().replaceAll(' ', '-')}-${selectedPeriod.year}-${selectedPeriod.month}.pdf',
+      );
+    } catch (e) {
+      errorMessage = 'Erreur lors du téléchargement';
+      notifyListeners();
+      return null;
+    }
+  }
+
+  Future<void> validatePayroll() async {
+    isLoading = true;
+    errorMessage = null;
+    notifyListeners();
+
+    try {
+      final api = _ref.read(apiServiceProvider);
+      await api.post<void>(
+        '/paie/validate',
+        data: {
+          'month': selectedPeriod.month,
+          'year': selectedPeriod.year,
+        },
+      );
+      await loadForPeriod(selectedPeriod);
+    } catch (e) {
+      errorMessage = 'Erreur lors de la validation';
+    } finally {
+      isLoading = false;
+      notifyListeners();
+    }
+  }
+
+  Future<String?> exportPayrollCSV() async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      return api.downloadFile(
+        '/paie/export/csv?month=${selectedPeriod.month}&year=${selectedPeriod.year}',
+        'paie-${selectedPeriod.year}-${selectedPeriod.month}.csv',
+      );
+    } catch (e) {
+      errorMessage = 'Erreur lors de l\'export';
+      notifyListeners();
+      return null;
+    }
   }
 }

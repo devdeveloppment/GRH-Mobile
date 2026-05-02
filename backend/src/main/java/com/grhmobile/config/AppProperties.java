@@ -67,6 +67,10 @@ public class AppProperties {
             "http://localhost:8081",
             "http://localhost:4200"
         ));
+        private List<String> allowedOriginPatterns = new ArrayList<>(List.of(
+            "http://localhost:*",
+            "http://127.0.0.1:*"
+        ));
 
         public List<String> getAllowedOrigins() {
             return allowedOrigins;
@@ -74,6 +78,14 @@ public class AppProperties {
 
         public void setAllowedOrigins(List<String> allowedOrigins) {
             this.allowedOrigins = allowedOrigins;
+        }
+
+        public List<String> getAllowedOriginPatterns() {
+            return allowedOriginPatterns;
+        }
+
+        public void setAllowedOriginPatterns(List<String> allowedOriginPatterns) {
+            this.allowedOriginPatterns = allowedOriginPatterns;
         }
     }
 
