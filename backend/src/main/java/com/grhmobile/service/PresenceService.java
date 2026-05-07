@@ -1,11 +1,21 @@
 package com.grhmobile.service;
 
+import java.time.LocalDate;
+import java.time.LocalDateTime;
+import java.util.Base64;
 import java.util.List;
 import java.util.Map;
 
+import com.grhmobile.dto.presence.JustifyAbsenceRequest;
+import com.grhmobile.dto.presence.JustifyAbsenceResponse;
+import com.grhmobile.dto.presence.PointageRequest;
+import com.grhmobile.dto.presence.PointageResponse;
 import com.grhmobile.dto.presence.PresenceResponse;
+import com.grhmobile.dto.presence.ReportAbsenceRequest;
+import com.grhmobile.dto.presence.ReportAbsenceResponse;
 import com.grhmobile.entity.Employe;
 import com.grhmobile.entity.Presence;
+import com.grhmobile.enums.StatutPresence;
 import com.grhmobile.repository.PresenceRepository;
 import com.grhmobile.security.AuthenticatedUserService;
 
@@ -55,5 +65,119 @@ public class PresenceService {
             .stream()
             .map(PresenceResponse::fromEntity)
             .toList();
+    }
+
+    @Transactional
+    public PointageResponse pointage(PointageRequest request) {
+        // Récupérer l'utilisateur connecté
+        var currentUser = authenticatedUserService.currentUser();
+        
+        // Récupérer l'employé associé
+        Employe employe = employeeService.findByUserId(currentUser.getId());
+        
+        // Chercher ou créer un enregistrement Presence pour aujourd'hui
+        LocalDate today = LocalDate.now();
+        Presence presence = presenceRepository
+            .findByEmployeIdAndDate(employe.getId(), today)
+            .orElseGet(() -> {
+                Presence newPresence = new Presence();
+                newPresence.setEmploye(employe);
+                newPresence.setDate(today);
+                newPresence.setStatut(StatutPresence.PRESENT);
+                return newPresence;
+            });
+
+        // Mettre à jour en fonction du type de pointage
+        LocalDateTime now = LocalDateTime.now();
+        if ("ENTREE".equalsIgnoreCase(request.type())) {
+            presence.setHeureArrivee(now);
+        } else if ("SORTIE".equalsIgnoreCase(request.type())) {
+            presence.setHeureDepart(now);
+        }
+
+        // Sauvegarder la localisation
+        presence.setLatitude(request.latitude());
+        presence.setLongitude(request.longitude());
+
+        // Sauvegarder
+        presence = presenceRepository.save(presence);
+
+        return PointageResponse.success(presence.getId(), request.type(), now);
+    }
+
+    @Transactional
+    public ReportAbsenceResponse reportAbsence(ReportAbsenceRequest request) {
+        // Récupérer l'utilisateur connecté
+        var currentUser = authenticatedUserService.currentUser();
+        
+        // Récupérer l'employé associé
+        Employe employe = employeeService.findByUserId(currentUser.getId());
+
+        // Chercher ou créer un enregistrement Presence pour cette date
+        Presence presence = presenceRepository
+            .findByEmployeIdAndDate(employe.getId(), request.date())
+            .orElseGet(() -> {
+                Presence newPresence = new Presence();
+                newPresence.setEmploye(employe);
+                newPresence.setDate(request.date());
+                return newPresence;
+            });
+
+        // Mettre à jour le statut et le motif
+        presence.setStatut(StatutPresence.ABSENT_EN_ATTENTE);
+        presence.setMotifAbsence(request.motif());
+
+        // Sauvegarder
+        presence = presenceRepository.save(presence);
+
+        return ReportAbsenceResponse.fromEntity(presence);
+    }
+
+    @Transactional(readOnly = true)
+    public Map<String, Object> listAbsencesEnAttente() {
+        // Récupérer l'utilisateur connecté
+        var currentUser = authenticatedUserService.currentUser();
+        
+        // Récupérer l'employé associé
+        Employe employe = employeeService.findByUserId(currentUser.getId());
+
+        // Récupérer les absences en attente
+        List<PresenceResponse> items = presenceRepository
+            .findByEmployeIdAndStatutOrderByDateDesc(employe.getId(), StatutPresence.ABSENT_EN_ATTENTE)
+            .stream()
+            .map(PresenceResponse::fromEntity)
+            .toList();
+
+        return Map.of("items", items);
+    }
+
+    @Transactional
+    public JustifyAbsenceResponse justifyAbsence(Long presenceId, JustifyAbsenceRequest request) {
+        // Récupérer l'enregistrement Presence
+        Presence presence = presenceRepository.findById(presenceId)
+            .orElseThrow(() -> new IllegalArgumentException("Absence non trouvée"));
+
+        // Vérifier que c'est bien une absence en attente
+        if (presence.getStatut() != StatutPresence.ABSENT_EN_ATTENTE) {
+            throw new IllegalArgumentException("Cette absence ne peut pas être justifiée");
+        }
+
+        // Mettre à jour la justification
+        presence.setJustification(request.justification());
+        presence.setStatut(StatutPresence.ABSENT_JUSTIFIEE);
+
+        // Sauvegarder la pièce jointe si présente
+        if (request.pieceJointe() != null && !request.pieceJointe().isBlank()) {
+            try {
+                presence.setPieceJointe(Base64.getDecoder().decode(request.pieceJointe()));
+            } catch (IllegalArgumentException e) {
+                throw new IllegalArgumentException("Pièce jointe invalide (base64 invalide)");
+            }
+        }
+
+        // Sauvegarder
+        presence = presenceRepository.save(presence);
+
+        return JustifyAbsenceResponse.fromEntity(presence);
     }
 }

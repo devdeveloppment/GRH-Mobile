@@ -22,6 +22,7 @@ class EmployeeNotifier extends ChangeNotifier {
   bool isLoading = false;
   bool isFetchingMore = false;
   bool hasMore = true;
+  String? errorMessage;
   String query = '';
   String? statusFilter;
   String? serviceFilter;
@@ -29,15 +30,15 @@ class EmployeeNotifier extends ChangeNotifier {
   static const int _limit = 20;
 
   List<String> get availableServices => employees
-      .map((employee) => employee.service)
-      .where((item) => item.isNotEmpty)
+      .map((e) => e.service)
+      .where((s) => s.isNotEmpty)
       .toSet()
       .toList()
     ..sort();
 
   List<String> get availableStatuses => employees
-      .map((employee) => employee.statut)
-      .where((item) => item.isNotEmpty)
+      .map((e) => e.statut)
+      .where((s) => s.isNotEmpty)
       .toSet()
       .toList()
     ..sort();
@@ -45,6 +46,7 @@ class EmployeeNotifier extends ChangeNotifier {
   Future<void> fetchInitial() async {
     _page = 1;
     hasMore = true;
+    errorMessage = null;
     _employees.clear();
     isLoading = true;
     if (query.isEmpty && statusFilter == null && serviceFilter == null) {
@@ -64,9 +66,7 @@ class EmployeeNotifier extends ChangeNotifier {
   Future<void> refresh() => fetchInitial();
 
   Future<void> fetchMore() async {
-    if (!hasMore || isFetchingMore || isLoading) {
-      return;
-    }
+    if (!hasMore || isFetchingMore || isLoading) return;
     isFetchingMore = true;
     notifyListeners();
     await _fetchPage();
@@ -75,66 +75,98 @@ class EmployeeNotifier extends ChangeNotifier {
   }
 
   Future<void> _fetchPage({bool reset = false}) async {
-    final api = _ref.read(apiServiceProvider);
-    final response = await api.get<Map<String, dynamic>>(
-      '/employees',
-      queryParameters: {
-        'page': _page,
-        'limit': _limit,
-        if (query.isNotEmpty) 'query': query,
-        if (statusFilter != null) 'statut': statusFilter,
-        if (serviceFilter != null) 'service': serviceFilter,
-      },
-    );
+    try {
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.get<Map<String, dynamic>>(
+        '/employees',
+        queryParameters: {
+          'page': _page,
+          'limit': _limit,
+          if (query.isNotEmpty) 'query': query,
+          if (statusFilter != null) 'statut': statusFilter,
+          if (serviceFilter != null) 'service': serviceFilter,
+        },
+      );
 
-    final payload = response.data ?? <String, dynamic>{};
-    final rawItems = payload['items'] as List<dynamic>? ??
-        payload['content'] as List<dynamic>? ??
-        payload['data'] as List<dynamic>? ??
-        <dynamic>[];
+      final payload = response.data ?? <String, dynamic>{};
+      final rawItems = payload['items'] as List<dynamic>? ??
+          payload['content'] as List<dynamic>? ??
+          payload['data'] as List<dynamic>? ??
+          <dynamic>[];
 
-    final items = rawItems
-        .whereType<Map<String, dynamic>>()
-        .map(Employe.fromJson)
-        .toList(growable: false);
+      final items = rawItems
+          .whereType<Map<String, dynamic>>()
+          .map(Employe.fromJson)
+          .toList(growable: false);
 
-    if (reset) {
-      _employees
-        ..clear()
-        ..addAll(items);
-    } else {
-      _employees.addAll(items);
-    }
+      if (reset) {
+        _employees
+          ..clear()
+          ..addAll(items);
+      } else {
+        _employees.addAll(items);
+      }
 
-    hasMore = items.length >= _limit;
-    if (hasMore) {
-      _page += 1;
-    }
-    if (query.isEmpty && statusFilter == null && serviceFilter == null && _page <= 2) {
-      await _ref.read(cacheServiceProvider).writeList(
-            'employees',
-            _employees.map((item) => item.toJson()).toList(growable: false),
-          );
+      hasMore = items.length >= _limit;
+      if (hasMore) _page += 1;
+
+      if (query.isEmpty && statusFilter == null && serviceFilter == null && _page <= 2) {
+        await _ref.read(cacheServiceProvider).writeList(
+              'employees',
+              _employees.map((e) => e.toJson()).toList(growable: false),
+            );
+      }
+    } catch (e) {
+      errorMessage = 'Impossible de charger les employés. Vérifiez votre connexion.';
     }
   }
 
-  Future<void> createEmployee(Map<String, dynamic> payload) async {
-    final api = _ref.read(apiServiceProvider);
-    await api.post<Map<String, dynamic>>('/employees', data: payload);
-    await fetchInitial();
+  Future<bool> createEmployee(Map<String, dynamic> payload) async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      await api.post<Map<String, dynamic>>('/employees', data: payload);
+      await fetchInitial();
+      return true;
+    } catch (e) {
+      errorMessage = 'Erreur lors de la création de l\'employé.';
+      notifyListeners();
+      return false;
+    }
   }
 
-  Future<void> updateEmployee(String matricule, Map<String, dynamic> payload) async {
-    final api = _ref.read(apiServiceProvider);
-    await api.put<Map<String, dynamic>>('/employees/$matricule', data: payload);
-    await fetchInitial();
+  Future<bool> updateEmployee(String matricule, Map<String, dynamic> payload) async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      await api.put<Map<String, dynamic>>('/employees/$matricule', data: payload);
+      await fetchInitial();
+      return true;
+    } catch (e) {
+      errorMessage = 'Erreur lors de la modification de l\'employé.';
+      notifyListeners();
+      return false;
+    }
   }
 
-  Future<void> archiveEmployee(String matricule) async {
-    final api = _ref.read(apiServiceProvider);
-    await api.delete<void>('/employees/$matricule');
-    _employees.removeWhere((employee) => employee.matricule == matricule);
-    notifyListeners();
+  Future<bool> archiveEmployee(String matricule) async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      await api.delete<void>('/employees/$matricule');
+      _employees.removeWhere((e) => e.matricule == matricule);
+      notifyListeners();
+      return true;
+    } catch (e) {
+      errorMessage = 'Erreur lors de l\'archivage de l\'employé.';
+      notifyListeners();
+      return false;
+    }
+  }
+
+  Employe? findByMatricule(String matricule) {
+    try {
+      return _employees.firstWhere((e) => e.matricule == matricule);
+    } catch (_) {
+      return null;
+    }
   }
 
   void setQuery(String value) {

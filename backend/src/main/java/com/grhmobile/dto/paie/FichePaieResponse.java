@@ -12,7 +12,8 @@ public record FichePaieResponse(
     Double indemnites,
     Double salaireNet,
     String nomEmploye,
-    boolean calculee
+    boolean calculee,
+    boolean validee
 ) {
 
     public static FichePaieResponse fromEntity(FichePaie fichePaie) {
@@ -26,7 +27,8 @@ public record FichePaieResponse(
             fichePaie.getIndemnites().doubleValue(),
             fichePaie.getSalaireNet().doubleValue(),
             fichePaie.getEmploye().getPrenom() + " " + fichePaie.getEmploye().getNom(),
-            fichePaie.isCalculee()
+            fichePaie.isCalculee(),
+            fichePaie.isValidee()
         );
     }
 }

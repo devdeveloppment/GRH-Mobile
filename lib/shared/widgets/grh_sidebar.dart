@@ -85,58 +85,73 @@ class GrhSidebar extends ConsumerWidget {
             // ── User info ─────────────────────────────────────────────────
             Padding(
               padding: const EdgeInsets.all(16),
-              child: Row(
-                children: [
-                  CircleAvatar(
-                    radius: 18,
-                    backgroundColor: AppColors.accent,
-                    child: Text(
-                      _initials(auth.user?.fullName),
-                      style: const TextStyle(
-                        color: Colors.white,
-                        fontWeight: FontWeight.w700,
-                        fontSize: 12,
-                      ),
-                    ),
-                  ),
-                  const SizedBox(width: 10),
-                  Expanded(
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      mainAxisSize: MainAxisSize.min,
+              child: Material(
+                color: Colors.transparent,
+                child: InkWell(
+                  onTap: () => context.push(AppRoutes.profile),
+                  borderRadius: BorderRadius.circular(8),
+                  child: Padding(
+                    padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 8),
+                    child: Row(
                       children: [
-                        Text(
-                          auth.user?.fullName ?? 'Utilisateur',
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: Colors.white,
-                            fontSize: 12,
-                            fontWeight: FontWeight.w700,
+                        CircleAvatar(
+                          radius: 18,
+                          backgroundColor: AppColors.accent,
+                          backgroundImage: auth.user?.photoUrl != null 
+                            ? NetworkImage(auth.user!.photoUrl!)
+                            : null,
+                          child: auth.user?.photoUrl == null
+                            ? Text(
+                              _initials(auth.user?.fullName),
+                              style: const TextStyle(
+                                color: Colors.white,
+                                fontWeight: FontWeight.w700,
+                                fontSize: 12,
+                              ),
+                            )
+                            : null,
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            mainAxisSize: MainAxisSize.min,
+                            children: [
+                              Text(
+                                auth.user?.fullName ?? 'Utilisateur',
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: Colors.white,
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w700,
+                                ),
+                              ),
+                              const SizedBox(height: 2),
+                              Text(
+                                role.label,
+                                maxLines: 1,
+                                overflow: TextOverflow.ellipsis,
+                                style: const TextStyle(
+                                  color: AppColors.sidebarItem,
+                                  fontSize: 11,
+                                ),
+                              ),
+                            ],
                           ),
                         ),
-                        const SizedBox(height: 2),
-                        Text(
-                          role.label,
-                          maxLines: 1,
-                          overflow: TextOverflow.ellipsis,
-                          style: const TextStyle(
-                            color: AppColors.sidebarItem,
-                            fontSize: 11,
-                          ),
+                        IconButton(
+                          tooltip: 'Déconnexion',
+                          onPressed: () => ref.read(authNotifierProvider).logout(),
+                          icon: const Icon(Icons.logout_rounded,
+                              color: AppColors.sidebarItem, size: 18),
+                          padding: EdgeInsets.zero,
+                          constraints: const BoxConstraints(),
                         ),
                       ],
                     ),
                   ),
-                  IconButton(
-                    tooltip: 'Déconnexion',
-                    onPressed: () => ref.read(authNotifierProvider).logout(),
-                    icon: const Icon(Icons.logout_rounded,
-                        color: AppColors.sidebarItem, size: 18),
-                    padding: EdgeInsets.zero,
-                    constraints: const BoxConstraints(),
-                  ),
-                ],
+                ),
               ),
             ),
           ],

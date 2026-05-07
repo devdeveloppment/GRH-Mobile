@@ -9,7 +9,8 @@ public record UserDto(
     String email,
     String role,
     boolean actif,
-    String dateCreation
+    String dateCreation,
+    String photoUrl
 ) {
 
     public static UserDto fromEntity(Utilisateur utilisateur) {
@@ -20,7 +21,8 @@ public record UserDto(
             utilisateur.getEmail(),
             utilisateur.getRole().name(),
             utilisateur.isActif(),
-            utilisateur.getDateCreation() != null ? utilisateur.getDateCreation().toString() : null
+            utilisateur.getDateCreation() != null ? utilisateur.getDateCreation().toString() : null,
+            utilisateur.getPhotoUrl()
         );
     }
 }

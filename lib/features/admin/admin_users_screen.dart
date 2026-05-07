@@ -1,9 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
+import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/admin_provider.dart';
+import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/shared/models/utilisateur.dart';
+import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
-import 'package:grh_mobile/shared/widgets/status_badge.dart';
+import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
+import 'package:grh_mobile/shared/widgets/grh_surface_card.dart';
 
 class AdminUsersManagementScreen extends ConsumerStatefulWidget {
   const AdminUsersManagementScreen({super.key});
@@ -21,9 +26,7 @@ class _AdminUsersManagementScreenState
   void initState() {
     super.initState();
     _searchController = TextEditingController();
-    Future.microtask(
-      () => ref.read(adminNotifierProvider).loadUsers(),
-    );
+    Future.microtask(() => ref.read(adminNotifierProvider).loadUsers());
   }
 
   @override
@@ -34,94 +37,151 @@ class _AdminUsersManagementScreenState
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authNotifierProvider);
     final admin = ref.watch(adminNotifierProvider);
-    final filteredUsers = admin.users
-        .where(
-          (u) =>
-              u.email.toLowerCase().contains(_searchController.text.toLowerCase()) ||
-              (u.fullName?.toLowerCase().contains(_searchController.text.toLowerCase()) ?? false),
-        )
-        .toList();
+    final isWide = MediaQuery.sizeOf(context).width >= 1024;
+
+    final q = _searchController.text.toLowerCase();
+    final filteredUsers = admin.users.where((u) {
+      if (q.isEmpty) return true;
+      return u.fullName.toLowerCase().contains(q) ||
+          u.email.toLowerCase().contains(q);
+    }).toList();
+
+    // Afficher l'erreur via SnackBar
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (admin.errorMessage != null && mounted) {
+        ScaffoldMessenger.of(context)
+          ..hideCurrentSnackBar()
+          ..showSnackBar(SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text(admin.errorMessage!),
+          ));
+      }
+    });
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: GrhAppBar(title: 'Gestion des Utilisateurs'),
-      floatingActionButton: FloatingActionButton(
-        onPressed: () => _showCreateUserDialog(context),
-        child: const Icon(Icons.add),
-      ),
-      body: Column(
-        children: [
-          Padding(
-            padding: const EdgeInsets.all(16),
-            child: TextField(
-              controller: _searchController,
-              decoration: InputDecoration(
-                hintText: 'Rechercher par email ou nom...',
-                prefixIcon: const Icon(Icons.search),
-                border: OutlineInputBorder(
-                  borderRadius: BorderRadius.circular(8),
-                ),
+      drawer: isWide || auth.role == null
+          ? null
+          : Drawer(
+              child: GrhSidebar(
+                currentRoute: AppRoutes.adminUsers,
+                role: auth.role!,
+                isDrawer: true,
               ),
-              onChanged: (_) => setState(() {}),
             ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(84),
+        child: Builder(
+          builder: (ctx) => GrhAppBar(
+            title: 'Gestion des Utilisateurs',
+            userName: auth.user?.fullName,
+            onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
           ),
-          if (admin.isLoading)
-            const Center(child: CircularProgressIndicator())
-          else if (filteredUsers.isEmpty)
-            Expanded(
-              child: Center(
-                child: Text(
-                  'Aucun utilisateur trouvé',
-                  style: Theme.of(context).textTheme.bodyLarge,
+        ),
+      ),
+      floatingActionButton: FloatingActionButton.extended(
+        backgroundColor: AppColors.accent,
+        foregroundColor: Colors.white,
+        onPressed: () => _showCreateUserDialog(context),
+        icon: const Icon(Icons.person_add_rounded),
+        label: const Text('Ajouter'),
+      ),
+      body: Row(
+        children: [
+          if (isWide && auth.role != null)
+            GrhSidebar(currentRoute: AppRoutes.adminUsers, role: auth.role!),
+          Expanded(
+            child: Column(
+              children: [
+                // Barre de recherche
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(20, 20, 20, 12),
+                  child: Row(
+                    children: [
+                      Expanded(
+                        child: TextField(
+                          controller: _searchController,
+                          decoration: InputDecoration(
+                            hintText: 'Rechercher un utilisateur...',
+                            prefixIcon: const Icon(Icons.search_rounded,
+                                color: AppColors.text2),
+                            suffixIcon: _searchController.text.isNotEmpty
+                                ? IconButton(
+                                    icon: const Icon(Icons.close_rounded,
+                                        size: 18),
+                                    onPressed: () {
+                                      _searchController.clear();
+                                      setState(() {});
+                                    },
+                                  )
+                                : null,
+                            border: OutlineInputBorder(
+                              borderRadius: BorderRadius.circular(10),
+                              borderSide:
+                                  const BorderSide(color: AppColors.border),
+                            ),
+                            contentPadding:
+                                const EdgeInsets.symmetric(vertical: 14),
+                          ),
+                          onChanged: (_) => setState(() {}),
+                        ),
+                      ),
+                      const SizedBox(width: 12),
+                      Text(
+                        '${filteredUsers.length} utilisateur${filteredUsers.length > 1 ? 's' : ''}',
+                        style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                              color: AppColors.textSecondaryLight,
+                            ),
+                      ),
+                    ],
+                  ),
                 ),
-              ),
-            )
-          else
-            Expanded(
-              child: ListView.builder(
-                padding: const EdgeInsets.all(16),
-                itemCount: filteredUsers.length,
-                itemBuilder: (ctx, idx) {
-                  final user = filteredUsers[idx];
-                  return Card(
-                    margin: const EdgeInsets.only(bottom: 12),
-                    child: ListTile(
-                      title: Text(user.fullName ?? user.email),
-                      subtitle: Text(user.email),
-                      trailing: Wrap(
-                        spacing: 8,
+
+                if (admin.isLoading && admin.users.isEmpty)
+                  const Expanded(
+                      child: Center(child: CircularProgressIndicator()))
+                else if (filteredUsers.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
                         children: [
-                          StatusBadge(
-                            label: user.role.toString().split('.').last,
-                            type: _getRoleType(user.role),
-                          ),
-                          PopupMenuButton(
-                            itemBuilder: (ctx) => [
-                              PopupMenuItem(
-                                child: const Text('Éditer'),
-                                onTap: () =>
-                                    _showEditUserDialog(context, user),
-                              ),
-                              PopupMenuItem(
-                                child: const Text('Réinitialiser mot de passe'),
-                                onTap: () =>
-                                    _showResetPasswordDialog(context, user),
-                              ),
-                              PopupMenuItem(
-                                child: const Text('Supprimer'),
-                                onTap: () =>
-                                    _showDeleteConfirmation(context, user.id ?? 0),
-                              ),
-                            ],
-                          ),
+                          Icon(Icons.person_off_outlined,
+                              size: 56, color: AppColors.textSecondaryLight),
+                          const SizedBox(height: 12),
+                          Text('Aucun utilisateur trouvé',
+                              style: Theme.of(context).textTheme.bodyLarge),
                         ],
                       ),
                     ),
-                  );
-                },
-              ),
+                  )
+                else
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () =>
+                          ref.read(adminNotifierProvider).loadUsers(),
+                      child: ListView.builder(
+                        padding: const EdgeInsets.fromLTRB(20, 0, 20, 100),
+                        itemCount: filteredUsers.length,
+                        itemBuilder: (ctx, idx) =>
+                            _UserCard(
+                          user: filteredUsers[idx],
+                          onEdit: () => _showEditUserDialog(
+                              context, filteredUsers[idx]),
+                          onDelete: () => _showDeleteConfirmation(
+                              context, filteredUsers[idx].id),
+                          onToggle: () => ref
+                              .read(adminNotifierProvider)
+                              .toggleUser(filteredUsers[idx].id),
+                        ),
+                      ),
+                    ),
+                  ),
+              ],
             ),
+          ),
         ],
       ),
     );
@@ -129,170 +189,185 @@ class _AdminUsersManagementScreenState
 
   void _showCreateUserDialog(BuildContext context) {
     final formKey = GlobalKey<FormState>();
-    String email = '';
-    String fullName = '';
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    final passCtrl = TextEditingController();
     String role = 'EMPLOYEE';
-    String password = '';
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Créer un nouvel utilisateur'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  decoration: const InputDecoration(labelText: 'Nom complet'),
-                  validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-                  onChanged: (v) => fullName = v,
-                ),
-                TextFormField(
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  validator: (v) => v?.isEmpty ?? true ? 'Requis' : null,
-                  onChanged: (v) => email = v,
-                ),
-                DropdownButtonFormField(
-                  value: role,
-                  decoration: const InputDecoration(labelText: 'Rôle'),
-                  items: const ['ADMIN', 'RH_MANAGER', 'EMPLOYEE', 'DIRECTION']
-                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                      .toList(),
-                  onChanged: (v) => role = v ?? 'EMPLOYEE',
-                ),
-                TextFormField(
-                  decoration: const InputDecoration(labelText: 'Mot de passe'),
-                  obscureText: true,
-                  validator: (v) =>
-                      (v?.length ?? 0) < 6 ? 'Min 6 caractères' : null,
-                  onChanged: (v) => password = v,
-                ),
-              ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Nouvel utilisateur'),
+          content: SizedBox(
+            width: 400,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration: const InputDecoration(
+                      labelText: 'Nom complet',
+                      prefixIcon: Icon(Icons.person_outline),
+                    ),
+                    validator: (v) =>
+                        (v ?? '').trim().isEmpty ? 'Champ requis' : null,
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailCtrl,
+                    keyboardType: TextInputType.emailAddress,
+                    decoration: const InputDecoration(
+                      labelText: 'Adresse email',
+                      prefixIcon: Icon(Icons.email_outlined),
+                    ),
+                    validator: (v) => (v ?? '').contains('@')
+                        ? null
+                        : 'Email invalide',
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: role,
+                    decoration: const InputDecoration(
+                      labelText: 'Rôle',
+                      prefixIcon: Icon(Icons.badge_outlined),
+                    ),
+                    items: const [
+                      DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                      DropdownMenuItem(
+                          value: 'RH_MANAGER', child: Text('Responsable RH')),
+                      DropdownMenuItem(
+                          value: 'DIRECTION', child: Text('Direction')),
+                      DropdownMenuItem(
+                          value: 'EMPLOYEE', child: Text('Employé')),
+                    ],
+                    onChanged: (v) => setS(() => role = v ?? 'EMPLOYEE'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: passCtrl,
+                    obscureText: true,
+                    decoration: const InputDecoration(
+                      labelText: 'Mot de passe provisoire',
+                      prefixIcon: Icon(Icons.lock_outline),
+                      hintText: 'Laissez vide pour ChangeMe@123',
+                    ),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (formKey.currentState!.validate()) {
-                ref.read(adminNotifierProvider).createUser(
-                      email: email,
-                      fullName: fullName,
-                      role: role,
-                      password: password,
-                    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
                 Navigator.pop(ctx);
-              }
-            },
-            child: const Text('Créer'),
-          ),
-        ],
+                final ok =
+                    await ref.read(adminNotifierProvider).createUser(
+                          email: emailCtrl.text.trim(),
+                          fullName: nameCtrl.text.trim(),
+                          role: role,
+                          password: passCtrl.text.trim().isEmpty
+                              ? 'ChangeMe@123'
+                              : passCtrl.text.trim(),
+                        );
+                if (mounted) {
+                  ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+                    backgroundColor:
+                        ok ? AppColors.success : AppColors.error,
+                    content: Text(ok
+                        ? 'Utilisateur créé avec succès.'
+                        : ref.read(adminNotifierProvider).errorMessage ??
+                            'Erreur lors de la création.'),
+                  ));
+                }
+              },
+              child: const Text('Créer'),
+            ),
+          ],
+        ),
       ),
     );
   }
 
-  void _showEditUserDialog(BuildContext context, dynamic user) {
+  void _showEditUserDialog(BuildContext context, Utilisateur user) {
     final formKey = GlobalKey<FormState>();
-    String email = user.email;
-    String fullName = user.fullName ?? '';
-    String role = user.role.toString().split('.').last;
+    final nameCtrl =
+        TextEditingController(text: user.fullName);
+    final emailCtrl = TextEditingController(text: user.email);
+    String role = user.role.apiValue;
 
     showDialog(
       context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Éditer l\'utilisateur'),
-        content: SingleChildScrollView(
-          child: Form(
-            key: formKey,
-            child: Column(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                TextFormField(
-                  initialValue: fullName,
-                  decoration: const InputDecoration(labelText: 'Nom complet'),
-                  onChanged: (v) => fullName = v,
-                ),
-                TextFormField(
-                  initialValue: email,
-                  decoration: const InputDecoration(labelText: 'Email'),
-                  onChanged: (v) => email = v,
-                ),
-                DropdownButtonFormField(
-                  value: role,
-                  decoration: const InputDecoration(labelText: 'Rôle'),
-                  items: const ['ADMIN', 'RH_MANAGER', 'EMPLOYEE', 'DIRECTION']
-                      .map((r) => DropdownMenuItem(value: r, child: Text(r)))
-                      .toList(),
-                  onChanged: (v) => role = v ?? 'EMPLOYEE',
-                ),
-              ],
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Modifier l\'utilisateur'),
+          content: SizedBox(
+            width: 400,
+            child: Form(
+              key: formKey,
+              child: Column(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  TextFormField(
+                    controller: nameCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Nom complet'),
+                  ),
+                  const SizedBox(height: 12),
+                  TextFormField(
+                    controller: emailCtrl,
+                    decoration:
+                        const InputDecoration(labelText: 'Adresse email'),
+                    validator: (v) => (v ?? '').contains('@')
+                        ? null
+                        : 'Email invalide',
+                  ),
+                  const SizedBox(height: 12),
+                  DropdownButtonFormField<String>(
+                    value: role,
+                    decoration: const InputDecoration(labelText: 'Rôle'),
+                    items: const [
+                      DropdownMenuItem(value: 'ADMIN', child: Text('Admin')),
+                      DropdownMenuItem(
+                          value: 'RH_MANAGER', child: Text('Responsable RH')),
+                      DropdownMenuItem(
+                          value: 'DIRECTION', child: Text('Direction')),
+                      DropdownMenuItem(
+                          value: 'EMPLOYEE', child: Text('Employé')),
+                    ],
+                    onChanged: (v) => setS(() => role = v ?? 'EMPLOYEE'),
+                  ),
+                ],
+              ),
             ),
           ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              ref.read(adminNotifierProvider).updateUser(
-                    userId: user.id ?? 0,
-                    email: email,
-                    fullName: fullName,
-                    role: role,
-                  );
-              Navigator.pop(ctx);
-            },
-            child: const Text('Mettre à jour'),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showResetPasswordDialog(BuildContext context, dynamic user) {
-    final passwordController = TextEditingController();
-
-    showDialog(
-      context: context,
-      builder: (ctx) => AlertDialog(
-        title: const Text('Réinitialiser le mot de passe'),
-        content: TextField(
-          controller: passwordController,
-          decoration: const InputDecoration(
-            labelText: 'Nouveau mot de passe',
-            hintText: 'Min 6 caractères',
-          ),
-          obscureText: true,
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(ctx),
-            child: const Text('Annuler'),
-          ),
-          TextButton(
-            onPressed: () {
-              if (passwordController.text.length >= 6) {
-                ref.read(adminNotifierProvider).resetUserPassword(
-                      user.id ?? 0,
-                      passwordController.text,
-                    );
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.pop(ctx),
+              child: const Text('Annuler'),
+            ),
+            FilledButton(
+              onPressed: () async {
+                if (!formKey.currentState!.validate()) return;
                 Navigator.pop(ctx);
-                ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Mot de passe réinitialisé')),
-                );
-              }
-            },
-            child: const Text('Réinitialiser'),
-          ),
-        ],
+                await ref.read(adminNotifierProvider).updateUser(
+                      userId: user.id,
+                      email: emailCtrl.text.trim(),
+                      fullName: nameCtrl.text.trim(),
+                      role: role,
+                    );
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
       ),
     );
   }
@@ -301,33 +376,196 @@ class _AdminUsersManagementScreenState
     showDialog(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: const Text('Supprimer l\'utilisateur?'),
-        content: const Text('Cette action est irréversible.'),
+        title: const Text('Désactiver l\'utilisateur ?'),
+        content: const Text(
+            'L\'utilisateur sera désactivé et ne pourra plus se connecter.'),
         actions: [
           TextButton(
             onPressed: () => Navigator.pop(ctx),
             child: const Text('Annuler'),
           ),
-          TextButton(
+          FilledButton(
+            style:
+                FilledButton.styleFrom(backgroundColor: AppColors.error),
             onPressed: () {
-              ref.read(adminNotifierProvider).deleteUser(userId);
               Navigator.pop(ctx);
+              ref.read(adminNotifierProvider).deleteUser(userId);
             },
-            child: const Text('Supprimer', style: TextStyle(color: Colors.red)),
+            child: const Text('Désactiver'),
           ),
         ],
       ),
     );
   }
+}
 
-  String _getRoleType(dynamic role) {
-    final roleStr = role.toString().split('.').last;
-    return {
-      'ADMIN': 'error',
-      'RH_MANAGER': 'warning',
-      'DIRECTION': 'info',
-      'EMPLOYEE': 'success',
-    }[roleStr] ??
-        'info';
+// ── Carte utilisateur ──────────────────────────────────────────────────────────
+
+class _UserCard extends StatelessWidget {
+  const _UserCard({
+    required this.user,
+    required this.onEdit,
+    required this.onDelete,
+    required this.onToggle,
+  });
+
+  final Utilisateur user;
+  final VoidCallback onEdit;
+  final VoidCallback onDelete;
+  final VoidCallback onToggle;
+
+  @override
+  Widget build(BuildContext context) {
+    final roleLabel = _roleLabel(user.role);
+    final roleColor = _roleColor(user.role);
+
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: GrhSurfaceCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+        children: [
+          EmployeeAvatar(name: user.fullName, size: 46),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Row(
+                  children: [
+                    Expanded(
+                      child: Text(
+                        user.fullName,
+                        style: Theme.of(context).textTheme.titleSmall?.copyWith(
+                              fontWeight: FontWeight.w700,
+                            ),
+                        maxLines: 1,
+                        overflow: TextOverflow.ellipsis,
+                      ),
+                    ),
+                    Container(
+                      padding: const EdgeInsets.symmetric(
+                          horizontal: 8, vertical: 3),
+                      decoration: BoxDecoration(
+                        color: roleColor.withValues(alpha: 0.12),
+                        borderRadius: BorderRadius.circular(6),
+                      ),
+                      child: Text(
+                        roleLabel,
+                        style: TextStyle(
+                          color: roleColor,
+                          fontSize: 11,
+                          fontWeight: FontWeight.w600,
+                        ),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 3),
+                Text(
+                  user.email,
+                  style: Theme.of(context)
+                      .textTheme
+                      .bodySmall
+                      ?.copyWith(color: AppColors.textSecondaryLight),
+                  maxLines: 1,
+                  overflow: TextOverflow.ellipsis,
+                ),
+                const SizedBox(height: 4),
+                Row(
+                  children: [
+                    Container(
+                      width: 7,
+                      height: 7,
+                      decoration: BoxDecoration(
+                        shape: BoxShape.circle,
+                        color: user.actif ? AppColors.success : AppColors.error,
+                      ),
+                    ),
+                    const SizedBox(width: 5),
+                    Text(
+                      user.actif ? 'Actif' : 'Inactif',
+                      style: Theme.of(context).textTheme.bodySmall?.copyWith(
+                            color: user.actif
+                                ? AppColors.success
+                                : AppColors.error,
+                            fontWeight: FontWeight.w500,
+                          ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
+          PopupMenuButton<String>(
+            icon: const Icon(Icons.more_vert_rounded,
+                color: AppColors.textSecondaryLight),
+            onSelected: (value) {
+              if (value == 'edit') onEdit();
+              if (value == 'toggle') onToggle();
+              if (value == 'delete') onDelete();
+            },
+            itemBuilder: (ctx) => [
+              const PopupMenuItem(
+                value: 'edit',
+                child: Row(children: [
+                  Icon(Icons.edit_outlined, size: 18),
+                  SizedBox(width: 8),
+                  Text('Modifier'),
+                ]),
+              ),
+              PopupMenuItem(
+                value: 'toggle',
+                child: Row(children: [
+                  Icon(
+                      user.actif
+                          ? Icons.block_rounded
+                          : Icons.check_circle_outline,
+                      size: 18),
+                  const SizedBox(width: 8),
+                  Text(user.actif ? 'Désactiver' : 'Réactiver'),
+                ]),
+              ),
+              const PopupMenuItem(
+                value: 'delete',
+                child: Row(children: [
+                  Icon(Icons.delete_outline, size: 18, color: AppColors.error),
+                  SizedBox(width: 8),
+                  Text('Supprimer',
+                      style: TextStyle(color: AppColors.error)),
+                ]),
+              ),
+            ],
+          ),
+        ],
+      ),
+    ),
+    );
+  }
+
+  String _roleLabel(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return 'Admin';
+      case UserRole.rhManager:
+        return 'Resp. RH';
+      case UserRole.direction:
+        return 'Direction';
+      case UserRole.employee:
+        return 'Employé';
+    }
+  }
+
+  Color _roleColor(UserRole role) {
+    switch (role) {
+      case UserRole.admin:
+        return AppColors.error;
+      case UserRole.rhManager:
+        return AppColors.warning;
+      case UserRole.direction:
+        return AppColors.info;
+      case UserRole.employee:
+        return AppColors.success;
+    }
   }
 }

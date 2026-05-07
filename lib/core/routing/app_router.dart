@@ -16,7 +16,9 @@ import 'package:grh_mobile/features/employees/employee_detail_screen.dart';
 import 'package:grh_mobile/features/employees/employee_list_screen.dart';
 import 'package:grh_mobile/features/paie/paie_calculation_screen.dart';
 import 'package:grh_mobile/features/presences/presence_overview_screen.dart';
+import 'package:grh_mobile/features/notifications/notifications_screen.dart';
 import 'package:grh_mobile/features/rapports/reports_hub_screen.dart';
+import 'package:grh_mobile/features/profile/profile_screen.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
 import 'package:grh_mobile/shared/models/utilisateur.dart';
 
@@ -28,11 +30,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       case UserRole.admin:
         return true; // accès total
       case UserRole.rhManager:
-        return location.startsWith('/rh');
+        return location.startsWith('/rh') || location == AppRoutes.notifications;
       case UserRole.employee:
-        return location.startsWith('/employee');
+        return location.startsWith('/employee') || location == AppRoutes.notifications;
       case UserRole.direction:
-        return location.startsWith('/direction') || location == AppRoutes.rapports;
+        return location.startsWith('/direction') || location == AppRoutes.rapports || location == AppRoutes.notifications;
     }
   }
 
@@ -121,6 +123,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       GoRoute(
         path: AppRoutes.rapports,
         builder: (context, state) => const ReportsHubScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.notifications,
+        builder: (context, state) => const NotificationsScreen(),
+      ),
+      GoRoute(
+        path: AppRoutes.profile,
+        builder: (context, state) => const ProfileScreen(),
       ),
     ],
   );

@@ -10,6 +10,7 @@ import org.springframework.http.ContentDisposition;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.http.ResponseEntity;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -48,6 +49,26 @@ public class PaieController {
         return ResponseEntity.ok()
             .header(HttpHeaders.CONTENT_DISPOSITION, ContentDisposition.attachment().filename("bulletin-" + id + ".pdf").build().toString())
             .contentType(MediaType.APPLICATION_PDF)
+            .body(content);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
+    @PostMapping("/validate")
+    public Map<String, Object> validatePayroll(@Valid @RequestBody PayrollPeriodRequest request) {
+        return paieService.validateForPeriod(request);
+    }
+
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
+    @GetMapping("/export/csv")
+    public ResponseEntity<byte[]> exportCsv(
+            @RequestParam int month,
+            @RequestParam int year) {
+        byte[] content = paieService.exportCsv(month, year);
+        String filename = "paie-" + year + "-" + String.format("%02d", month) + ".csv";
+        return ResponseEntity.ok()
+            .header(HttpHeaders.CONTENT_DISPOSITION,
+                ContentDisposition.attachment().filename(filename).build().toString())
+            .contentType(MediaType.parseMediaType("text/csv;charset=UTF-8"))
             .body(content);
     }
 }

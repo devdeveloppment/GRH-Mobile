@@ -2,9 +2,12 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:url_launcher/url_launcher.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/conge_provider.dart';
+import 'package:grh_mobile/core/providers/employee_provider.dart';
 import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/core/providers/paie_provider.dart';
 import 'package:grh_mobile/core/providers/presence_provider.dart';
@@ -17,6 +20,38 @@ import 'package:grh_mobile/shared/models/notification_model.dart';
 import 'package:grh_mobile/shared/models/presence.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/status_badge.dart';
+
+// ── Providers pour les sous-onglets employé ───────────────────────────────────
+
+final _myDocumentsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final resp = await api.get<Map<String, dynamic>>('/employees/me/documents');
+  return (resp.data?['items'] as List?)
+          ?.whereType<Map<String, dynamic>>()
+          .toList() ??
+      [];
+});
+
+final _myObjectifsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final resp = await api.get<Map<String, dynamic>>('/employees/me/objectifs');
+  return (resp.data?['items'] as List?)
+          ?.whereType<Map<String, dynamic>>()
+          .toList() ??
+      [];
+});
+
+final _myEvaluationsProvider =
+    FutureProvider.autoDispose<List<Map<String, dynamic>>>((ref) async {
+  final api = ref.read(apiServiceProvider);
+  final resp = await api.get<Map<String, dynamic>>('/employees/me/evaluations');
+  return (resp.data?['items'] as List?)
+          ?.whereType<Map<String, dynamic>>()
+          .toList() ??
+      [];
+});
 
 // ─────────────────────────────────────────────────────────────────────────────
 // DESIGN TOKENS
@@ -611,6 +646,284 @@ class _PresencesTab extends StatefulWidget {
 }
 
 class _PresencesTabState extends State<_PresencesTab> {
+  DateTime? _selectedAbsenceDate;
+  String _absenceMotif = '';
+  Presence? _selectedAbsenceToJustify;
+  String _justificationText = '';
+
+  Future<void> _effectuerPointage(String type) async {
+    final presence = widget.presence;
+    
+    // Coordonnées par défaut (À remplacer par geolocator si désiré)
+    const double latitude = 0.0;
+    const double longitude = 0.0;
+
+    // Afficher un indicateur de chargement
+    if (!mounted) return;
+    ScaffoldMessenger.of(context).clearSnackBars();
+
+    final result = type == 'ENTREE'
+        ? await presence.pointageEntree(latitude: latitude, longitude: longitude)
+        : await presence.pointageSortie(latitude: latitude, longitude: longitude);
+
+    if (!mounted) return;
+
+    if (result != null && result['statut'] == 'OK') {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            type == 'ENTREE'
+                ? '✓ Pointage entrée enregistré à ${_formatHeure(result['heure'])}'
+                : '✓ Pointage sortie enregistré à ${_formatHeure(result['heure'])}',
+          ),
+          backgroundColor: AppColors.success,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    } else {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(
+            'Erreur lors du pointage: ${presence.pointerError ?? 'Erreur inconnue'}',
+          ),
+          backgroundColor: AppColors.error,
+          duration: const Duration(seconds: 3),
+        ),
+      );
+    }
+  }
+
+  Future<void> _showReportAbsenceDialog() async {
+    _selectedAbsenceDate = null;
+    _absenceMotif = '';
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Signaler une absence'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Date picker
+              GestureDetector(
+                onTap: () async {
+                  final date = await showDatePicker(
+                    context: context,
+                    initialDate: DateTime.now(),
+                    firstDate: DateTime.now().subtract(const Duration(days: 30)),
+                    lastDate: DateTime.now(),
+                  );
+                  if (date != null) {
+                    setState(() => _selectedAbsenceDate = date);
+                  }
+                },
+                child: Container(
+                  padding: const EdgeInsets.all(12),
+                  decoration: BoxDecoration(
+                    border: Border.all(color: AppColors.accent),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Row(
+                    children: [
+                      const Icon(Icons.calendar_today_rounded, color: AppColors.accent),
+                      const SizedBox(width: 12),
+                      Text(
+                        _selectedAbsenceDate == null
+                            ? 'Choisir une date'
+                            : _selectedAbsenceDate.toString().split(' ')[0],
+                        style: const TextStyle(fontSize: 14),
+                      ),
+                    ],
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Motif field
+              TextField(
+                onChanged: (v) => _absenceMotif = v,
+                decoration: InputDecoration(
+                  hintText: 'Motif de l\'absence',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                minLines: 2,
+                maxLines: 4,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: _selectedAbsenceDate == null || _absenceMotif.isEmpty
+                ? null
+                : () async {
+                    Navigator.pop(context);
+                    final result = await widget.presence.reportAbsence(
+                      date: _selectedAbsenceDate!,
+                      motif: _absenceMotif,
+                    );
+
+                    if (!mounted) return;
+
+                    if (result != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('✓ Absence signalée avec succès'),
+                          backgroundColor: AppColors.success,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Erreur: ${widget.presence.absenceError ?? 'Erreur inconnue'}',
+                          ),
+                          backgroundColor: AppColors.error,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+            ),
+            child: const Text('Signaler'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  Future<void> _showJustifyAbsenceDialog() async {
+    final presence = widget.presence;
+    
+    // Charger les absences en attente
+    await presence.loadAbsencesEnAttente();
+
+    if (!mounted) return;
+
+    if (presence.absencesEnAttente.isEmpty) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Aucune absence en attente de justification'),
+          backgroundColor: AppColors.info,
+        ),
+      );
+      return;
+    }
+
+    _selectedAbsenceToJustify = null;
+    _justificationText = '';
+
+    if (!mounted) return;
+    await showDialog(
+      context: context,
+      builder: (_) => AlertDialog(
+        title: const Text('Justifier une absence'),
+        content: SingleChildScrollView(
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              // Liste des absences
+              DropdownButtonFormField<Presence>(
+                value: _selectedAbsenceToJustify,
+                items: presence.absencesEnAttente
+                    .map(
+                      (a) => DropdownMenuItem(
+                        value: a,
+                        child: Text('${a.date.toString().split(' ')[0]} - ${a.statut}'),
+                      ),
+                    )
+                    .toList(),
+                onChanged: (a) => setState(() => _selectedAbsenceToJustify = a),
+                decoration: InputDecoration(
+                  labelText: 'Choisir une absence',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+              ),
+              const SizedBox(height: 16),
+              // Justification field
+              TextField(
+                onChanged: (v) => _justificationText = v,
+                decoration: InputDecoration(
+                  hintText: 'Votre justification',
+                  border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                ),
+                minLines: 3,
+                maxLines: 6,
+              ),
+            ],
+          ),
+        ),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(context),
+            child: const Text('Annuler'),
+          ),
+          ElevatedButton(
+            onPressed: _selectedAbsenceToJustify == null || _justificationText.isEmpty
+                ? null
+                : () async {
+                    Navigator.pop(context);
+                    final result = await presence.justifyAbsence(
+                      presenceId: _selectedAbsenceToJustify!.id,
+                      justification: _justificationText,
+                    );
+
+                    if (!mounted) return;
+
+                    if (result != null) {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: const Text('✓ Absence justifiée avec succès'),
+                          backgroundColor: AppColors.success,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    } else {
+                      ScaffoldMessenger.of(context).showSnackBar(
+                        SnackBar(
+                          content: Text(
+                            'Erreur: ${presence.absenceError ?? 'Erreur inconnue'}',
+                          ),
+                          backgroundColor: AppColors.error,
+                          duration: const Duration(seconds: 3),
+                        ),
+                      );
+                    }
+                  },
+            style: ElevatedButton.styleFrom(
+              backgroundColor: AppColors.accent,
+            ),
+            child: const Text('Justifier'),
+          ),
+        ],
+      ),
+    );
+  }
+
+  String _formatHeure(dynamic heure) {
+    if (heure == null) return '--:--';
+    try {
+      final dt = DateTime.parse(heure.toString());
+      return '${dt.hour.toString().padLeft(2, '0')}:${dt.minute.toString().padLeft(2, '0')}';
+    } catch (_) {
+      return '--:--';
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final presence = widget.presence;
@@ -621,6 +934,52 @@ class _PresencesTabState extends State<_PresencesTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
+          // ── Boutons de pointage ────────────────────────────────────────
+          Row(
+            children: [
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: presence.isPointerLoading
+                      ? null
+                      : () => _effectuerPointage('ENTREE'),
+                  icon: Icon(presence.isPointerLoading
+                      ? null
+                      : Icons.login_rounded),
+                  label: Text(presence.isPointerLoading
+                      ? 'Pointage en cours...'
+                      : 'Pointer Entrée'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.accent,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+              const SizedBox(width: 12),
+              Expanded(
+                child: ElevatedButton.icon(
+                  onPressed: presence.isPointerLoading
+                      ? null
+                      : () => _effectuerPointage('SORTIE'),
+                  icon: Icon(presence.isPointerLoading
+                      ? null
+                      : Icons.logout_rounded),
+                  label: Text(presence.isPointerLoading
+                      ? 'Pointage en cours...'
+                      : 'Pointer Sortie'),
+                  style: ElevatedButton.styleFrom(
+                    backgroundColor: AppColors.error,
+                    foregroundColor: Colors.white,
+                    disabledBackgroundColor: Colors.grey,
+                    padding: const EdgeInsets.symmetric(vertical: 12),
+                  ),
+                ),
+              ),
+            ],
+          ),
+          const SizedBox(height: 20),
+
           // ── Month navigator ───────────────────────────────────────────
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
@@ -1299,13 +1658,7 @@ class _PayslipDetail extends StatelessWidget {
               shape: RoundedRectangleBorder(
                   borderRadius: BorderRadius.circular(12)),
             ),
-            onPressed: () {
-              ScaffoldMessenger.of(context).showSnackBar(
-                const SnackBar(
-                    content: Text(
-                        'Voir bulletin — GET /paie/${0}/bulletin/pdf')),
-              );
-            },
+            onPressed: () => _download(context),
             icon: const Icon(Icons.remove_red_eye_outlined, size: 18),
             label: const Text('Voir le bulletin détaillé',
                 style: TextStyle(
@@ -1423,34 +1776,32 @@ class _PlusTab extends StatelessWidget {
               _MenuItem(
                 icon: Icons.folder_outlined,
                 label: 'Mes documents',
-                onTap: () => _stub(context, 'Mes documents — GET /documents/me'),
+                onTap: () => _showSheet(context, const _DocumentsSheet()),
               ),
               _MenuItem(
                 icon: Icons.flag_outlined,
                 label: 'Mes objectifs',
-                onTap: () => _stub(context, 'Mes objectifs — GET /objectifs/me'),
+                onTap: () => _showSheet(context, const _ObjectifsSheet()),
               ),
               _MenuItem(
                 icon: Icons.star_border_rounded,
                 label: 'Mes évaluations',
-                onTap: () =>
-                    _stub(context, 'Mes évaluations — GET /evaluations/me'),
+                onTap: () => _showSheet(context, const _EvaluationsSheet()),
               ),
               _MenuItem(
                 icon: Icons.people_outline_rounded,
                 label: 'Annuaire des employés',
-                onTap: () => _stub(context, 'Annuaire — GET /employees'),
+                onTap: () => _showSheet(context, const _AnnuaireSheet()),
               ),
               _MenuItem(
                 icon: Icons.settings_outlined,
                 label: 'Paramètres',
-                onTap: () =>
-                    _stub(context, 'Paramètres — GET /settings'),
+                onTap: () => _showSheet(context, const _ParametresSheet()),
               ),
               _MenuItem(
                 icon: Icons.help_outline_rounded,
                 label: 'Aide et support',
-                onTap: () {},
+                onTap: () => _showSheet(context, const _AideSheet()),
                 isLast: true,
               ),
             ],
@@ -1472,14 +1823,24 @@ class _PlusTab extends StatelessWidget {
     );
   }
 
-  void _stub(BuildContext ctx, String msg) {
-    ScaffoldMessenger.of(ctx).showSnackBar(
-      SnackBar(content: Text(msg), duration: const Duration(seconds: 2)),
+  void _showSheet(BuildContext ctx, Widget sheet) {
+    showModalBottomSheet<void>(
+      context: ctx,
+      isScrollControlled: true,
+      backgroundColor: Colors.transparent,
+      builder: (_) => sheet,
     );
   }
 
   void _showProfileSheet(BuildContext context, Employe? emp) {
-    if (emp == null) return;
+    if (emp == null) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        const SnackBar(
+          content: Text('Chargement du profil en cours, veuillez patienter.'),
+        ),
+      );
+      return;
+    }
     showModalBottomSheet<void>(
       context: context,
       isScrollControlled: true,
@@ -2495,6 +2856,832 @@ class _DateRow extends StatelessWidget {
           ),
           const Icon(Icons.calendar_today_outlined,
               color: AppColors.text2, size: 18),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — handle + title helper
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _SheetScaffold extends StatelessWidget {
+  const _SheetScaffold({
+    required this.title,
+    required this.child,
+    this.action,
+    this.initialSize = 0.75,
+  });
+
+  final String title;
+  final Widget child;
+  final Widget? action;
+  final double initialSize;
+
+  @override
+  Widget build(BuildContext context) {
+    return DraggableScrollableSheet(
+      initialChildSize: initialSize,
+      maxChildSize: 0.95,
+      minChildSize: 0.4,
+      builder: (ctx, scroll) => Container(
+        decoration: const BoxDecoration(
+          color: Colors.white,
+          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+        ),
+        child: Column(
+          children: [
+            const SizedBox(height: 12),
+            Container(
+              width: 40,
+              height: 4,
+              decoration: BoxDecoration(
+                color: const Color(0xFFDDDDDD),
+                borderRadius: BorderRadius.circular(2),
+              ),
+            ),
+            Padding(
+              padding: const EdgeInsets.fromLTRB(20, 16, 8, 8),
+              child: Row(
+                children: [
+                  Expanded(
+                    child: Text(title,
+                        style: const TextStyle(
+                          fontSize: 16,
+                          fontWeight: FontWeight.w700,
+                          color: AppColors.text1,
+                        )),
+                  ),
+                  if (action != null) action!,
+                ],
+              ),
+            ),
+            const Divider(height: 1, color: Color(0xFFF0F0F0)),
+            Expanded(child: child),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Mes Documents
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _DocumentsSheet extends ConsumerWidget {
+  const _DocumentsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_myDocumentsProvider);
+    return _SheetScaffold(
+      title: 'Mes documents',
+      child: async.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        error: (e, _) => Center(
+          child: Text('Erreur de chargement',
+              style: const TextStyle(color: AppColors.error)),
+        ),
+        data: (docs) => docs.isEmpty
+            ? const Center(
+                child: Text('Aucun document disponible.',
+                    style: TextStyle(color: AppColors.text2, fontSize: 13)))
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: docs.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                itemBuilder: (ctx, i) => _DocumentTile(doc: docs[i]),
+              ),
+      ),
+    );
+  }
+}
+
+class _DocumentTile extends StatelessWidget {
+  const _DocumentTile({required this.doc});
+  final Map<String, dynamic> doc;
+
+  static IconData _iconFor(String type) {
+    switch (type.toLowerCase()) {
+      case 'pdf': return Icons.picture_as_pdf_outlined;
+      case 'image': return Icons.image_outlined;
+      case 'xlsx':
+      case 'xls': return Icons.table_chart_outlined;
+      default: return Icons.insert_drive_file_outlined;
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final nom = doc['nom'] as String? ?? 'Document';
+    final type = doc['type'] as String? ?? '';
+    final tailleKo = doc['tailleKo'] as int? ?? 0;
+    final url = doc['url'] as String?;
+
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          Container(
+            width: 42,
+            height: 42,
+            decoration: BoxDecoration(
+              color: AppColors.primary.withOpacity(0.08),
+              borderRadius: BorderRadius.circular(10),
+            ),
+            child: Icon(_iconFor(type), color: AppColors.primary, size: 20),
+          ),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(nom,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text1)),
+                const SizedBox(height: 2),
+                Text('${tailleKo} Ko · $type',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.text2)),
+              ],
+            ),
+          ),
+          if (url != null && url.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.download_outlined,
+                  color: AppColors.primary, size: 20),
+              tooltip: 'Télécharger',
+              onPressed: () async {
+                final uri = Uri.tryParse(url);
+                if (uri != null && await canLaunchUrl(uri)) {
+                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                }
+              },
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Mes Objectifs
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ObjectifsSheet extends ConsumerWidget {
+  const _ObjectifsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_myObjectifsProvider);
+    return _SheetScaffold(
+      title: 'Mes objectifs',
+      child: async.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        error: (_, __) => const Center(
+          child: Text('Erreur de chargement',
+              style: TextStyle(color: AppColors.error)),
+        ),
+        data: (items) => items.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.flag_outlined,
+                        color: AppColors.text2.withOpacity(0.4), size: 48),
+                    const SizedBox(height: 12),
+                    const Text('Aucun objectif défini.',
+                        style: TextStyle(color: AppColors.text2, fontSize: 13)),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                itemBuilder: (ctx, i) {
+                  final item = items[i];
+                  final titre = item['titre'] as String? ?? 'Objectif';
+                  final statut = item['statut'] as String? ?? 'EN_COURS';
+                  final desc = item['description'] as String?;
+                  final (label, color) = switch (statut) {
+                    'ATTEINT' => ('Atteint', AppColors.success),
+                    'NON_ATTEINT' => ('Non atteint', AppColors.error),
+                    _ => ('En cours', AppColors.accent),
+                  };
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(
+                          child: Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              Text(titre,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.text1)),
+                              if (desc != null && desc.isNotEmpty) ...[
+                                const SizedBox(height: 4),
+                                Text(desc,
+                                    style: const TextStyle(
+                                        fontSize: 12, color: AppColors.text2)),
+                              ],
+                            ],
+                          ),
+                        ),
+                        const SizedBox(width: 12),
+                        Container(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 8, vertical: 3),
+                          decoration: BoxDecoration(
+                            color: color.withOpacity(0.1),
+                            borderRadius: BorderRadius.circular(20),
+                          ),
+                          child: Text(label,
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w600,
+                                  color: color)),
+                        ),
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Mes Évaluations
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _EvaluationsSheet extends ConsumerWidget {
+  const _EvaluationsSheet();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final async = ref.watch(_myEvaluationsProvider);
+    return _SheetScaffold(
+      title: 'Mes évaluations',
+      child: async.when(
+        loading: () =>
+            const Center(child: CircularProgressIndicator(color: AppColors.accent)),
+        error: (_, __) => const Center(
+          child: Text('Erreur de chargement',
+              style: TextStyle(color: AppColors.error)),
+        ),
+        data: (items) => items.isEmpty
+            ? Center(
+                child: Column(
+                  mainAxisSize: MainAxisSize.min,
+                  children: [
+                    Icon(Icons.star_border_rounded,
+                        color: AppColors.text2.withOpacity(0.4), size: 48),
+                    const SizedBox(height: 12),
+                    const Text('Aucune évaluation enregistrée.',
+                        style: TextStyle(color: AppColors.text2, fontSize: 13)),
+                  ],
+                ),
+              )
+            : ListView.separated(
+                padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+                itemCount: items.length,
+                separatorBuilder: (_, __) =>
+                    const Divider(height: 1, color: Color(0xFFF5F5F5)),
+                itemBuilder: (ctx, i) {
+                  final item = items[i];
+                  final periode = item['periode'] as String? ?? '';
+                  final note = item['note'];
+                  final commentaire = item['commentaire'] as String?;
+                  return Padding(
+                    padding: const EdgeInsets.symmetric(vertical: 14),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Row(
+                          children: [
+                            Expanded(
+                              child: Text(periode,
+                                  style: const TextStyle(
+                                      fontSize: 13,
+                                      fontWeight: FontWeight.w700,
+                                      color: AppColors.text1)),
+                            ),
+                            if (note != null)
+                              Container(
+                                padding: const EdgeInsets.symmetric(
+                                    horizontal: 10, vertical: 3),
+                                decoration: BoxDecoration(
+                                  color: AppColors.primary.withOpacity(0.1),
+                                  borderRadius: BorderRadius.circular(20),
+                                ),
+                                child: Text('$note / 10',
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        fontWeight: FontWeight.w700,
+                                        color: AppColors.primary)),
+                              ),
+                          ],
+                        ),
+                        if (commentaire != null && commentaire.isNotEmpty) ...[
+                          const SizedBox(height: 6),
+                          Text(commentaire,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.text2)),
+                        ],
+                      ],
+                    ),
+                  );
+                },
+              ),
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Annuaire des employés
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AnnuaireSheet extends ConsumerStatefulWidget {
+  const _AnnuaireSheet();
+
+  @override
+  ConsumerState<_AnnuaireSheet> createState() => _AnnuaireSheetState();
+}
+
+class _AnnuaireSheetState extends ConsumerState<_AnnuaireSheet> {
+  final _search = TextEditingController();
+  String _query = '';
+
+  @override
+  void dispose() {
+    _search.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final prov = ref.watch(employeeNotifierProvider);
+    final employees = prov.employees.where((e) {
+      if (_query.isEmpty) return true;
+      final q = _query.toLowerCase();
+      return e.fullName.toLowerCase().contains(q) ||
+          e.poste.toLowerCase().contains(q) ||
+          e.service.toLowerCase().contains(q);
+    }).toList();
+
+    return _SheetScaffold(
+      title: 'Annuaire',
+      initialSize: 0.85,
+      child: Column(
+        children: [
+          Padding(
+            padding: const EdgeInsets.fromLTRB(20, 12, 20, 8),
+            child: TextField(
+              controller: _search,
+              decoration: InputDecoration(
+                hintText: 'Rechercher un collègue…',
+                hintStyle:
+                    const TextStyle(color: AppColors.textHint, fontSize: 13),
+                prefixIcon: const Icon(Icons.search,
+                    color: AppColors.text2, size: 18),
+                suffixIcon: _query.isNotEmpty
+                    ? IconButton(
+                        icon: const Icon(Icons.clear,
+                            color: AppColors.text2, size: 18),
+                        onPressed: () {
+                          _search.clear();
+                          setState(() => _query = '');
+                        },
+                      )
+                    : null,
+                contentPadding: const EdgeInsets.symmetric(
+                    horizontal: 14, vertical: 10),
+                filled: true,
+                fillColor: const Color(0xFFF5F5F5),
+                border: OutlineInputBorder(
+                    borderRadius: BorderRadius.circular(12),
+                    borderSide: BorderSide.none),
+              ),
+              onChanged: (v) => setState(() => _query = v.trim()),
+            ),
+          ),
+          Expanded(
+            child: prov.isLoading && employees.isEmpty
+                ? const Center(
+                    child: CircularProgressIndicator(color: AppColors.accent))
+                : employees.isEmpty
+                    ? const Center(
+                        child: Text('Aucun résultat.',
+                            style: TextStyle(
+                                color: AppColors.text2, fontSize: 13)))
+                    : ListView.separated(
+                        padding:
+                            const EdgeInsets.fromLTRB(20, 0, 20, 24),
+                        itemCount: employees.length,
+                        separatorBuilder: (_, __) => const Divider(
+                            height: 1, color: Color(0xFFF5F5F5)),
+                        itemBuilder: (ctx, i) =>
+                            _AnnuaireTile(emp: employees[i]),
+                      ),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+class _AnnuaireTile extends StatelessWidget {
+  const _AnnuaireTile({required this.emp});
+  final Employe emp;
+
+  Future<void> _call(String phone) async {
+    final uri = Uri(scheme: 'tel', path: phone);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  Future<void> _email(String email) async {
+    final uri = Uri(scheme: 'mailto', path: email);
+    if (await canLaunchUrl(uri)) await launchUrl(uri);
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 12),
+      child: Row(
+        children: [
+          EmployeeAvatar(name: emp.fullName, size: 42),
+          const SizedBox(width: 14),
+          Expanded(
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(emp.fullName,
+                    style: const TextStyle(
+                        fontSize: 13,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.text1)),
+                const SizedBox(height: 2),
+                Text('${emp.poste} · ${emp.service}',
+                    style: const TextStyle(
+                        fontSize: 11, color: AppColors.text2)),
+              ],
+            ),
+          ),
+          if (emp.telephone != null && emp.telephone!.isNotEmpty)
+            IconButton(
+              icon: const Icon(Icons.phone_outlined,
+                  color: AppColors.primary, size: 20),
+              tooltip: 'Appeler',
+              onPressed: () => _call(emp.telephone!),
+            ),
+          IconButton(
+            icon: const Icon(Icons.email_outlined,
+                color: AppColors.accent, size: 20),
+            tooltip: 'Envoyer un email',
+            onPressed: () => _email(emp.email),
+          ),
+        ],
+      ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Paramètres
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _ParametresSheet extends ConsumerStatefulWidget {
+  const _ParametresSheet();
+
+  @override
+  ConsumerState<_ParametresSheet> createState() => _ParametresSheetState();
+}
+
+class _ParametresSheetState extends ConsumerState<_ParametresSheet> {
+  bool _notificationsEnabled = true;
+  bool _loading = true;
+
+  static const _kNotifKey = 'pref_notif_enabled';
+
+  @override
+  void initState() {
+    super.initState();
+    _loadPrefs();
+  }
+
+  Future<void> _loadPrefs() async {
+    final prefs = await SharedPreferences.getInstance();
+    if (!mounted) return;
+    setState(() {
+      _notificationsEnabled = prefs.getBool(_kNotifKey) ?? true;
+      _loading = false;
+    });
+  }
+
+  Future<void> _setNotif(bool v) async {
+    setState(() => _notificationsEnabled = v);
+    final prefs = await SharedPreferences.getInstance();
+    await prefs.setBool(_kNotifKey, v);
+  }
+
+  Future<void> _showChangePassword() async {
+    final currentCtrl = TextEditingController();
+    final newCtrl = TextEditingController();
+    final confirmCtrl = TextEditingController();
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Changer le mot de passe',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error!,
+                      style: const TextStyle(
+                          color: AppColors.error, fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: currentCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                    labelText: 'Mot de passe actuel',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: newCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                    labelText: 'Nouveau mot de passe',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: confirmCtrl,
+                obscureText: true,
+                decoration: const InputDecoration(
+                    labelText: 'Confirmer',
+                    border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                if (newCtrl.text != confirmCtrl.text) {
+                  setS(() => error = 'Les mots de passe ne correspondent pas.');
+                  return;
+                }
+                if (newCtrl.text.length < 6) {
+                  setS(() => error =
+                      'Le mot de passe doit comporter au moins 6 caractères.');
+                  return;
+                }
+                try {
+                  final api = ref.read(apiServiceProvider);
+                  await api.put<Map<String, dynamic>>(
+                    '/profile/password',
+                    data: {
+                      'currentPassword': currentCtrl.text,
+                      'newPassword': newCtrl.text,
+                    },
+                  );
+                  if (ctx.mounted) Navigator.pop(ctx);
+                  if (mounted) {
+                    ScaffoldMessenger.of(context).showSnackBar(
+                      const SnackBar(
+                          content:
+                              Text('Mot de passe modifié avec succès.')),
+                    );
+                  }
+                } catch (e) {
+                  setS(() => error =
+                      'Mot de passe actuel incorrect ou erreur serveur.');
+                }
+              },
+              child: const Text('Confirmer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    currentCtrl.dispose();
+    newCtrl.dispose();
+    confirmCtrl.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'Paramètres',
+      child: _loading
+          ? const Center(
+              child: CircularProgressIndicator(color: AppColors.accent))
+          : ListView(
+              padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+              children: [
+                const Padding(
+                  padding: EdgeInsets.only(top: 8, bottom: 4),
+                  child: Text('Notifications',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text2,
+                          letterSpacing: 0.5)),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF0F0F0)),
+                  ),
+                  child: SwitchListTile(
+                    title: const Text('Activer les notifications',
+                        style: TextStyle(fontSize: 14, color: AppColors.text1)),
+                    subtitle: const Text('Alertes congés, paie et présences',
+                        style: TextStyle(fontSize: 12, color: AppColors.text2)),
+                    value: _notificationsEnabled,
+                    activeColor: AppColors.primary,
+                    onChanged: _setNotif,
+                  ),
+                ),
+                const SizedBox(height: 20),
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 4),
+                  child: Text('Sécurité',
+                      style: TextStyle(
+                          fontSize: 12,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.text2,
+                          letterSpacing: 0.5)),
+                ),
+                Container(
+                  decoration: BoxDecoration(
+                    color: Colors.white,
+                    borderRadius: BorderRadius.circular(12),
+                    border: Border.all(color: const Color(0xFFF0F0F0)),
+                  ),
+                  child: ListTile(
+                    leading: const Icon(Icons.lock_outline,
+                        color: AppColors.text2, size: 20),
+                    title: const Text('Changer le mot de passe',
+                        style: TextStyle(fontSize: 14, color: AppColors.text1)),
+                    trailing: const Icon(Icons.chevron_right_rounded,
+                        color: Color(0xFFCCCCCC), size: 20),
+                    onTap: _showChangePassword,
+                  ),
+                ),
+              ],
+            ),
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// BOTTOM SHEET — Aide et Support
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _AideSheet extends StatelessWidget {
+  const _AideSheet();
+
+  static const _faq = [
+    (
+      q: 'Comment soumettre une demande de congé ?',
+      a: 'Rendez-vous dans l\'onglet "Congés", appuyez sur "Nouvelle demande" et remplissez le formulaire. Votre manager sera notifié automatiquement.',
+    ),
+    (
+      q: 'Comment consulter mon bulletin de salaire ?',
+      a: 'Dans l\'onglet "Paie", sélectionnez la période souhaitée puis appuyez sur "Voir le bulletin détaillé" pour télécharger le PDF.',
+    ),
+    (
+      q: 'Que faire en cas d\'oubli de pointage ?',
+      a: 'Contactez votre responsable RH ou signalez l\'anomalie via le bouton de support ci-dessous. Une correction manuelle sera effectuée.',
+    ),
+    (
+      q: 'Comment modifier mes informations personnelles ?',
+      a: 'Les modifications doivent être effectuées par votre responsable RH. Contactez le support pour toute demande de mise à jour.',
+    ),
+    (
+      q: 'Mon solde de congés est incorrect, que faire ?',
+      a: 'Vérifiez d\'abord l\'historique de vos congés dans l\'onglet correspondant. Si une erreur persiste, contactez votre responsable RH.',
+    ),
+  ];
+
+  Future<void> _contactSupport(BuildContext ctx) async {
+    final uri = Uri(
+      scheme: 'mailto',
+      path: 'support@grhmobile.tg',
+      queryParameters: {'subject': 'Demande d\'assistance GRH-Mobile'},
+    );
+    if (await canLaunchUrl(uri)) {
+      await launchUrl(uri);
+    } else {
+      if (ctx.mounted) {
+        ScaffoldMessenger.of(ctx).showSnackBar(
+          const SnackBar(
+              content: Text(
+                  'Contactez le support : support@grhmobile.tg')),
+        );
+      }
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    return _SheetScaffold(
+      title: 'Aide et support',
+      initialSize: 0.85,
+      child: ListView(
+        padding: const EdgeInsets.fromLTRB(20, 8, 20, 24),
+        children: [
+          const Padding(
+            padding: EdgeInsets.only(bottom: 8),
+            child: Text('Questions fréquentes',
+                style: TextStyle(
+                    fontSize: 12,
+                    fontWeight: FontWeight.w600,
+                    color: AppColors.text2,
+                    letterSpacing: 0.5)),
+          ),
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(12),
+              border: Border.all(color: const Color(0xFFF0F0F0)),
+            ),
+            child: Column(
+              children: _faq
+                  .map((entry) => ExpansionTile(
+                        tilePadding:
+                            const EdgeInsets.symmetric(horizontal: 16),
+                        childrenPadding: const EdgeInsets.fromLTRB(
+                            16, 0, 16, 14),
+                        title: Text(entry.q,
+                            style: const TextStyle(
+                                fontSize: 13,
+                                fontWeight: FontWeight.w600,
+                                color: AppColors.text1)),
+                        children: [
+                          Text(entry.a,
+                              style: const TextStyle(
+                                  fontSize: 12, color: AppColors.text2,
+                                  height: 1.5)),
+                        ],
+                      ))
+                  .toList(),
+            ),
+          ),
+          const SizedBox(height: 24),
+          SizedBox(
+            height: 50,
+            child: ElevatedButton.icon(
+              style: ElevatedButton.styleFrom(
+                backgroundColor: AppColors.primary,
+                foregroundColor: Colors.white,
+                shape: RoundedRectangleBorder(
+                    borderRadius: BorderRadius.circular(12)),
+              ),
+              onPressed: () => _contactSupport(context),
+              icon: const Icon(Icons.support_agent_outlined, size: 20),
+              label: const Text('Contacter le support',
+                  style: TextStyle(
+                      fontSize: 14, fontWeight: FontWeight.w600)),
+            ),
+          ),
         ],
       ),
     );

@@ -110,6 +110,21 @@ class ApiService {
     return saveFileBytes(bytes, filename);
   }
 
+  Future<String?> postAndDownload(
+    String path,
+    Map<String, dynamic> data,
+    String filename,
+  ) async {
+    final response = await _dio.post<List<int>>(
+      path,
+      data: data,
+      options: Options(responseType: ResponseType.bytes),
+    );
+    final bytes = response.data;
+    if (bytes == null || bytes.isEmpty) return null;
+    return saveFileBytes(bytes, filename);
+  }
+
   static List<String> _readCertificatePins() {
     return (dotenv.env['CERT_SHA256_PINS'] ?? '')
         .split(',')

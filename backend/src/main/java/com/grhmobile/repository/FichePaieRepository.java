@@ -15,5 +15,7 @@ public interface FichePaieRepository extends JpaRepository<FichePaie, Long> {
 
     Optional<FichePaie> findByEmployeIdAndPeriode(Long employeId, String periode);
 
+    List<FichePaie> findByPeriodeBetweenOrderByPeriodeAscEmployeNomAsc(String debut, String fin);
+
     long countByPeriode(String periode);
 }

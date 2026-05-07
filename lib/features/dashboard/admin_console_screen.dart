@@ -4,8 +4,12 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
+import 'package:grh_mobile/core/providers/admin_provider.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/dashboard_provider.dart';
+import 'package:grh_mobile/core/providers/notification_provider.dart';
+import 'package:grh_mobile/core/providers/service_provider.dart';
+import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 import 'package:grh_mobile/shared/widgets/status_badge.dart';
@@ -20,9 +24,6 @@ class AdminConsoleScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
-  bool _ssoEnabled = true;
-  bool _notifEnabled = true;
-
   String get _pageTitle => switch (widget.sectionTitle) {
         'Utilisateurs'  => 'Gestion des utilisateurs',
         'Rôles'         => 'Rôles & permissions',
@@ -101,12 +102,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
     return switch (widget.sectionTitle) {
       'Utilisateurs' => const _UsersSection(),
       'Rôles'        => const _RolesSection(),
-      'Paramètres'   => _SettingsSection(
-          ssoEnabled: _ssoEnabled,
-          notifEnabled: _notifEnabled,
-          onSsoChanged: (v) => setState(() => _ssoEnabled = v),
-          onNotifChanged: (v) => setState(() => _notifEnabled = v),
-        ),
+      'Paramètres'   => const _SettingsSection(),
       'Départements' => const _DepartmentsSection(),
       _ => _DashboardSection(isWide: isWide),
     };
@@ -116,7 +112,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
 
 // ── Top bar ──────────────────────────────────────────────────────────────────
 
-class _AdminTopBar extends StatelessWidget {
+class _AdminTopBar extends ConsumerWidget {
   const _AdminTopBar({
     required this.userName,
     required this.userRole,
@@ -128,7 +124,9 @@ class _AdminTopBar extends StatelessWidget {
   final VoidCallback? onMenuTap;
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final unread = ref.watch(
+        notificationNotifierProvider.select((n) => n.unreadCount));
     return Container(
       height: 64,
       padding: const EdgeInsets.symmetric(horizontal: 20),
@@ -190,31 +188,31 @@ class _AdminTopBar extends StatelessWidget {
               IconButton(
                 icon: const Icon(Icons.notifications_outlined,
                     color: AppColors.text1, size: 22),
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(content: Text('Notifications — GET /api/notifications'), duration: Duration(seconds: 2)),
-                ),
+                onPressed: () => context.go(AppRoutes.notifications),
                 padding: EdgeInsets.zero,
                 constraints: const BoxConstraints(minWidth: 36, minHeight: 36),
               ),
-              Positioned(
-                right: 0,
-                top: 0,
-                child: Container(
-                  width: 18,
-                  height: 18,
-                  decoration: const BoxDecoration(
-                    color: AppColors.accent,
-                    shape: BoxShape.circle,
-                  ),
-                  child: const Center(
-                    child: Text('8',
-                        style: TextStyle(
-                            fontSize: 9,
-                            color: Colors.white,
-                            fontWeight: FontWeight.w700)),
+              if (unread > 0)
+                Positioned(
+                  right: 0,
+                  top: 0,
+                  child: Container(
+                    width: 18,
+                    height: 18,
+                    decoration: const BoxDecoration(
+                      color: AppColors.accent,
+                      shape: BoxShape.circle,
+                    ),
+                    child: Center(
+                      child: Text(
+                          unread > 99 ? '99+' : '$unread',
+                          style: const TextStyle(
+                              fontSize: 9,
+                              color: Colors.white,
+                              fontWeight: FontWeight.w700)),
+                    ),
                   ),
                 ),
-              ),
             ],
           ),
           const SizedBox(width: 12),
@@ -1416,29 +1414,199 @@ class _BirthdaysSection extends StatelessWidget {
 // SECTION : Gestion des utilisateurs
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _UsersSection extends StatefulWidget {
+class _UsersSection extends ConsumerStatefulWidget {
   const _UsersSection();
   @override
-  State<_UsersSection> createState() => _UsersSectionState();
+  ConsumerState<_UsersSection> createState() => _UsersSectionState();
 }
 
-class _UsersSectionState extends State<_UsersSection> {
-  static const _users = [
-    (name: 'Super Admin', email: 'admin@grh-mobile.com', role: 'ADMIN', actif: true),
-    (name: 'Aminata Sanni', email: 'rh@grh-mobile.com', role: 'RH_MANAGER', actif: true),
-    (name: 'Komi Tsevi', email: 'direction@grh-mobile.com', role: 'DIRECTION', actif: true),
-    (name: 'Ama Tossou', email: 'employee@grh-mobile.com', role: 'EMPLOYEE', actif: true),
-    (name: 'Kokou Mensah', email: 'kokou.mensah@grh-mobile.com', role: 'EMPLOYEE', actif: true),
-    (name: 'Yaw Lawson', email: 'yaw.lawson@grh-mobile.com', role: 'EMPLOYEE', actif: false),
-  ];
-
+class _UsersSectionState extends ConsumerState<_UsersSection> {
   String _query = '';
+
+  Future<void> _showCreateDialog() async {
+    final emailCtrl = TextEditingController();
+    final nameCtrl = TextEditingController();
+    String selectedRole = 'EMPLOYEE';
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Nouvel utilisateur',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error!,
+                      style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Nom complet', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                keyboardType: TextInputType.emailAddress,
+                decoration: const InputDecoration(
+                    labelText: 'Email', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                    labelText: 'Rôle', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'ADMIN', child: Text('Administrateur')),
+                  DropdownMenuItem(value: 'RH_MANAGER', child: Text('RH Manager')),
+                  DropdownMenuItem(value: 'DIRECTION', child: Text('Direction')),
+                  DropdownMenuItem(value: 'EMPLOYEE', child: Text('Employé')),
+                ],
+                onChanged: (v) => setS(() => selectedRole = v ?? selectedRole),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                if (nameCtrl.text.trim().isEmpty ||
+                    emailCtrl.text.trim().isEmpty) {
+                  setS(() => error = 'Veuillez remplir tous les champs.');
+                  return;
+                }
+                final ok = await ref.read(adminNotifierProvider).createUser(
+                      email: emailCtrl.text.trim(),
+                      fullName: nameCtrl.text.trim(),
+                      role: selectedRole,
+                    );
+                if (ok && ctx.mounted) {
+                  Navigator.pop(ctx);
+                } else {
+                  setS(() =>
+                      error = ref.read(adminNotifierProvider).errorMessage ??
+                          'Erreur lors de la création.');
+                }
+              },
+              child: const Text('Créer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    emailCtrl.dispose();
+    nameCtrl.dispose();
+  }
+
+  Future<void> _showEditDialog(Utilisateur u) async {
+    final nameCtrl = TextEditingController(text: u.fullName);
+    final emailCtrl = TextEditingController(text: u.email);
+    String selectedRole = u.role.apiValue;
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Modifier l\'utilisateur',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error!,
+                      style: const TextStyle(color: AppColors.error, fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: nameCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Nom complet', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: emailCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Email', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              DropdownButtonFormField<String>(
+                value: selectedRole,
+                decoration: const InputDecoration(
+                    labelText: 'Rôle', border: OutlineInputBorder()),
+                items: const [
+                  DropdownMenuItem(value: 'ADMIN', child: Text('Administrateur')),
+                  DropdownMenuItem(value: 'RH_MANAGER', child: Text('RH Manager')),
+                  DropdownMenuItem(value: 'DIRECTION', child: Text('Direction')),
+                  DropdownMenuItem(value: 'EMPLOYEE', child: Text('Employé')),
+                ],
+                onChanged: (v) => setS(() => selectedRole = v ?? selectedRole),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                final ok = await ref.read(adminNotifierProvider).updateUser(
+                      userId: u.id,
+                      fullName: nameCtrl.text.trim(),
+                      email: emailCtrl.text.trim(),
+                      role: selectedRole,
+                    );
+                if (ok && ctx.mounted) {
+                  Navigator.pop(ctx);
+                } else {
+                  setS(() =>
+                      error = ref.read(adminNotifierProvider).errorMessage ??
+                          'Erreur lors de la mise à jour.');
+                }
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nameCtrl.dispose();
+    emailCtrl.dispose();
+  }
 
   @override
   Widget build(BuildContext context) {
-    final filtered = _users
+    final prov = ref.watch(adminNotifierProvider);
+    final filtered = prov.users
         .where((u) =>
-            u.name.toLowerCase().contains(_query.toLowerCase()) ||
+            _query.isEmpty ||
+            u.fullName.toLowerCase().contains(_query.toLowerCase()) ||
             u.email.toLowerCase().contains(_query.toLowerCase()))
         .toList();
 
@@ -1459,14 +1627,16 @@ class _UsersSectionState extends State<_UsersSection> {
                   children: [
                     const Padding(
                       padding: EdgeInsets.symmetric(horizontal: 10),
-                      child: Icon(Icons.search_rounded, size: 18, color: AppColors.textHint),
+                      child: Icon(Icons.search_rounded,
+                          size: 18, color: AppColors.textHint),
                     ),
                     Expanded(
                       child: TextField(
                         onChanged: (v) => setState(() => _query = v),
                         decoration: const InputDecoration(
                           hintText: 'Rechercher un utilisateur…',
-                          hintStyle: TextStyle(color: AppColors.textHint, fontSize: 13),
+                          hintStyle:
+                              TextStyle(color: AppColors.textHint, fontSize: 13),
                           border: InputBorder.none,
                           isDense: true,
                           contentPadding: EdgeInsets.zero,
@@ -1481,12 +1651,7 @@ class _UsersSectionState extends State<_UsersSection> {
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Formulaire de création utilisateur — POST /api/admin/users'),
-                    duration: Duration(seconds: 2),
-                  ),
-                ),
+                onPressed: _showCreateDialog,
                 icon: const Icon(Icons.person_add_outlined, size: 16),
                 label: const Text('Nouvel utilisateur'),
               ),
@@ -1494,97 +1659,156 @@ class _UsersSectionState extends State<_UsersSection> {
           ],
         ),
         const SizedBox(height: 16),
-        Container(
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.border, width: 0.5),
-          ),
-          child: Column(
-            children: [
-              Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                decoration: const BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+        if (prov.isLoading && filtered.isEmpty)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ))
+        else
+          Container(
+            decoration: BoxDecoration(
+              color: Colors.white,
+              borderRadius: BorderRadius.circular(10),
+              border: Border.all(color: AppColors.border, width: 0.5),
+            ),
+            child: Column(
+              children: [
+                Container(
+                  padding: const EdgeInsets.symmetric(
+                      horizontal: 16, vertical: 12),
+                  decoration: const BoxDecoration(
+                    color: AppColors.surface,
+                    borderRadius:
+                        BorderRadius.vertical(top: Radius.circular(10)),
+                  ),
+                  child: const Row(
+                    children: [
+                      SizedBox(width: 44),
+                      Expanded(
+                          flex: 3,
+                          child: Text('Utilisateur',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text2))),
+                      Expanded(
+                          flex: 2,
+                          child: Text('Email',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text2))),
+                      Expanded(
+                          flex: 2,
+                          child: Text('Rôle',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text2))),
+                      SizedBox(
+                          width: 80,
+                          child: Text('Statut',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text2))),
+                      SizedBox(
+                          width: 80,
+                          child: Text('Actions',
+                              style: TextStyle(
+                                  fontSize: 11,
+                                  fontWeight: FontWeight.w700,
+                                  color: AppColors.text2))),
+                    ],
+                  ),
                 ),
-                child: const Row(
-                  children: [
-                    SizedBox(width: 44),
-                    Expanded(flex: 3, child: Text('Utilisateur', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    Expanded(flex: 2, child: Text('Email', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    Expanded(flex: 2, child: Text('Rôle', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    SizedBox(width: 80, child: Text('Statut', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    SizedBox(width: 80, child: Text('Actions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                  ],
-                ),
-              ),
-              ...filtered.asMap().entries.map((entry) {
-                final i = entry.key;
-                final u = entry.value;
-                return Column(
-                  children: [
-                    if (i > 0)
-                      const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          _UserAvatar(name: u.name),
-                          const SizedBox(width: 10),
-                          Expanded(
-                            flex: 3,
-                            child: Text(u.name,
-                                style: const TextStyle(
-                                    fontSize: 13,
-                                    fontWeight: FontWeight.w600,
-                                    color: AppColors.text1)),
-                          ),
-                          Expanded(
-                            flex: 2,
-                            child: Text(u.email,
-                                style: const TextStyle(fontSize: 12, color: AppColors.text2),
-                                overflow: TextOverflow.ellipsis),
-                          ),
-                          Expanded(flex: 2, child: _RoleBadge(role: u.role)),
-                          SizedBox(
-                            width: 80,
-                            child: StatusBadge(
-                              label: u.actif ? 'Actif' : 'Inactif',
-                              type: u.actif ? 'active' : 'rejected',
-                            ),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Row(
-                              children: [
-                                _IconBtn(
-                                  icon: Icons.edit_outlined,
-                                  color: AppColors.accent,
-                                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Modifier ${u.name} — PUT /api/admin/users'), duration: const Duration(seconds: 2)),
-                                  ),
+                if (filtered.isEmpty)
+                  const Padding(
+                    padding: EdgeInsets.all(24),
+                    child: Text('Aucun utilisateur trouvé.',
+                        style: TextStyle(
+                            fontSize: 13, color: AppColors.text2)),
+                  )
+                else
+                  ...filtered.asMap().entries.map((entry) {
+                    final i = entry.key;
+                    final u = entry.value;
+                    return Column(
+                      children: [
+                        if (i > 0)
+                          const Divider(
+                              height: 1,
+                              thickness: 0.5,
+                              color: AppColors.border),
+                        Padding(
+                          padding: const EdgeInsets.symmetric(
+                              horizontal: 16, vertical: 12),
+                          child: Row(
+                            children: [
+                              _UserAvatar(name: u.fullName),
+                              const SizedBox(width: 10),
+                              Expanded(
+                                flex: 3,
+                                child: Text(u.fullName,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.text1)),
+                              ),
+                              Expanded(
+                                flex: 2,
+                                child: Text(u.email,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.text2),
+                                    overflow: TextOverflow.ellipsis),
+                              ),
+                              Expanded(
+                                  flex: 2,
+                                  child: _RoleBadge(role: u.role.apiValue)),
+                              SizedBox(
+                                width: 80,
+                                child: StatusBadge(
+                                  label: u.actif ? 'Actif' : 'Inactif',
+                                  type: u.actif ? 'active' : 'rejected',
                                 ),
-                                const SizedBox(width: 4),
-                                _IconBtn(
-                                  icon: Icons.block_outlined,
-                                  color: AppColors.error,
-                                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('${u.actif ? 'Désactiver' : 'Activer'} ${u.name} — PUT /api/admin/users/status'), duration: const Duration(seconds: 2)),
-                                  ),
+                              ),
+                              SizedBox(
+                                width: 80,
+                                child: Row(
+                                  children: [
+                                    _IconBtn(
+                                      icon: Icons.edit_outlined,
+                                      color: AppColors.accent,
+                                      onTap: () => _showEditDialog(u),
+                                    ),
+                                    const SizedBox(width: 4),
+                                    _IconBtn(
+                                      icon: u.actif
+                                          ? Icons.block_outlined
+                                          : Icons.check_circle_outline,
+                                      color: u.actif
+                                          ? AppColors.error
+                                          : AppColors.success,
+                                      onTap: () async {
+                                        await ref
+                                            .read(adminNotifierProvider)
+                                            .toggleUser(u.id);
+                                      },
+                                    ),
+                                  ],
                                 ),
-                              ],
-                            ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                  ],
-                );
-              }),
-            ],
+                        ),
+                      ],
+                    );
+                  }),
+              ],
+            ),
           ),
-        ),
       ],
     );
   }
@@ -1772,9 +1996,7 @@ class _RoleCard extends StatelessWidget {
               width: double.infinity,
               height: 36,
               child: OutlinedButton(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  SnackBar(content: Text('Modifier permissions ${r.role} — PUT /api/admin/roles/${r.role}/permissions'), duration: const Duration(seconds: 2)),
-                ),
+                onPressed: () => context.go(AppRoutes.adminRoles),
                 style: OutlinedButton.styleFrom(
                   foregroundColor: r.color,
                   side: BorderSide(color: r.color.withOpacity(0.4)),
@@ -1794,21 +2016,43 @@ class _RoleCard extends StatelessWidget {
 // SECTION : Paramètres système
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _SettingsSection extends StatelessWidget {
-  const _SettingsSection({
-    required this.ssoEnabled,
-    required this.notifEnabled,
-    required this.onSsoChanged,
-    required this.onNotifChanged,
-  });
+class _SettingsSection extends ConsumerStatefulWidget {
+  const _SettingsSection();
 
-  final bool ssoEnabled;
-  final bool notifEnabled;
-  final ValueChanged<bool> onSsoChanged;
-  final ValueChanged<bool> onNotifChanged;
+  @override
+  ConsumerState<_SettingsSection> createState() => _SettingsSectionState();
+}
+
+class _SettingsSectionState extends ConsumerState<_SettingsSection> {
+  @override
+  void initState() {
+    super.initState();
+    // Load current settings from API on first build
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final prov = ref.read(adminNotifierProvider);
+      try {
+        final api = ref.read(apiServiceProvider);
+        final resp = await api.get<Map<String, dynamic>>('/admin/settings');
+        final data = resp.data?['settings'] as Map<String, dynamic>? ?? {};
+        final bools = data.map((k, v) => MapEntry(k, v == true || v == 'true'));
+        prov.settings.addAll(bools);
+        // ignore: invalid_use_of_protected_member
+        prov.notifyListeners();
+      } catch (_) {}
+    });
+  }
+
+  Future<void> _toggle(String key, bool value) async {
+    final prov = ref.read(adminNotifierProvider);
+    final updated = Map<String, bool>.from(prov.settings)..[key] = value;
+    await prov.updateSettings(updated);
+  }
 
   @override
   Widget build(BuildContext context) {
+    final prov = ref.watch(adminNotifierProvider);
+    final s = prov.settings;
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -1819,16 +2063,16 @@ class _SettingsSection extends StatelessWidget {
               icon: Icons.verified_user_outlined,
               title: 'Authentification SSO / Azure AD',
               subtitle: "Renforce le contrôle d'accès pour les comptes d'entreprise.",
-              value: ssoEnabled,
-              onChanged: onSsoChanged,
+              value: s['SSO'] ?? false,
+              onChanged: (v) => _toggle('SSO', v),
             ),
             const Divider(height: 1, thickness: 0.5, color: AppColors.border),
             _SettingRow(
               icon: Icons.notifications_outlined,
               title: 'Notifications administrateur',
               subtitle: 'Alertes sur les incidents, exports et erreurs critiques.',
-              value: notifEnabled,
-              onChanged: onNotifChanged,
+              value: s['NOTIFICATIONS'] ?? true,
+              onChanged: (v) => _toggle('NOTIFICATIONS', v),
             ),
           ],
         ),
@@ -1841,20 +2085,7 @@ class _SettingsSection extends StatelessWidget {
               iconColor: const Color(0xFF2D7FF9),
               title: 'Hébergement AWS',
               lines: ['Région : eu-west-3 (Paris)', 'Services : ECS Fargate · RDS PostgreSQL · CloudFront · WAF'],
-              action: Builder(
-                builder: (ctx) => OutlinedButton(
-                  onPressed: () => ScaffoldMessenger.of(ctx).showSnackBar(
-                    const SnackBar(content: Text('Vérifier l\'infrastructure — GET /api/health'), duration: Duration(seconds: 2)),
-                  ),
-                  style: OutlinedButton.styleFrom(
-                    foregroundColor: AppColors.primary,
-                    side: const BorderSide(color: AppColors.primary),
-                    shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
-                    padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
-                  ),
-                  child: const Text('Vérifier', style: TextStyle(fontSize: 12)),
-                ),
-              ),
+              action: _HealthCheckButton(),
             ),
             const Divider(height: 1, thickness: 0.5, color: AppColors.border),
             _InfoRow(
@@ -1879,6 +2110,61 @@ class _SettingsSection extends StatelessWidget {
           ],
         ),
       ],
+    );
+  }
+}
+
+class _HealthCheckButton extends ConsumerStatefulWidget {
+  @override
+  ConsumerState<_HealthCheckButton> createState() => _HealthCheckButtonState();
+}
+
+class _HealthCheckButtonState extends ConsumerState<_HealthCheckButton> {
+  bool _loading = false;
+  String? _status;
+
+  Future<void> _check() async {
+    setState(() { _loading = true; _status = null; });
+    try {
+      final api = ref.read(apiServiceProvider);
+      await api.get<dynamic>('/actuator/health');
+      setState(() => _status = 'ok');
+    } catch (_) {
+      setState(() => _status = 'error');
+    } finally {
+      setState(() => _loading = false);
+    }
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final color = _status == 'ok'
+        ? AppColors.success
+        : _status == 'error'
+            ? AppColors.error
+            : AppColors.primary;
+    return OutlinedButton(
+      onPressed: _loading ? null : _check,
+      style: OutlinedButton.styleFrom(
+        foregroundColor: color,
+        side: BorderSide(color: color),
+        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(8)),
+        padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 8),
+      ),
+      child: _loading
+          ? const SizedBox(
+              width: 14,
+              height: 14,
+              child: CircularProgressIndicator(strokeWidth: 2),
+            )
+          : Text(
+              _status == 'ok'
+                  ? 'En ligne ✓'
+                  : _status == 'error'
+                      ? 'Hors ligne ✗'
+                      : 'Vérifier',
+              style: const TextStyle(fontSize: 12),
+            ),
     );
   }
 }
@@ -2018,36 +2304,240 @@ class _DemoAccount extends StatelessWidget {
 // SECTION : Départements
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _DepartmentsSection extends StatelessWidget {
+class _DepartmentsSection extends ConsumerStatefulWidget {
   const _DepartmentsSection();
 
-  static const _depts = [
-    (name: 'Finance', head: 'Kokou Mensah', count: 8, description: 'Gestion comptable, trésorerie et contrôle budgétaire.', color: AppColors.primary, icon: Icons.account_balance_outlined),
-    (name: 'Ressources Humaines', head: 'Aminata Sanni', count: 5, description: 'Administration du personnel, recrutement et formation.', color: Color(0xFF22856A), icon: Icons.people_alt_outlined),
-    (name: 'Commercial', head: 'Yaw Lawson', count: 12, description: 'Développement du portefeuille client et partenariats.', color: Color(0xFF2D7FF9), icon: Icons.trending_up_outlined),
-    (name: 'Opérations', head: 'Akouvi Edorh', count: 17, description: 'Pilotage des activités terrain et logistique.', color: AppColors.warning, icon: Icons.engineering_outlined),
+  @override
+  ConsumerState<_DepartmentsSection> createState() =>
+      _DepartmentsSectionState();
+}
+
+class _DepartmentsSectionState extends ConsumerState<_DepartmentsSection> {
+  static const _colors = [
+    AppColors.primary,
+    Color(0xFF22856A),
+    Color(0xFF2D7FF9),
+    AppColors.warning,
+    Color(0xFF9C27B0),
+    Color(0xFF0E9384),
   ];
+  static const _icons = [
+    Icons.account_balance_outlined,
+    Icons.people_alt_outlined,
+    Icons.trending_up_outlined,
+    Icons.engineering_outlined,
+    Icons.science_outlined,
+    Icons.support_agent_outlined,
+  ];
+
+  Color _colorFor(int index) => _colors[index % _colors.length];
+  IconData _iconFor(int index) => _icons[index % _icons.length];
+
+  Future<void> _showCreateDialog() async {
+    final nomCtrl = TextEditingController();
+    final descCtrl = TextEditingController();
+    final respCtrl = TextEditingController();
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Nouveau département',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error!,
+                      style: const TextStyle(
+                          color: AppColors.error, fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                controller: nomCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Nom du département',
+                    border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: descCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Description', border: OutlineInputBorder()),
+              ),
+              const SizedBox(height: 12),
+              TextField(
+                controller: respCtrl,
+                decoration: const InputDecoration(
+                    labelText: 'Responsable', border: OutlineInputBorder()),
+              ),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                if (nomCtrl.text.trim().isEmpty ||
+                    descCtrl.text.trim().isEmpty ||
+                    respCtrl.text.trim().isEmpty) {
+                  setS(() => error = 'Veuillez remplir tous les champs.');
+                  return;
+                }
+                final ok = await ref.read(serviceNotifierProvider).create(
+                      nomCtrl.text.trim(),
+                      descCtrl.text.trim(),
+                      respCtrl.text.trim(),
+                    );
+                if (ok && ctx.mounted) Navigator.pop(ctx);
+                else setS(() => error = 'Erreur lors de la création.');
+              },
+              child: const Text('Créer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nomCtrl.dispose();
+    descCtrl.dispose();
+    respCtrl.dispose();
+  }
+
+  Future<void> _showEditDialog(ServiceModel d) async {
+    final nomCtrl = TextEditingController(text: d.nom);
+    final descCtrl = TextEditingController(text: d.description);
+    final respCtrl = TextEditingController(text: d.responsable);
+    String? error;
+
+    await showDialog<void>(
+      context: context,
+      builder: (ctx) => StatefulBuilder(
+        builder: (ctx, setS) => AlertDialog(
+          title: const Text('Modifier le département',
+              style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700)),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              if (error != null) ...[
+                Container(
+                  padding: const EdgeInsets.all(10),
+                  decoration: BoxDecoration(
+                    color: AppColors.error.withOpacity(0.1),
+                    borderRadius: BorderRadius.circular(8),
+                  ),
+                  child: Text(error!,
+                      style: const TextStyle(
+                          color: AppColors.error, fontSize: 12)),
+                ),
+                const SizedBox(height: 12),
+              ],
+              TextField(
+                  controller: nomCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Nom', border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(
+                  controller: descCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Description',
+                      border: OutlineInputBorder())),
+              const SizedBox(height: 12),
+              TextField(
+                  controller: respCtrl,
+                  decoration: const InputDecoration(
+                      labelText: 'Responsable',
+                      border: OutlineInputBorder())),
+            ],
+          ),
+          actions: [
+            TextButton(
+                onPressed: () => Navigator.pop(ctx),
+                child: const Text('Annuler')),
+            ElevatedButton(
+              style: ElevatedButton.styleFrom(
+                  backgroundColor: AppColors.primary,
+                  foregroundColor: Colors.white),
+              onPressed: () async {
+                final ok = await ref.read(serviceNotifierProvider).update(
+                      d.id,
+                      nomCtrl.text.trim(),
+                      descCtrl.text.trim(),
+                      respCtrl.text.trim(),
+                    );
+                if (ok && ctx.mounted) Navigator.pop(ctx);
+                else setS(() => error = 'Erreur lors de la mise à jour.');
+              },
+              child: const Text('Enregistrer'),
+            ),
+          ],
+        ),
+      ),
+    );
+    nomCtrl.dispose();
+    descCtrl.dispose();
+    respCtrl.dispose();
+  }
+
+  Future<void> _confirmDelete(ServiceModel d) async {
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Supprimer le département'),
+        content: Text(
+            'Supprimer "${d.nom}" ? Les employés rattachés ne seront pas supprimés.'),
+        actions: [
+          TextButton(
+              onPressed: () => Navigator.pop(ctx, false),
+              child: const Text('Annuler')),
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            style: TextButton.styleFrom(foregroundColor: AppColors.error),
+            child: const Text('Supprimer'),
+          ),
+        ],
+      ),
+    );
+    if (confirmed == true) {
+      await ref.read(serviceNotifierProvider).delete(d.id);
+    }
+  }
 
   @override
   Widget build(BuildContext context) {
+    final prov = ref.watch(serviceNotifierProvider);
+    final depts = prov.services;
     final isWide = MediaQuery.sizeOf(context).width >= 900;
+    final totalEmployes = depts.fold(0, (s, d) => s + d.nombreEmployes);
+
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text('${_depts.length} départements · ${_depts.fold(0, (s, d) => s + d.count)} employés',
-                style: const TextStyle(fontSize: 13, color: AppColors.text2)),
+            Text(
+              prov.isLoading
+                  ? 'Chargement…'
+                  : '${depts.length} département${depts.length > 1 ? 's' : ''} · $totalEmployes employés',
+              style:
+                  const TextStyle(fontSize: 13, color: AppColors.text2),
+            ),
             SizedBox(
               height: 40,
               child: ElevatedButton.icon(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Formulaire département — POST /api/services'),
-                    duration: Duration(seconds: 2),
-                  ),
-                ),
+                onPressed: _showCreateDialog,
                 icon: const Icon(Icons.add_rounded, size: 16),
                 label: const Text('Nouveau département'),
               ),
@@ -2055,28 +2545,58 @@ class _DepartmentsSection extends StatelessWidget {
           ],
         ),
         const SizedBox(height: 16),
-        isWide
-            ? Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: _depts
-                    .map((d) => Expanded(
-                          child: Padding(
-                            padding: const EdgeInsets.only(right: 14),
-                            child: _DeptCard(d: d),
+        if (prov.isLoading && depts.isEmpty)
+          const Center(
+              child: Padding(
+            padding: EdgeInsets.all(32),
+            child: CircularProgressIndicator(),
+          ))
+        else if (depts.isNotEmpty) ...[
+          isWide
+              ? Row(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: depts.asMap().entries.map((e) {
+                    final d = e.value;
+                    final color = _colorFor(e.key);
+                    final icon = _iconFor(e.key);
+                    return Expanded(
+                      child: Padding(
+                        padding: EdgeInsets.only(
+                            right: e.key < depts.length - 1 ? 14 : 0),
+                        child: _DeptCard(
+                          d: (
+                            name: d.nom,
+                            head: d.responsable,
+                            count: d.nombreEmployes,
+                            description: d.description,
+                            color: color,
+                            icon: icon,
                           ),
-                        ))
-                    .toList()
-                  ..last = Expanded(child: _DeptCard(d: _depts.last)),
-              )
-            : Column(
-                children: _depts
-                    .map((d) => Padding(
-                          padding: const EdgeInsets.only(bottom: 14),
-                          child: _DeptCard(d: d),
-                        ))
-                    .toList(),
-              ),
-        const SizedBox(height: 20),
+                        ),
+                      ),
+                    );
+                  }).toList(),
+                )
+              : Column(
+                  children: depts.asMap().entries
+                      .map((e) => Padding(
+                            padding:
+                                const EdgeInsets.only(bottom: 14),
+                            child: _DeptCard(
+                              d: (
+                                name: e.value.nom,
+                                head: e.value.responsable,
+                                count: e.value.nombreEmployes,
+                                description: e.value.description,
+                                color: _colorFor(e.key),
+                                icon: _iconFor(e.key),
+                              ),
+                            ),
+                          ))
+                      .toList(),
+                ),
+          const SizedBox(height: 20),
+        ],
         Container(
           decoration: BoxDecoration(
             color: Colors.white,
@@ -2086,70 +2606,126 @@ class _DepartmentsSection extends StatelessWidget {
           child: Column(
             children: [
               Container(
-                padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+                padding: const EdgeInsets.symmetric(
+                    horizontal: 16, vertical: 12),
                 decoration: const BoxDecoration(
                   color: AppColors.surface,
-                  borderRadius: BorderRadius.vertical(top: Radius.circular(10)),
+                  borderRadius:
+                      BorderRadius.vertical(top: Radius.circular(10)),
                 ),
                 child: const Row(
                   children: [
-                    Expanded(flex: 3, child: Text('Département', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    Expanded(flex: 2, child: Text('Responsable', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    SizedBox(width: 80, child: Text('Effectif', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
-                    SizedBox(width: 80, child: Text('Actions', style: TextStyle(fontSize: 11, fontWeight: FontWeight.w700, color: AppColors.text2))),
+                    Expanded(
+                        flex: 3,
+                        child: Text('Département',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.text2))),
+                    Expanded(
+                        flex: 2,
+                        child: Text('Responsable',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.text2))),
+                    SizedBox(
+                        width: 80,
+                        child: Text('Effectif',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.text2))),
+                    SizedBox(
+                        width: 80,
+                        child: Text('Actions',
+                            style: TextStyle(
+                                fontSize: 11,
+                                fontWeight: FontWeight.w700,
+                                color: AppColors.text2))),
                   ],
                 ),
               ),
-              ..._depts.asMap().entries.map((e) {
-                final d = e.value;
-                return Column(
-                  children: [
-                    if (e.key > 0) const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-                    Padding(
-                      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-                      child: Row(
-                        children: [
-                          Container(
-                            width: 32, height: 32,
-                            decoration: BoxDecoration(color: d.color.withOpacity(0.10), borderRadius: BorderRadius.circular(8)),
-                            child: Icon(d.icon, color: d.color, size: 16),
-                          ),
-                          const SizedBox(width: 10),
-                          Expanded(flex: 3, child: Text(d.name, style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w600, color: AppColors.text1))),
-                          Expanded(flex: 2, child: Text(d.head, style: const TextStyle(fontSize: 12, color: AppColors.text2))),
-                          SizedBox(
-                            width: 80,
-                            child: Text('${d.count} emp.',
-                                style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text1)),
-                          ),
-                          SizedBox(
-                            width: 80,
-                            child: Row(
-                              children: [
-                                _IconBtn(
-                                  icon: Icons.edit_outlined,
-                                  color: AppColors.accent,
-                                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Modifier ${d.name} — PUT /api/services/${d.name}'), duration: const Duration(seconds: 2)),
-                                  ),
-                                ),
-                                const SizedBox(width: 4),
-                                _IconBtn(
-                                  icon: Icons.delete_outline_rounded,
-                                  color: AppColors.error,
-                                  onTap: () => ScaffoldMessenger.of(context).showSnackBar(
-                                    SnackBar(content: Text('Supprimer ${d.name} — DELETE /api/services/${d.name}'), duration: const Duration(seconds: 2)),
-                                  ),
-                                ),
-                              ],
+              if (depts.isEmpty)
+                const Padding(
+                  padding: EdgeInsets.all(24),
+                  child: Text('Aucun département enregistré.',
+                      style: TextStyle(
+                          fontSize: 13, color: AppColors.text2)),
+                )
+              else
+                ...depts.asMap().entries.map((e) {
+                  final d = e.value;
+                  final color = _colorFor(e.key);
+                  final icon = _iconFor(e.key);
+                  return Column(
+                    children: [
+                      if (e.key > 0)
+                        const Divider(
+                            height: 1,
+                            thickness: 0.5,
+                            color: AppColors.border),
+                      Padding(
+                        padding: const EdgeInsets.symmetric(
+                            horizontal: 16, vertical: 12),
+                        child: Row(
+                          children: [
+                            Container(
+                              width: 32,
+                              height: 32,
+                              decoration: BoxDecoration(
+                                  color: color.withOpacity(0.10),
+                                  borderRadius:
+                                      BorderRadius.circular(8)),
+                              child: Icon(icon, color: color, size: 16),
                             ),
-                          ),
-                        ],
+                            const SizedBox(width: 10),
+                            Expanded(
+                                flex: 3,
+                                child: Text(d.nom,
+                                    style: const TextStyle(
+                                        fontSize: 13,
+                                        fontWeight: FontWeight.w600,
+                                        color: AppColors.text1))),
+                            Expanded(
+                                flex: 2,
+                                child: Text(d.responsable,
+                                    style: const TextStyle(
+                                        fontSize: 12,
+                                        color: AppColors.text2))),
+                            SizedBox(
+                              width: 80,
+                              child: Text('${d.nombreEmployes} emp.',
+                                  style: const TextStyle(
+                                      fontSize: 12,
+                                      fontWeight: FontWeight.w600,
+                                      color: AppColors.text1)),
+                            ),
+                            SizedBox(
+                              width: 80,
+                              child: Row(
+                                children: [
+                                  _IconBtn(
+                                    icon: Icons.edit_outlined,
+                                    color: AppColors.accent,
+                                    onTap: () => _showEditDialog(d),
+                                  ),
+                                  const SizedBox(width: 4),
+                                  _IconBtn(
+                                    icon:
+                                        Icons.delete_outline_rounded,
+                                    color: AppColors.error,
+                                    onTap: () => _confirmDelete(d),
+                                  ),
+                                ],
+                              ),
+                            ),
+                          ],
+                        ),
                       ),
-                    ),
-                  ],
-                );
-              }),
+                    ],
+                  );
+                }),
             ],
           ),
         ),

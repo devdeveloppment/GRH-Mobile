@@ -3,6 +3,7 @@ package com.grhmobile.service;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
+import java.nio.charset.StandardCharsets;
 import java.time.YearMonth;
 import java.time.format.DateTimeFormatter;
 import java.util.List;
@@ -111,6 +112,51 @@ public class PaieService {
         } catch (Exception exception) {
             throw new IllegalStateException("La génération du PDF a échoué.", exception);
         }
+    }
+
+    @Transactional
+    public Map<String, Object> validateForPeriod(PayrollPeriodRequest request) {
+        YearMonth period = YearMonth.of(request.year(), request.month());
+        String key = period.format(PERIOD_FORMATTER);
+        List<FichePaie> fiches = fichePaieRepository.findByPeriodeOrderByEmployeNomAsc(key)
+            .stream()
+            .filter(FichePaie::isCalculee)
+            .toList();
+        for (FichePaie fiche : fiches) {
+            fiche.setValidee(true);
+        }
+        fichePaieRepository.saveAll(fiches);
+        return Map.of("success", true, "mois", key, "nbFiches", fiches.size());
+    }
+
+    @Transactional(readOnly = true)
+    public byte[] exportCsv(int month, int year) {
+        YearMonth period = YearMonth.of(year, month);
+        String key = period.format(PERIOD_FORMATTER);
+        List<FichePaie> fiches = fichePaieRepository.findByPeriodeOrderByEmployeNomAsc(key);
+
+        StringBuilder sb = new StringBuilder();
+        sb.append("matricule,nom,prenom,salaire_base,primes,deductions,net_a_payer\n");
+        for (FichePaie fiche : fiches) {
+            Employe emp = fiche.getEmploye();
+            BigDecimal deductions = fiche.getCotisations().add(fiche.getImpots());
+            sb.append(csvEscape(emp.getMatricule())).append(',')
+              .append(csvEscape(emp.getNom())).append(',')
+              .append(csvEscape(emp.getPrenom())).append(',')
+              .append(fiche.getSalaireBrut()).append(',')
+              .append(fiche.getIndemnites()).append(',')
+              .append(deductions).append(',')
+              .append(fiche.getSalaireNet()).append('\n');
+        }
+        return sb.toString().getBytes(StandardCharsets.UTF_8);
+    }
+
+    private String csvEscape(String value) {
+        if (value == null) return "";
+        if (value.contains(",") || value.contains("\"") || value.contains("\n")) {
+            return "\"" + value.replace("\"", "\"\"") + "\"";
+        }
+        return value;
     }
 
     private BigDecimal percent(BigDecimal value, int percent) {

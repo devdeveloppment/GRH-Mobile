@@ -25,6 +25,11 @@ spring:
     multipart:
       max-file-size: 10MB
       max-request-size: 10MB
+  web:
+    resources:
+      static-locations:
+        - classpath:/static/
+        - file:uploads/
 
 server:
   port: ${SERVER_PORT:8080}
@@ -48,6 +53,8 @@ app:
   jwt:
     secret: ${JWT_SECRET:change-me-change-me-change-me-change-me-change-me-1234567890}
     access-token-expiration-minutes: ${JWT_EXPIRATION_MINUTES:480}
+  upload:
+    dir: ${UPLOAD_DIR:uploads/photos}
     inactivity-timeout-minutes: ${AUTO_LOGOUT_MINUTES:30}
   bootstrap-admin:
     enabled: ${BOOTSTRAP_ADMIN_ENABLED:true}

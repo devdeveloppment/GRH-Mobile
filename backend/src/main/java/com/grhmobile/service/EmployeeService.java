@@ -72,6 +72,11 @@ public class EmployeeService {
         return toResponse(findByMatricule(matricule));
     }
 
+    @Transactional(readOnly = true)
+    public EmployeeResponse getByUserId(Long userId) {
+        return toResponse(findByUserId(userId));
+    }
+
     @Transactional
     public EmployeeResponse create(EmployeeRequest request) {
         ServiceEntity service = findOrCreateService(request.service());

@@ -27,15 +27,18 @@ public class CongeService {
     private final CongeRepository congeRepository;
     private final EmployeeService employeeService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final NotificationService notificationService;
 
     public CongeService(
         CongeRepository congeRepository,
         EmployeeService employeeService,
-        AuthenticatedUserService authenticatedUserService
+        AuthenticatedUserService authenticatedUserService,
+        NotificationService notificationService
     ) {
         this.congeRepository = congeRepository;
         this.employeeService = employeeService;
         this.authenticatedUserService = authenticatedUserService;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -94,6 +97,9 @@ public class CongeService {
             conge.getEmploye().setSoldeConge(newBalance.max(BigDecimal.ZERO));
         }
         congeRepository.save(conge);
+        notifyEmployee(conge, "Congé approuvé",
+            "Votre demande de congé du " + conge.getDateDebut() + " au " + conge.getDateFin() + " a été approuvée.",
+            "CONGE");
     }
 
     @Transactional
@@ -105,6 +111,16 @@ public class CongeService {
         conge.setStatut(StatutConge.REFUSE);
         conge.setCommentaire(request.commentaire());
         congeRepository.save(conge);
+        notifyEmployee(conge, "Congé refusé",
+            "Votre demande de congé du " + conge.getDateDebut() + " au " + conge.getDateFin() + " a été refusée.",
+            "CONGE");
+    }
+
+    private void notifyEmployee(Conge conge, String titre, String message, String type) {
+        var utilisateur = conge.getEmploye().getUtilisateur();
+        if (utilisateur != null) {
+            notificationService.create(utilisateur.getId(), titre, message, type);
+        }
     }
 
     @Transactional(readOnly = true)

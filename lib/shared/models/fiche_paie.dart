@@ -10,6 +10,7 @@ class FichePaie {
     required this.salaireNet,
     this.nomEmploye,
     this.calculee = false,
+    this.validee = false,
   });
 
   final int id;
@@ -22,6 +23,7 @@ class FichePaie {
   final double salaireNet;
   final String? nomEmploye;
   final bool calculee;
+  final bool validee;
 
   factory FichePaie.fromJson(Map<String, dynamic> json) {
     return FichePaie(
@@ -35,6 +37,7 @@ class FichePaie {
       salaireNet: (json['salaireNet'] as num?)?.toDouble() ?? 0,
       nomEmploye: json['nomEmploye'] as String?,
       calculee: json['calculee'] as bool? ?? false,
+      validee: json['validee'] as bool? ?? false,
     );
   }
 
@@ -50,6 +53,7 @@ class FichePaie {
       'salaireNet': salaireNet,
       'nomEmploye': nomEmploye,
       'calculee': calculee,
+      'validee': validee,
     };
   }
 }

@@ -47,6 +47,9 @@ public class Utilisateur extends BaseEntity {
     @OneToOne(mappedBy = "utilisateur")
     private Employe employe;
 
+    @Column(name = "photo_url", length = 500)
+    private String photoUrl;
+
     public Long getId() {
         return id;
     }
@@ -113,5 +116,13 @@ public class Utilisateur extends BaseEntity {
 
     public void setEmploye(Employe employe) {
         this.employe = employe;
+    }
+
+    public String getPhotoUrl() {
+        return photoUrl;
+    }
+
+    public void setPhotoUrl(String photoUrl) {
+        this.photoUrl = photoUrl;
     }
 }

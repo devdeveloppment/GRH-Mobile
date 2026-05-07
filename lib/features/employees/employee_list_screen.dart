@@ -8,6 +8,7 @@ import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/employee_provider.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
+import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/confirm_dialog.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
@@ -119,7 +120,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
           ),
         ),
       ),
-      floatingActionButton: isWide
+      floatingActionButton: isWide || !_canCreate(auth.role)
           ? null
           : FloatingActionButton.extended(
               backgroundColor: AppColors.accent,
@@ -189,21 +190,23 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             ),
                           ),
                         ),
-                        const SizedBox(width: 12),
-                        ElevatedButton.icon(
-                          onPressed: () => _openEmployeeForm(context),
-                          icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Ajouter un employé'),
-                          style: ElevatedButton.styleFrom(
-                            backgroundColor: AppColors.accent,
-                            foregroundColor: Colors.white,
-                            padding: const EdgeInsets.symmetric(
-                                horizontal: 20, vertical: 14),
-                            shape: RoundedRectangleBorder(
-                              borderRadius: BorderRadius.circular(8),
+                        if (_canCreate(auth.role)) ...[
+                          const SizedBox(width: 12),
+                          ElevatedButton.icon(
+                            onPressed: () => _openEmployeeForm(context),
+                            icon: const Icon(Icons.add, size: 16),
+                            label: const Text('Ajouter un employé'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.accent,
+                              foregroundColor: Colors.white,
+                              padding: const EdgeInsets.symmetric(
+                                  horizontal: 20, vertical: 14),
+                              shape: RoundedRectangleBorder(
+                                borderRadius: BorderRadius.circular(8),
+                              ),
                             ),
                           ),
-                        ),
+                        ],
                       ],
                     ],
                   ),
@@ -353,6 +356,8 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                         else if (isWide)
                           _DesktopEmployeeTable(
                             employees: pageItems,
+                            canEdit: _canEdit(auth.role),
+                            canArchive: _canArchive(auth.role),
                             onOpen: (e) => context.go(
                               '${AppRoutes.employees}/${e.matricule}',
                               extra: e,
@@ -367,25 +372,32 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                               padding: const EdgeInsets.only(bottom: 14),
                               child: Dismissible(
                                 key: ValueKey(e.matricule),
-                                background: const _SwipeActionBackground(
-                                  color: AppColors.info,
-                                  icon: Icons.edit_outlined,
-                                  alignment: Alignment.centerLeft,
-                                  label: 'Modifier',
-                                ),
-                                secondaryBackground: const _SwipeActionBackground(
-                                  color: AppColors.danger,
-                                  icon: Icons.archive_outlined,
-                                  alignment: Alignment.centerRight,
-                                  label: 'Archiver',
-                                ),
+                                background: _canEdit(auth.role)
+                                    ? const _SwipeActionBackground(
+                                        color: AppColors.info,
+                                        icon: Icons.edit_outlined,
+                                        alignment: Alignment.centerLeft,
+                                        label: 'Modifier',
+                                      )
+                                    : const SizedBox.shrink(),
+                                secondaryBackground: _canArchive(auth.role)
+                                    ? const _SwipeActionBackground(
+                                        color: AppColors.danger,
+                                        icon: Icons.archive_outlined,
+                                        alignment: Alignment.centerRight,
+                                        label: 'Archiver',
+                                      )
+                                    : const SizedBox.shrink(),
                                 confirmDismiss: (direction) async {
-                                  if (direction ==
-                                      DismissDirection.startToEnd) {
-                                    _openEmployeeForm(context, employee: e);
+                                  if (direction == DismissDirection.startToEnd) {
+                                    if (_canEdit(auth.role)) {
+                                      _openEmployeeForm(context, employee: e);
+                                    }
                                     return false;
                                   }
-                                  await _archiveEmployee(e);
+                                  if (_canArchive(auth.role)) {
+                                    await _archiveEmployee(e);
+                                  }
                                   return false;
                                 },
                                 child: _EmployeeMobileCard(employee: e),
@@ -424,6 +436,11 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
       ),
     );
   }
+
+  static bool _canCreate(UserRole? role) => role == UserRole.rhManager;
+  static bool _canEdit(UserRole? role) => role == UserRole.rhManager;
+  static bool _canArchive(UserRole? role) =>
+      role == UserRole.admin || role == UserRole.rhManager;
 
   Future<void> _archiveEmployee(Employe employee) {
     return ConfirmDialog.show(
@@ -564,12 +581,16 @@ class _FilterDropdown extends StatelessWidget {
 class _DesktopEmployeeTable extends StatelessWidget {
   const _DesktopEmployeeTable({
     required this.employees,
+    required this.canEdit,
+    required this.canArchive,
     required this.onOpen,
     required this.onEdit,
     required this.onArchive,
   });
 
   final List<Employe> employees;
+  final bool canEdit;
+  final bool canArchive;
   final ValueChanged<Employe> onOpen;
   final ValueChanged<Employe> onEdit;
   final ValueChanged<Employe> onArchive;
@@ -669,18 +690,20 @@ class _DesktopEmployeeTable extends StatelessWidget {
                           tooltip: 'Voir le dossier',
                           onPressed: () => onOpen(employee),
                         ),
-                        _ActionBtn(
-                          icon: Icons.edit_outlined,
-                          color: AppColors.accent,
-                          tooltip: 'Modifier',
-                          onPressed: () => onEdit(employee),
-                        ),
-                        _ActionBtn(
-                          icon: Icons.delete_outline_rounded,
-                          color: AppColors.error,
-                          tooltip: 'Archiver',
-                          onPressed: () => onArchive(employee),
-                        ),
+                        if (canEdit)
+                          _ActionBtn(
+                            icon: Icons.edit_outlined,
+                            color: AppColors.accent,
+                            tooltip: 'Modifier',
+                            onPressed: () => onEdit(employee),
+                          ),
+                        if (canArchive)
+                          _ActionBtn(
+                            icon: Icons.delete_outline_rounded,
+                            color: AppColors.error,
+                            tooltip: 'Archiver',
+                            onPressed: () => onArchive(employee),
+                          ),
                       ],
                     ),
                   ),

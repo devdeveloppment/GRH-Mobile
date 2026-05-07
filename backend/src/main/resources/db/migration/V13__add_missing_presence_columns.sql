@@ -1,0 +1,6 @@
+ALTER TABLE presences
+    ADD COLUMN IF NOT EXISTS latitude       DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS longitude      DOUBLE PRECISION,
+    ADD COLUMN IF NOT EXISTS motif_absence  VARCHAR(255),
+    ADD COLUMN IF NOT EXISTS justification  TEXT,
+    ADD COLUMN IF NOT EXISTS piece_jointe   BYTEA;

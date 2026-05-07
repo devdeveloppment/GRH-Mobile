@@ -1,7 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
+import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/shared/widgets/grh_logo.dart';
 
 class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
@@ -25,7 +28,9 @@ class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    final auth   = ref.watch(authNotifierProvider);
+    final auth        = ref.watch(authNotifierProvider);
+    final unreadCount = ref.watch(
+        notificationNotifierProvider.select((n) => n.unreadCount));
     final isWide = MediaQuery.sizeOf(context).width > 920;
 
     final logoutBtn = isWide
@@ -121,7 +126,24 @@ class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
           ),
         ],
       ),
-      actions: [...?actions, logoutBtn],
+      actions: [
+        ...?actions,
+        Badge(
+          isLabelVisible: unreadCount > 0,
+          label: Text(
+            unreadCount > 99 ? '99+' : '$unreadCount',
+            style: const TextStyle(fontSize: 10, color: Colors.white),
+          ),
+          backgroundColor: const Color(0xFFD64545),
+          child: IconButton(
+            tooltip: 'Notifications',
+            onPressed: () => context.go(AppRoutes.notifications),
+            icon: const Icon(Icons.notifications_outlined),
+            color: AppColors.text2,
+          ),
+        ),
+        logoutBtn,
+      ],
     );
   }
 }

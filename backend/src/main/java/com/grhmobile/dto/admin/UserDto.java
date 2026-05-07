@@ -10,10 +10,11 @@ public record UserDto(
     String email,
     String role,
     boolean actif,
-    OffsetDateTime dateCreation
+    OffsetDateTime dateCreation,
+    String photoUrl
 ) {
     public static UserDto fromEntity(Utilisateur u) {
         return new UserDto(u.getId(), u.getNom(), u.getPrenom(), u.getEmail(),
-                u.getRole().name(), u.isActif(), u.getDateCreation());
+                u.getRole().name(), u.isActif(), u.getDateCreation(), u.getPhotoUrl());
     }
 }

@@ -7,6 +7,7 @@ import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/paie_provider.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
+import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 import 'package:grh_mobile/shared/widgets/grh_surface_card.dart';
@@ -15,11 +16,42 @@ import 'package:grh_mobile/shared/widgets/status_badge.dart';
 class PaieCalculationScreen extends ConsumerWidget {
   const PaieCalculationScreen({super.key});
 
+  static bool _canValidate(UserRole? role) =>
+      role == UserRole.admin || role == UserRole.rhManager;
+
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authNotifierProvider);
     final paie = ref.watch(paieNotifierProvider);
     final isWide = MediaQuery.sizeOf(context).width >= 1120;
+
+    Future<void> onValidate() async {
+      await ref.read(paieNotifierProvider).validatePayroll();
+      if (!context.mounted) return;
+      final err = ref.read(paieNotifierProvider).errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err ?? 'Paie du mois validée avec succès.'),
+          backgroundColor: err != null ? AppColors.error : null,
+        ),
+      );
+    }
+
+    Future<void> onExportCsv() async {
+      final filePath =
+          await ref.read(paieNotifierProvider).exportPayrollCSV();
+      if (!context.mounted) return;
+      if (filePath != null && !kIsWeb) {
+        await OpenFilex.open(filePath);
+      }
+      final err = ref.read(paieNotifierProvider).errorMessage;
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(
+          content: Text(err ?? 'Export CSV prêt.'),
+          backgroundColor: err != null ? AppColors.error : null,
+        ),
+      );
+    }
 
     Future<void> pickMonth() async {
       final picked = await showDatePicker(
@@ -115,6 +147,31 @@ class PaieCalculationScreen extends ConsumerWidget {
                                   size: 16),
                               label: const Text('Calculer tout'),
                             ),
+                            if (_canValidate(auth.role)) ...[
+                              ElevatedButton.icon(
+                                onPressed:
+                                    paie.isLoading ? null : onValidate,
+                                style: ElevatedButton.styleFrom(
+                                  backgroundColor: AppColors.success,
+                                  foregroundColor: Colors.white,
+                                ),
+                                icon: const Icon(Icons.check_circle_outline,
+                                    size: 16),
+                                label: const Text('Valider le mois'),
+                              ),
+                              OutlinedButton.icon(
+                                onPressed:
+                                    paie.isLoading ? null : onExportCsv,
+                                style: OutlinedButton.styleFrom(
+                                  foregroundColor: AppColors.primary,
+                                  side: const BorderSide(
+                                      color: AppColors.primary, width: 1),
+                                ),
+                                icon: const Icon(Icons.download_outlined,
+                                    size: 16),
+                                label: const Text('Exporter CSV'),
+                              ),
+                            ],
                           ],
                         )
                       : null,
@@ -151,6 +208,41 @@ class PaieCalculationScreen extends ConsumerWidget {
                       ),
                     ],
                   ),
+                  if (_canValidate(auth.role)) ...[
+                    const SizedBox(height: 10),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: ElevatedButton.icon(
+                            onPressed:
+                                paie.isLoading ? null : onValidate,
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.success,
+                              foregroundColor: Colors.white,
+                            ),
+                            icon: const Icon(Icons.check_circle_outline,
+                                size: 16),
+                            label: const Text('Valider le mois'),
+                          ),
+                        ),
+                        const SizedBox(width: 10),
+                        Expanded(
+                          child: OutlinedButton.icon(
+                            onPressed:
+                                paie.isLoading ? null : onExportCsv,
+                            style: OutlinedButton.styleFrom(
+                              foregroundColor: AppColors.primary,
+                              side: const BorderSide(
+                                  color: AppColors.primary, width: 1),
+                            ),
+                            icon: const Icon(Icons.download_outlined,
+                                size: 16),
+                            label: const Text('Exporter CSV'),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
                 const SizedBox(height: 22),
                 Wrap(
@@ -266,10 +358,16 @@ class PaieCalculationScreen extends ConsumerWidget {
                                   ),
                                 ),
                                 StatusBadge(
-                                  label: item.calculee
-                                      ? 'Calculé'
-                                      : 'Non calculé',
-                                  type: item.calculee ? 'active' : 'pending',
+                                  label: item.validee
+                                      ? 'Validé'
+                                      : item.calculee
+                                          ? 'Calculé'
+                                          : 'Non calculé',
+                                  type: item.validee
+                                      ? 'success'
+                                      : item.calculee
+                                          ? 'active'
+                                          : 'pending',
                                 ),
                               ],
                             ),

@@ -3,5 +3,7 @@ package com.grhmobile.enums;
 public enum StatutPresence {
     PRESENT,
     ABSENT,
-    RETARD
+    RETARD,
+    ABSENT_EN_ATTENTE,
+    ABSENT_JUSTIFIEE
 }

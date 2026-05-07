@@ -46,6 +46,9 @@ public class FichePaie extends BaseEntity {
     @Column(nullable = false)
     private boolean calculee = false;
 
+    @Column(nullable = false)
+    private boolean validee = false;
+
     public static String formatPeriode(YearMonth period) {
         return "%d-%02d".formatted(period.getYear(), period.getMonthValue());
     }
@@ -116,5 +119,13 @@ public class FichePaie extends BaseEntity {
 
     public void setCalculee(boolean calculee) {
         this.calculee = calculee;
+    }
+
+    public boolean isValidee() {
+        return validee;
+    }
+
+    public void setValidee(boolean validee) {
+        this.validee = validee;
     }
 }

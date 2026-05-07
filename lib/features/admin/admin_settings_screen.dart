@@ -1,8 +1,11 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
+import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/admin_provider.dart';
+import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
+import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 
 class AdminSettingsScreen extends ConsumerStatefulWidget {
   const AdminSettingsScreen({super.key});
@@ -24,14 +27,41 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
 
   @override
   Widget build(BuildContext context) {
+    final auth = ref.watch(authNotifierProvider);
     final admin = ref.watch(adminNotifierProvider);
+    final isWide = MediaQuery.sizeOf(context).width >= 1024;
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      appBar: GrhAppBar(title: 'Paramètres Système'),
-      body: ListView(
-        padding: const EdgeInsets.all(16),
+      drawer: isWide || auth.role == null
+          ? null
+          : Drawer(
+              child: GrhSidebar(
+                currentRoute: AppRoutes.adminSettings,
+                role: auth.role!,
+                isDrawer: true,
+              ),
+            ),
+      appBar: PreferredSize(
+        preferredSize: const Size.fromHeight(84),
+        child: Builder(
+          builder: (ctx) => GrhAppBar(
+            title: 'Paramètres Système',
+            userName: auth.user?.fullName,
+            onMenuTap:
+                isWide ? null : () => Scaffold.of(ctx).openDrawer(),
+          ),
+        ),
+      ),
+      body: Row(
         children: [
+          if (isWide && auth.role != null)
+            GrhSidebar(
+                currentRoute: AppRoutes.adminSettings, role: auth.role!),
+          Expanded(
+            child: ListView(
+              padding: const EdgeInsets.all(16),
+              children: [
           const Text(
             'Configuration système',
             style: TextStyle(fontSize: 18, fontWeight: FontWeight.bold),
@@ -131,6 +161,9 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
                 ),
               ),
             ),
+        ],
+      ),
+          ),
         ],
       ),
     );

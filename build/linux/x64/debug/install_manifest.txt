@@ -3,6 +3,7 @@
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/libflutter_linux_gtk.so
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/libfile_selector_linux_plugin.so
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/libflutter_secure_storage_linux_plugin.so
+/home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/liburl_launcher_linux_plugin.so
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/libdartjni.so
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/lib/native_assets.json
 /home/caleb/Bureau/PPE 302 /build/linux/x64/debug/bundle/data/flutter_assets/FontManifest.json

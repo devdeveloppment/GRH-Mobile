@@ -38,6 +38,21 @@ public class Presence extends BaseEntity {
     @Column(name = "heure_depart")
     private LocalDateTime heureDepart;
 
+    @Column(name = "latitude")
+    private Double latitude;
+
+    @Column(name = "longitude")
+    private Double longitude;
+
+    @Column(name = "motif_absence")
+    private String motifAbsence;
+
+    @Column(name = "justification", columnDefinition = "TEXT")
+    private String justification;
+
+    @Column(name = "piece_jointe", columnDefinition = "LONGBLOB")
+    private byte[] pieceJointe;
+
     @Enumerated(EnumType.STRING)
     @Column(nullable = false)
     private StatutPresence statut;
@@ -84,5 +99,45 @@ public class Presence extends BaseEntity {
 
     public void setStatut(StatutPresence statut) {
         this.statut = statut;
+    }
+
+    public Double getLatitude() {
+        return latitude;
+    }
+
+    public void setLatitude(Double latitude) {
+        this.latitude = latitude;
+    }
+
+    public Double getLongitude() {
+        return longitude;
+    }
+
+    public void setLongitude(Double longitude) {
+        this.longitude = longitude;
+    }
+
+    public String getMotifAbsence() {
+        return motifAbsence;
+    }
+
+    public void setMotifAbsence(String motifAbsence) {
+        this.motifAbsence = motifAbsence;
+    }
+
+    public String getJustification() {
+        return justification;
+    }
+
+    public void setJustification(String justification) {
+        this.justification = justification;
+    }
+
+    public byte[] getPieceJointe() {
+        return pieceJointe;
+    }
+
+    public void setPieceJointe(byte[] pieceJointe) {
+        this.pieceJointe = pieceJointe;
     }
 }

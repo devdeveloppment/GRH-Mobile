@@ -2,6 +2,7 @@ package com.grhmobile.repository;
 
 import java.time.LocalDate;
 import java.util.List;
+import java.util.Optional;
 
 import com.grhmobile.entity.Presence;
 import com.grhmobile.enums.StatutPresence;
@@ -21,4 +22,10 @@ public interface PresenceRepository extends JpaRepository<Presence, Long> {
     boolean existsByEmployeIdAndDateAndStatut(Long employeId, LocalDate date, StatutPresence statut);
 
     List<Presence> findByDateBetweenOrderByDateAsc(LocalDate startDate, LocalDate endDate);
+
+    Optional<Presence> findByEmployeIdAndDate(Long employeId, LocalDate date);
+
+    List<Presence> findByEmployeIdAndStatutOrderByDateDesc(Long employeId, StatutPresence statut);
+
+    List<Presence> findByStatutOrderByDateDesc(StatutPresence statut);
 }

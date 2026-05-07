@@ -17,8 +17,13 @@ class PresenceNotifier extends ChangeNotifier {
 
   final Ref _ref;
   List<Presence> presences = [];
+  List<Presence> absencesEnAttente = [];
   bool isLoading = false;
+  bool isPointerLoading = false;
+  bool isAbsenceLoading = false;
   String? error;
+  String? pointerError;
+  String? absenceError;
   DateTime currentMonth = DateTime(DateTime.now().year, DateTime.now().month);
   Map<String, dynamic> monthlyStats = {};
 
@@ -91,50 +96,135 @@ class PresenceNotifier extends ChangeNotifier {
 
   Future<void> changeMonth(DateTime month) => load(month: month);
 
-  // ── Pointage (clock-in / clock-out) ────────────────────────────────────────
-  Future<void> pointer() async {
+  // ── Pointage Entrée ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>?> pointageEntree({
+    required double latitude,
+    required double longitude,
+  }) async {
+    return _pointage('ENTREE', latitude, longitude);
+  }
+
+  // ── Pointage Sortie ────────────────────────────────────────────────────────
+  Future<Map<String, dynamic>?> pointageSortie({
+    required double latitude,
+    required double longitude,
+  }) async {
+    return _pointage('SORTIE', latitude, longitude);
+  }
+
+  // ── Internal pointage handler ──────────────────────────────────────────────
+  Future<Map<String, dynamic>?> _pointage(
+    String type,
+    double latitude,
+    double longitude,
+  ) async {
     try {
-      await _ref.read(apiServiceProvider).post<void>('/presences/pointage');
+      isPointerLoading = true;
+      pointerError = null;
+      notifyListeners();
+
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.post<Map<String, dynamic>>(
+        '/presences/pointage',
+        data: {
+          'type': type,
+          'latitude': latitude,
+          'longitude': longitude,
+        },
+      );
+
       await load();
+      return response.data;
     } catch (e) {
-      error = e.toString();
+      pointerError = e.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      isPointerLoading = false;
       notifyListeners();
     }
   }
 
   // ── Signaler absence ────────────────────────────────────────────────────────
-  Future<void> reportAbsence({
+  Future<Map<String, dynamic>?> reportAbsence({
     required DateTime date,
-    required String reason,
+    required String motif,
   }) async {
     try {
-      await _ref.read(apiServiceProvider).post<void>(
+      isAbsenceLoading = true;
+      absenceError = null;
+      notifyListeners();
+
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.post<Map<String, dynamic>>(
         '/presences/report-absence',
         data: {
-          'date': date.toIso8601String(),
-          'reason': reason,
+          'date': date.toIso8601String().split('T')[0],
+          'motif': motif,
         },
       );
+
       await load();
+      await loadAbsencesEnAttente();
+      return response.data;
     } catch (e) {
-      error = e.toString();
+      absenceError = e.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      isAbsenceLoading = false;
+      notifyListeners();
+    }
+  }
+
+  // ── Charger les absences en attente ────────────────────────────────────────
+  Future<void> loadAbsencesEnAttente() async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.get<Map<String, dynamic>>(
+        '/presences/absences-en-attente',
+      );
+      final raw = response.data?['items'] as List<dynamic>? ?? [];
+      absencesEnAttente = raw
+          .whereType<Map<String, dynamic>>()
+          .map(Presence.fromJson)
+          .toList();
+      notifyListeners();
+    } catch (e) {
+      absenceError = e.toString();
       notifyListeners();
     }
   }
 
   // ── Justifier absence ──────────────────────────────────────────────────────
-  Future<void> justifyAbsence({
+  Future<Map<String, dynamic>?> justifyAbsence({
     required int presenceId,
     required String justification,
+    String? pieceJointe,
   }) async {
     try {
-      await _ref.read(apiServiceProvider).post<void>(
+      isAbsenceLoading = true;
+      absenceError = null;
+      notifyListeners();
+
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.put<Map<String, dynamic>>(
         '/presences/$presenceId/justify',
-        data: {'justification': justification},
+        data: {
+          'justification': justification,
+          if (pieceJointe != null) 'pieceJointe': pieceJointe,
+        },
       );
+
       await load();
+      await loadAbsencesEnAttente();
+      return response.data;
     } catch (e) {
-      error = e.toString();
+      absenceError = e.toString();
+      notifyListeners();
+      return null;
+    } finally {
+      isAbsenceLoading = false;
       notifyListeners();
     }
   }

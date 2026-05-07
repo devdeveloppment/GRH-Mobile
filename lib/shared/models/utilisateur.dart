@@ -58,6 +58,7 @@ class Utilisateur {
     required this.actif,
     required this.dateCreation,
     this.avatarUrl,
+    this.photoUrl,
   });
 
   final int id;
@@ -68,6 +69,7 @@ class Utilisateur {
   final bool actif;
   final DateTime dateCreation;
   final String? avatarUrl;
+  final String? photoUrl;
 
   String get fullName => '$prenom $nom'.trim();
 
@@ -86,6 +88,7 @@ class Utilisateur {
           ) ??
           DateTime.now(),
       avatarUrl: json['avatarUrl'] as String?,
+      photoUrl: json['photoUrl'] as String?,
     );
   }
 
@@ -99,6 +102,7 @@ class Utilisateur {
       'actif': actif,
       'dateCreation': dateCreation.toIso8601String(),
       'avatarUrl': avatarUrl,
+      'photoUrl': photoUrl,
     };
   }
 }

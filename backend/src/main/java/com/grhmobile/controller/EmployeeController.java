@@ -1,5 +1,6 @@
 package com.grhmobile.controller;
 
+import java.util.List;
 import java.util.Map;
 
 import com.grhmobile.dto.common.PagedResponse;
@@ -8,8 +9,13 @@ import com.grhmobile.dto.employee.DocumentDto;
 import com.grhmobile.dto.employee.EmployeeRequest;
 import com.grhmobile.dto.employee.EmployeeResponse;
 import com.grhmobile.entity.Employe;
+import com.grhmobile.entity.Evaluation;
+import com.grhmobile.entity.Objectif;
 import com.grhmobile.repository.CompetenceRepository;
 import com.grhmobile.repository.DocumentRepository;
+import com.grhmobile.repository.EvaluationRepository;
+import com.grhmobile.repository.ObjectifRepository;
+import com.grhmobile.security.AuthenticatedUserService;
 import com.grhmobile.service.CongeService;
 import com.grhmobile.service.EmployeeService;
 import com.grhmobile.service.PaieService;
@@ -17,6 +23,7 @@ import com.grhmobile.service.PresenceService;
 
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -38,6 +45,9 @@ public class EmployeeController {
     private final PaieService paieService;
     private final DocumentRepository documentRepository;
     private final CompetenceRepository competenceRepository;
+    private final ObjectifRepository objectifRepository;
+    private final EvaluationRepository evaluationRepository;
+    private final AuthenticatedUserService authenticatedUserService;
 
     public EmployeeController(
         EmployeeService employeeService,
@@ -45,7 +55,10 @@ public class EmployeeController {
         CongeService congeService,
         PaieService paieService,
         DocumentRepository documentRepository,
-        CompetenceRepository competenceRepository
+        CompetenceRepository competenceRepository,
+        ObjectifRepository objectifRepository,
+        EvaluationRepository evaluationRepository,
+        AuthenticatedUserService authenticatedUserService
     ) {
         this.employeeService = employeeService;
         this.presenceService = presenceService;
@@ -53,6 +66,15 @@ public class EmployeeController {
         this.paieService = paieService;
         this.documentRepository = documentRepository;
         this.competenceRepository = competenceRepository;
+        this.objectifRepository = objectifRepository;
+        this.evaluationRepository = evaluationRepository;
+        this.authenticatedUserService = authenticatedUserService;
+    }
+
+    @GetMapping("/me")
+    public EmployeeResponse me() {
+        Long userId = authenticatedUserService.currentUser().getId();
+        return employeeService.getByUserId(userId);
     }
 
     @GetMapping
@@ -73,17 +95,20 @@ public class EmployeeController {
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
+    @PreAuthorize("hasRole('RH_MANAGER')")
     public EmployeeResponse create(@Valid @RequestBody EmployeeRequest request) {
         return employeeService.create(request);
     }
 
     @PutMapping("/{matricule}")
+    @PreAuthorize("hasRole('RH_MANAGER')")
     public EmployeeResponse update(@PathVariable String matricule, @Valid @RequestBody EmployeeRequest request) {
         return employeeService.update(matricule, request);
     }
 
     @DeleteMapping("/{matricule}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
+    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
     public void archive(@PathVariable String matricule) {
         employeeService.archive(matricule);
     }
@@ -115,5 +140,52 @@ public class EmployeeController {
         Employe employe = employeeService.findByMatricule(matricule);
         return Map.of("items", competenceRepository.findByEmployeIdOrderByNiveauDesc(employe.getId())
                 .stream().map(CompetenceDto::fromEntity).toList());
+    }
+
+    @GetMapping("/me/documents")
+    public Map<String, Object> myDocuments() {
+        Long userId = authenticatedUserService.currentUser().getId();
+        Employe employe = employeeService.findByUserId(userId);
+        return Map.of("items", documentRepository.findByEmployeIdOrderByCreatedAtDesc(employe.getId())
+                .stream().map(DocumentDto::fromEntity).toList());
+    }
+
+    @GetMapping("/me/objectifs")
+    public Map<String, Object> myObjectifs() {
+        Long userId = authenticatedUserService.currentUser().getId();
+        Employe employe = employeeService.findByUserId(userId);
+        List<Map<String, Object>> items = objectifRepository.findByEmployeIdOrderByCreatedAtDesc(employe.getId())
+                .stream()
+                .map(o -> {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("id", o.getId());
+                    m.put("titre", o.getTitre());
+                    m.put("description", o.getDescription());
+                    m.put("statut", o.getStatut());
+                    m.put("dateEcheance", o.getDateEcheance() != null ? o.getDateEcheance().toString() : null);
+                    return m;
+                })
+                .toList();
+        return Map.of("items", items);
+    }
+
+    @GetMapping("/me/evaluations")
+    public Map<String, Object> myEvaluations() {
+        Long userId = authenticatedUserService.currentUser().getId();
+        Employe employe = employeeService.findByUserId(userId);
+        List<Map<String, Object>> items = evaluationRepository.findByEmployeIdOrderByPeriodeDesc(employe.getId())
+                .stream()
+                .map(e -> {
+                    Map<String, Object> m = new java.util.LinkedHashMap<>();
+                    m.put("id", e.getId());
+                    m.put("periode", e.getPeriode());
+                    m.put("note", e.getNote());
+                    m.put("commentaire", e.getCommentaire());
+                    m.put("evaluateur", e.getEvaluateur() != null
+                            ? e.getEvaluateur().getPrenom() + " " + e.getEvaluateur().getNom() : null);
+                    return m;
+                })
+                .toList();
+        return Map.of("items", items);
     }
 }

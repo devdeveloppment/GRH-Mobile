@@ -6,7 +6,9 @@ import 'package:grh_mobile/core/providers/auth_provider.dart';
 
 final reportNotifierProvider =
     ChangeNotifierProvider.autoDispose<ReportNotifier>((ref) {
-  return ReportNotifier(ref);
+  final notifier = ReportNotifier(ref);
+  unawaited(notifier.loadServices());
+  return notifier;
 });
 
 class ReportNotifier extends ChangeNotifier {
@@ -15,45 +17,30 @@ class ReportNotifier extends ChangeNotifier {
   final Ref _ref;
   bool isLoading = false;
   String? errorMessage;
-  List<Map<String, dynamic>> reports = [];
+  List<String> services = [];
 
-  Future<void> loadReports({
-    String? type = 'all',
-    DateTime? startDate,
-    DateTime? endDate,
-  }) async {
-    isLoading = true;
-    errorMessage = null;
-    notifyListeners();
-
+  Future<void> loadServices() async {
     try {
       final api = _ref.read(apiServiceProvider);
-      final params = <String, dynamic>{
-        'type': type,
-      };
-      if (startDate != null) params['startDate'] = startDate.toIso8601String();
-      if (endDate != null) params['endDate'] = endDate.toIso8601String();
-
-      final response = await api.get<Map<String, dynamic>>(
-        '/reports',
-        queryParameters: params,
-      );
-
-      reports = List<Map<String, dynamic>>.from(
-        response.data?['items'] as List<dynamic>? ?? [],
-      );
-    } catch (e) {
-      errorMessage = 'Erreur lors du chargement des rapports';
-    } finally {
-      isLoading = false;
+      final response =
+          await api.get<Map<String, dynamic>>('/services');
+      final items =
+          response.data?['items'] as List<dynamic>? ?? [];
+      services = items
+          .whereType<Map<String, dynamic>>()
+          .map((s) => s['nom'] as String? ?? '')
+          .where((s) => s.isNotEmpty)
+          .toList();
       notifyListeners();
-    }
+    } catch (_) {}
   }
 
-  Future<List<int>?> exportReportPDF({
-    required String reportType,
-    DateTime? startDate,
-    DateTime? endDate,
+  Future<String?> generateAndDownload({
+    required String type,
+    required DateTime debut,
+    required DateTime fin,
+    required String format,
+    String? service,
   }) async {
     isLoading = true;
     errorMessage = null;
@@ -61,18 +48,25 @@ class ReportNotifier extends ChangeNotifier {
 
     try {
       final api = _ref.read(apiServiceProvider);
-      final params = <String, dynamic>{'type': reportType};
-      if (startDate != null) params['startDate'] = startDate.toIso8601String();
-      if (endDate != null) params['endDate'] = endDate.toIso8601String();
+      final debutStr =
+          '${debut.year}-${debut.month.toString().padLeft(2, '0')}-${debut.day.toString().padLeft(2, '0')}';
+      final finStr =
+          '${fin.year}-${fin.month.toString().padLeft(2, '0')}-${fin.day.toString().padLeft(2, '0')}';
+      final ext = format.toLowerCase() == 'csv' ? 'csv' : 'pdf';
+      final filename =
+          'rapport-${type.toLowerCase()}-$debutStr.$ext';
 
-      final bytes = await api.downloadFile(
-        '/reports/export?${_buildQueryString(params)}',
-        'rapport_$reportType.pdf',
-      );
-      
-      return bytes != null ? bytes.codeUnits : null;
+      final body = <String, dynamic>{
+        'type': type,
+        'debut': debutStr,
+        'fin': finStr,
+        'format': format,
+        if (service != null && service.isNotEmpty) 'service': service,
+      };
+
+      return await api.postAndDownload('/reports/generate', body, filename);
     } catch (e) {
-      errorMessage = 'Erreur lors de l\'export du PDF';
+      errorMessage = 'Erreur lors de la génération du rapport.';
       return null;
     } finally {
       isLoading = false;
@@ -80,30 +74,17 @@ class ReportNotifier extends ChangeNotifier {
     }
   }
 
-  Future<Map<String, dynamic>> generateReport({
-    required String reportType,
-    required Map<String, dynamic> filters,
-  }) async {
+  Future<String?> exportLegacy(String format) async {
     try {
       final api = _ref.read(apiServiceProvider);
-      final response = await api.post<Map<String, dynamic>>(
-        '/reports/generate',
-        data: {
-          'type': reportType,
-          'filters': filters,
-        },
+      return api.downloadFile(
+        '/reports/export?format=$format',
+        'rapport-rh.${format == 'excel' ? 'xlsx' : 'pdf'}',
       );
-      return response.data ?? {};
     } catch (e) {
-      errorMessage = 'Erreur lors de la génération du rapport';
-      return {};
+      errorMessage = 'Export impossible.';
+      notifyListeners();
+      return null;
     }
-  }
-
-  String _buildQueryString(Map<String, dynamic> params) {
-    final entries = params.entries
-        .map((e) => '${Uri.encodeComponent(e.key)}=${Uri.encodeComponent(e.value.toString())}')
-        .toList();
-    return entries.join('&');
   }
 }
