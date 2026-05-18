@@ -15,6 +15,7 @@ class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
     this.actions,
     this.userName,
     this.onMenuTap,
+    this.bottom,
   });
 
   final String title;
@@ -22,9 +23,12 @@ class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
   final List<Widget>? actions;
   final String? userName;
   final VoidCallback? onMenuTap;
+  final PreferredSizeWidget? bottom;
 
   @override
-  Size get preferredSize => const Size.fromHeight(72);
+  Size get preferredSize => Size.fromHeight(
+        72 + (bottom?.preferredSize.height ?? 0),
+      );
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -65,10 +69,11 @@ class GrhAppBar extends ConsumerWidget implements PreferredSizeWidget {
       backgroundColor: AppColors.background,
       surfaceTintColor: Colors.transparent,
       shadowColor: Colors.transparent,
-      bottom: PreferredSize(
-        preferredSize: const Size.fromHeight(0.5),
-        child: Container(height: 0.5, color: AppColors.border),
-      ),
+      bottom: bottom ??
+          PreferredSize(
+            preferredSize: const Size.fromHeight(0.5),
+            child: Container(height: 0.5, color: AppColors.border),
+          ),
       leading: (showBack || onMenuTap != null)
           ? Padding(
               padding: const EdgeInsets.only(left: 16, top: 14, bottom: 14),

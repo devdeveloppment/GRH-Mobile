@@ -1,69 +1,65 @@
 # ninja log v5
-59539	60997	0	CMakeFiles/install.util	6d988e2f060d9bb7
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_messenger.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registrar.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /build/linux/x64/debug/flutter/_phony_	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_string_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_basic_message_channel.h	d10fa68a5d1bc00f
-2202	2460	1777240523089849147	plugins/jni/shared/libdartjni.so	4cf8927f2f25e4f0
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_value.h	d10fa68a5d1bc00f
-166057	176504	1777240697014067712	plugins/file_selector_linux/CMakeFiles/file_selector_linux_plugin.dir/file_selector_plugin.cc.o	af5431df90471e55
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_call.h	d10fa68a5d1bc00f
-164720	170751	1777310306570796052	intermediates_do_not_run/grh_mobile	5b5ad1d126ff31ce
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_view.h	d10fa68a5d1bc00f
-166060	193918	1777240714461529867	plugins/flutter_secure_storage_linux/CMakeFiles/flutter_secure_storage_linux_plugin.dir/flutter_secure_storage_linux_plugin.cc.o	57c20d29282ca65d
-9	1648	1777240522257833932	plugins/jni/shared/CMakeFiles/jni.dir/dartjni.c.o	242e4cde87874be8
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_dart_project.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_string_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_basic_message_channel.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_channel.h	d10fa68a5d1bc00f
+93716	96371	1778645370039053848	plugins/url_launcher_linux/CMakeFiles/url_launcher_linux_plugin.dir/url_launcher_plugin.cc.o	dcb030bdaa017ea4
 21	1118	1777240521734824369	plugins/jni/shared/CMakeFiles/jni.dir/include/dart_api_dl.c.o	30c3817a0ab29ced
 16	2202	1777240522811844063	plugins/jni/shared/CMakeFiles/jni.dir/third_party/global_jni_env.c.o	915e44699aa00abd
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_method_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registry.h	d10fa68a5d1bc00f
-166059	176881	1777240697499076782	plugins/file_selector_linux/CMakeFiles/file_selector_linux_plugin.dir/messages.g.cc.o	739b2b1ad45185fd
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/flutter_linux.h	d10fa68a5d1bc00f
-2346	59489	0	flutter/_phony_	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_engine.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_message_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_message_codec.h	d10fa68a5d1bc00f
-149458	164717	1777310300358668616	plugins/file_selector_linux/libfile_selector_linux_plugin.so	1f607e5e16d8566f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_method_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_channel.h	d10fa68a5d1bc00f
-165948	175886	1777240696482057764	runner/CMakeFiles/grh_mobile.dir/main.cc.o	44d46b882c8307d6
-166054	177573	1777240698191089723	runner/CMakeFiles/grh_mobile.dir/my_application.cc.o	eb60e3b119bfe4a3
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/libflutter_linux_gtk.so	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_message_codec.h	d10fa68a5d1bc00f
-2346	59489	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_response.h	d10fa68a5d1bc00f
-166055	175950	1777240696551059055	runner/CMakeFiles/grh_mobile.dir/__/flutter/generated_plugin_registrant.cc.o	b8927d85bd673c95
-149462	164720	1777310300415669785	plugins/flutter_secure_storage_linux/libflutter_secure_storage_linux_plugin.so	1175ce5d5cd17e4f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/libflutter_linux_gtk.so	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_basic_message_channel.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_messenger.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_dart_project.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_engine.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_message_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_method_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_message_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_call.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_channel.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_response.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registrar.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registry.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_message_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_method_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_string_codec.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_value.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_view.h	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/flutter_linux.h	d10fa68a5d1bc00f
-23	81704	0	flutter/_phony_	d10fa68a5d1bc00f
-23	81704	0	/home/caleb/Bureau/PPE 302 /build/linux/x64/debug/flutter/_phony_	d10fa68a5d1bc00f
-81795	121490	1778107137431958635	plugins/url_launcher_linux/CMakeFiles/url_launcher_linux_plugin.dir/messages.g.cc.o	61f06f035f747d
+93820	95636	1778645369306065172	plugins/file_selector_linux/libfile_selector_linux_plugin.so	1f607e5e16d8566f
+74227	93819	1778645367450093843	plugins/file_selector_linux/CMakeFiles/file_selector_linux_plugin.dir/messages.g.cc.o	739b2b1ad45185fd
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registry.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_method_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/flutter_linux.h	d10fa68a5d1bc00f
+105355	107057	1778645380717888795	intermediates_do_not_run/grh_mobile	20e26a4f34df82f0
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_view.h	d10fa68a5d1bc00f
+96371	96656	1778645370330049352	plugins/url_launcher_linux/liburl_launcher_linux_plugin.so	562282d189b8b295
+74228	104979	1778645378610921371	plugins/flutter_secure_storage_linux/CMakeFiles/flutter_secure_storage_linux_plugin.dir/flutter_secure_storage_linux_plugin.cc.o	57c20d29282ca65d
+20	128726	0	flutter/_phony_	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_engine.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_message_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_message_codec.h	d10fa68a5d1bc00f
+74225	93761	1778645367324095790	plugins/file_selector_linux/CMakeFiles/file_selector_linux_plugin.dir/file_selector_plugin.cc.o	af5431df90471e55
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_call.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_messenger.h	d10fa68a5d1bc00f
+128765	139245	0	CMakeFiles/install.util	6d988e2f060d9bb7
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_method_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/libflutter_linux_gtk.so	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_message_codec.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_response.h	d10fa68a5d1bc00f
+74225	93668	1778645367237097133	runner/CMakeFiles/grh_mobile.dir/__/flutter/generated_plugin_registrant.cc.o	40ba30f300663deb
+104979	105354	1778645379024914971	plugins/flutter_secure_storage_linux/libflutter_secure_storage_linux_plugin.so	1175ce5d5cd17e4f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registrar.h	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /build/linux/x64/debug/flutter/_phony_	d10fa68a5d1bc00f
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_codec.h	d10fa68a5d1bc00f
+2202	2460	1777240523089849147	plugins/jni/shared/libdartjni.so	4cf8927f2f25e4f0
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_value.h	d10fa68a5d1bc00f
 81791	121522	1778107137367957483	runner/CMakeFiles/grh_mobile.dir/main.cc.o	9491a2e9f4542cb2
-81793	121523	1778107137368957500	runner/CMakeFiles/grh_mobile.dir/__/flutter/generated_plugin_registrant.cc.o	40ba30f300663deb
-81855	121527	1778107137414958329	plugins/url_launcher_linux/CMakeFiles/url_launcher_linux_plugin.dir/url_launcher_plugin.cc.o	dcb030bdaa017ea4
-81792	121633	1778107138101970701	runner/CMakeFiles/grh_mobile.dir/my_application.cc.o	50d307ab64c951f6
-121530	123609	1778107140091006525	plugins/url_launcher_linux/liburl_launcher_linux_plugin.so	562282d189b8b295
-123609	126073	1778107142550050827	intermediates_do_not_run/grh_mobile	20e26a4f34df82f0
-126073	128809	0	CMakeFiles/install.util	6d988e2f060d9bb7
+74231	93987	1778645367571091974	plugins/url_launcher_linux/CMakeFiles/url_launcher_linux_plugin.dir/messages.g.cc.o	61f06f035f747d
+74224	93721	1778645367266096685	runner/CMakeFiles/grh_mobile.dir/my_application.cc.o	50d307ab64c951f6
+9	1648	1777240522257833932	plugins/jni/shared/CMakeFiles/jni.dir/dartjni.c.o	242e4cde87874be8
+20	128726	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_dart_project.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/libflutter_linux_gtk.so	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_basic_message_channel.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_binary_messenger.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_dart_project.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_engine.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_message_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_json_method_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_message_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_call.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_channel.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_method_response.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registrar.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_plugin_registry.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_message_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_standard_method_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_string_codec.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_value.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/fl_view.h	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /linux/flutter/ephemeral/flutter_linux/flutter_linux.h	d10fa68a5d1bc00f
+3147	202669	0	flutter/_phony_	d10fa68a5d1bc00f
+3147	202669	0	/home/caleb/Bureau/PPE 302 /build/linux/x64/debug/flutter/_phony_	d10fa68a5d1bc00f
+202760	217677	0	CMakeFiles/install.util	6d988e2f060d9bb7

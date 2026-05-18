@@ -17,6 +17,8 @@ class ServiceModel {
     required this.description,
     required this.responsable,
     required this.nombreEmployes,
+    this.responsableId,
+    this.responsableNom,
   });
 
   final int id;
@@ -24,6 +26,10 @@ class ServiceModel {
   final String description;
   final String responsable;
   final int nombreEmployes;
+  final int? responsableId;
+  final String? responsableNom;
+
+  String get displayResponsable => responsableNom ?? responsable;
 
   factory ServiceModel.fromJson(Map<String, dynamic> json) => ServiceModel(
         id: (json['id'] as num?)?.toInt() ?? 0,
@@ -31,6 +37,8 @@ class ServiceModel {
         description: json['description'] as String? ?? '',
         responsable: json['responsable'] as String? ?? '',
         nombreEmployes: (json['nombreEmployes'] as num?)?.toInt() ?? 0,
+        responsableId: (json['responsableId'] as num?)?.toInt(),
+        responsableNom: json['responsableNom'] as String?,
       );
 }
 
@@ -62,11 +70,11 @@ class ServiceNotifier extends ChangeNotifier {
     }
   }
 
-  Future<bool> create(String nom, String description, String responsable) async {
+  Future<bool> create(String nom, String description, int responsableId) async {
     try {
       await _api.post<Map<String, dynamic>>(
         '/services',
-        data: {'nom': nom, 'description': description, 'responsable': responsable},
+        data: {'nom': nom, 'description': description, 'responsableId': responsableId},
       );
       await load();
       return true;
@@ -77,11 +85,11 @@ class ServiceNotifier extends ChangeNotifier {
     }
   }
 
-  Future<bool> update(int id, String nom, String description, String responsable) async {
+  Future<bool> update(int id, String nom, String description, int responsableId) async {
     try {
       await _api.put<Map<String, dynamic>>(
         '/services/$id',
-        data: {'nom': nom, 'description': description, 'responsable': responsable},
+        data: {'nom': nom, 'description': description, 'responsableId': responsableId},
       );
       await load();
       return true;

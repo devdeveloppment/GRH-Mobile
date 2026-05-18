@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
 import java.util.Base64;
@@ -13,9 +14,13 @@ import com.grhmobile.dto.presence.PointageResponse;
 import com.grhmobile.dto.presence.PresenceResponse;
 import com.grhmobile.dto.presence.ReportAbsenceRequest;
 import com.grhmobile.dto.presence.ReportAbsenceResponse;
+import com.grhmobile.dto.qrcode.QrScanRequest;
+import com.grhmobile.dto.qrcode.QrScanResponse;
 import com.grhmobile.entity.Employe;
+import com.grhmobile.entity.EmployeQrCode;
 import com.grhmobile.entity.Presence;
 import com.grhmobile.enums.StatutPresence;
+import com.grhmobile.repository.EmployeQrCodeRepository;
 import com.grhmobile.repository.PresenceRepository;
 import com.grhmobile.security.AuthenticatedUserService;
 
@@ -28,15 +33,21 @@ public class PresenceService {
     private final PresenceRepository presenceRepository;
     private final EmployeeService employeeService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final EmployeQrCodeRepository qrCodeRepository;
+    private final NotificationService notificationService;
 
     public PresenceService(
         PresenceRepository presenceRepository,
         EmployeeService employeeService,
-        AuthenticatedUserService authenticatedUserService
+        AuthenticatedUserService authenticatedUserService,
+        EmployeQrCodeRepository qrCodeRepository,
+        NotificationService notificationService
     ) {
         this.presenceRepository = presenceRepository;
         this.employeeService = employeeService;
         this.authenticatedUserService = authenticatedUserService;
+        this.qrCodeRepository = qrCodeRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -149,6 +160,64 @@ public class PresenceService {
             .toList();
 
         return Map.of("items", items);
+    }
+
+    @Transactional
+    public QrScanResponse scanPointage(QrScanRequest request) {
+        // Valider le token QR
+        EmployeQrCode qrCode = qrCodeRepository.findByToken(request.token())
+            .orElseThrow(() -> new IllegalArgumentException("QR Code invalide ou expiré."));
+
+        Employe employe = qrCode.getEmploye();
+        LocalDate today = LocalDate.now();
+
+        Presence presence = presenceRepository
+            .findByEmployeIdAndDate(employe.getId(), today)
+            .orElseGet(() -> {
+                Presence p = new Presence();
+                p.setEmploye(employe);
+                p.setDate(today);
+                p.setStatut(StatutPresence.PRESENT);
+                return p;
+            });
+
+        // Anti-double scan : 60 secondes minimum entre deux scans
+        LocalDateTime now = LocalDateTime.now();
+        LocalDateTime lastScan = presence.getHeureDepart() != null
+            ? presence.getHeureDepart()
+            : presence.getHeureArrivee();
+        if (lastScan != null && Duration.between(lastScan, now).getSeconds() < 60) {
+            throw new IllegalArgumentException("Scan trop rapide. Veuillez patienter quelques secondes.");
+        }
+
+        String type;
+        if (presence.getHeureArrivee() == null) {
+            presence.setHeureArrivee(now);
+            type = "ENTREE";
+        } else if (presence.getHeureDepart() == null) {
+            presence.setHeureDepart(now);
+            type = "SORTIE";
+        } else {
+            throw new IllegalArgumentException("La présence est déjà complète pour aujourd'hui.");
+        }
+
+        presenceRepository.save(presence);
+
+        // Notifier l'employé de son pointage
+        if (employe.getUtilisateur() != null) {
+            String heureFormatee = now.toLocalTime().withSecond(0).withNano(0).toString();
+            String msgType = "ENTREE".equals(type) ? "entrée" : "sortie";
+            notificationService.create(
+                employe.getUtilisateur().getId(),
+                "Pointage enregistré",
+                "Votre pointage " + msgType + " a été enregistré à " + heureFormatee + ".",
+                "PRESENCE",
+                "/employee/home"
+            );
+        }
+
+        String nomComplet = employe.getPrenom() + " " + employe.getNom();
+        return QrScanResponse.ok(nomComplet, employe.getMatricule(), type, now);
     }
 
     @Transactional

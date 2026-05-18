@@ -1,6 +1,7 @@
 package com.grhmobile.entity;
 
 import java.time.LocalDate;
+import java.time.OffsetDateTime;
 
 import com.grhmobile.enums.StatutConge;
 import com.grhmobile.enums.TypeConge;
@@ -51,6 +52,21 @@ public class Conge extends BaseEntity {
 
     @Column(columnDefinition = "TEXT")
     private String commentaire;
+
+    // Workflow double validation
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "approbateur_id")
+    private Utilisateur approbateur;
+
+    @Column(name = "date_approbation")
+    private OffsetDateTime dateApprobation;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "validateur_id")
+    private Utilisateur validateur;
+
+    @Column(name = "date_validation")
+    private OffsetDateTime dateValidation;
 
     public Long getId() {
         return id;
@@ -119,4 +135,16 @@ public class Conge extends BaseEntity {
     public void setCommentaire(String commentaire) {
         this.commentaire = commentaire;
     }
+
+    public Utilisateur getApprobateur() { return approbateur; }
+    public void setApprobateur(Utilisateur approbateur) { this.approbateur = approbateur; }
+
+    public OffsetDateTime getDateApprobation() { return dateApprobation; }
+    public void setDateApprobation(OffsetDateTime dateApprobation) { this.dateApprobation = dateApprobation; }
+
+    public Utilisateur getValidateur() { return validateur; }
+    public void setValidateur(Utilisateur validateur) { this.validateur = validateur; }
+
+    public OffsetDateTime getDateValidation() { return dateValidation; }
+    public void setDateValidation(OffsetDateTime dateValidation) { this.dateValidation = dateValidation; }
 }

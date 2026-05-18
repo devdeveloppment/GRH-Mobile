@@ -2,9 +2,12 @@ package com.grhmobile.entity;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.FetchType;
 import jakarta.persistence.GeneratedValue;
 import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import jakarta.persistence.JoinColumn;
+import jakarta.persistence.ManyToOne;
 import jakarta.persistence.Table;
 
 @Entity
@@ -21,8 +24,12 @@ public class ServiceEntity extends BaseEntity {
     @Column(nullable = false)
     private String description;
 
-    @Column(nullable = false)
+    @Column
     private String responsable;
+
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "responsable_id")
+    private Employe responsableEmploye;
 
     @Column(nullable = false)
     private boolean actif = true;
@@ -61,5 +68,13 @@ public class ServiceEntity extends BaseEntity {
 
     public void setActif(boolean actif) {
         this.actif = actif;
+    }
+
+    public Employe getResponsableEmploye() {
+        return responsableEmploye;
+    }
+
+    public void setResponsableEmploye(Employe responsableEmploye) {
+        this.responsableEmploye = responsableEmploye;
     }
 }

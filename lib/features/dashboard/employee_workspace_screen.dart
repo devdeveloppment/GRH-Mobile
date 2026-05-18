@@ -2,6 +2,7 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:qr_flutter/qr_flutter.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:url_launcher/url_launcher.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
@@ -12,6 +13,7 @@ import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/core/providers/paie_provider.dart';
 import 'package:grh_mobile/core/providers/presence_provider.dart';
 import 'package:grh_mobile/core/providers/profile_provider.dart';
+import 'package:grh_mobile/core/providers/qr_provider.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/models/conge.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
@@ -934,50 +936,8 @@ class _PresencesTabState extends State<_PresencesTab> {
       child: ListView(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
         children: [
-          // ── Boutons de pointage ────────────────────────────────────────
-          Row(
-            children: [
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: presence.isPointerLoading
-                      ? null
-                      : () => _effectuerPointage('ENTREE'),
-                  icon: Icon(presence.isPointerLoading
-                      ? null
-                      : Icons.login_rounded),
-                  label: Text(presence.isPointerLoading
-                      ? 'Pointage en cours...'
-                      : 'Pointer Entrée'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.accent,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-              const SizedBox(width: 12),
-              Expanded(
-                child: ElevatedButton.icon(
-                  onPressed: presence.isPointerLoading
-                      ? null
-                      : () => _effectuerPointage('SORTIE'),
-                  icon: Icon(presence.isPointerLoading
-                      ? null
-                      : Icons.logout_rounded),
-                  label: Text(presence.isPointerLoading
-                      ? 'Pointage en cours...'
-                      : 'Pointer Sortie'),
-                  style: ElevatedButton.styleFrom(
-                    backgroundColor: AppColors.error,
-                    foregroundColor: Colors.white,
-                    disabledBackgroundColor: Colors.grey,
-                    padding: const EdgeInsets.symmetric(vertical: 12),
-                  ),
-                ),
-              ),
-            ],
-          ),
+          // ── QR Code de pointage ───────────────────────────────────────
+          const _QrPointageCard(),
           const SizedBox(height: 20),
 
           // ── Month navigator ───────────────────────────────────────────
@@ -3716,6 +3676,133 @@ class GrhPageHeader extends StatelessWidget {
                   fontSize: 12, color: AppColors.text2)),
         ],
       ],
+    );
+  }
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// WIDGET QR POINTAGE — affiché à la place des boutons Entrée/Sortie
+// ─────────────────────────────────────────────────────────────────────────────
+
+class _QrPointageCard extends ConsumerWidget {
+  const _QrPointageCard();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final qr = ref.watch(qrNotifierProvider);
+
+    if (qr.isLoading) {
+      return const Center(child: CircularProgressIndicator());
+    }
+
+    final code = qr.qrCode;
+    if (code == null) {
+      return OutlinedButton.icon(
+        onPressed: () => ref.read(qrNotifierProvider).load(),
+        icon: const Icon(Icons.qr_code_rounded),
+        label: const Text('Charger mon QR Code'),
+      );
+    }
+
+    return Card(
+      elevation: 3,
+      shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(16)),
+      child: Padding(
+        padding: const EdgeInsets.all(20),
+        child: Column(
+          children: [
+            const Text(
+              'Mon QR Code de présence',
+              style: TextStyle(
+                fontWeight: FontWeight.w700,
+                fontSize: 15,
+                color: AppColors.text1,
+              ),
+            ),
+            const SizedBox(height: 6),
+            const Text(
+              'Présentez ce code à l\'administrateur pour pointer',
+              style: TextStyle(fontSize: 12, color: AppColors.text2),
+              textAlign: TextAlign.center,
+            ),
+            const SizedBox(height: 16),
+            GestureDetector(
+              onTap: () => _showFullscreen(context, code.qrData),
+              child: QrImageView(
+                data: code.qrData,
+                version: QrVersions.auto,
+                size: 180,
+                backgroundColor: Colors.white,
+                errorCorrectionLevel: QrErrorCorrectLevel.H,
+              ),
+            ),
+            const SizedBox(height: 12),
+            Row(
+              mainAxisAlignment: MainAxisAlignment.center,
+              children: [
+                TextButton.icon(
+                  onPressed: () => _showFullscreen(context, code.qrData),
+                  icon: const Icon(Icons.fullscreen_rounded, size: 18),
+                  label: const Text('Agrandir'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppColors.accent),
+                ),
+                const SizedBox(width: 8),
+                TextButton.icon(
+                  onPressed: qr.isRegenerating
+                      ? null
+                      : () => ref.read(qrNotifierProvider).regenerate(),
+                  icon: const Icon(Icons.refresh_rounded, size: 18),
+                  label: Text(
+                      qr.isRegenerating ? 'Régénération...' : 'Régénérer'),
+                  style: TextButton.styleFrom(
+                      foregroundColor: AppColors.text2),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+
+  void _showFullscreen(BuildContext context, String data) {
+    showDialog(
+      context: context,
+      barrierColor: Colors.black87,
+      builder: (_) => Dialog(
+        backgroundColor: Colors.white,
+        shape:
+            RoundedRectangleBorder(borderRadius: BorderRadius.circular(20)),
+        child: Padding(
+          padding: const EdgeInsets.all(24),
+          child: Column(
+            mainAxisSize: MainAxisSize.min,
+            children: [
+              Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('QR Code',
+                      style: TextStyle(
+                          fontWeight: FontWeight.w700, fontSize: 18)),
+                  IconButton(
+                    onPressed: () => Navigator.pop(context),
+                    icon: const Icon(Icons.close_rounded),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 12),
+              QrImageView(
+                data: data,
+                version: QrVersions.auto,
+                size: 300,
+                backgroundColor: Colors.white,
+                errorCorrectionLevel: QrErrorCorrectLevel.H,
+              ),
+            ],
+          ),
+        ),
+      ),
     );
   }
 }

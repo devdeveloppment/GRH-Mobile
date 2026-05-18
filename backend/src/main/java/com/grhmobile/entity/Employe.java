@@ -16,8 +16,11 @@ import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
 import jakarta.persistence.JoinColumn;
 import jakarta.persistence.ManyToOne;
+import jakarta.persistence.OneToMany;
 import jakarta.persistence.OneToOne;
 import jakarta.persistence.Table;
+import java.util.ArrayList;
+import java.util.List;
 
 @Entity
 @Table(name = "employes")
@@ -58,9 +61,27 @@ public class Employe extends BaseEntity {
     @Column(nullable = false)
     private String poste;
 
+    // Poste dynamique (remplace progressivement le champ String poste)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "poste_id")
+    private Poste posteRef;
+
     @ManyToOne(fetch = FetchType.LAZY)
     @JoinColumn(name = "service_id")
     private ServiceEntity service;
+
+    // Département structurel (remplace progressivement service pour les cas RH)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "departement_id")
+    private Departement departement;
+
+    // Manager direct (relation hiérarchique N-1)
+    @ManyToOne(fetch = FetchType.LAZY)
+    @JoinColumn(name = "manager_id")
+    private Employe manager;
+
+    @OneToMany(mappedBy = "manager")
+    private List<Employe> equipe = new ArrayList<>();
 
     @Enumerated(EnumType.STRING)
     @Column(name = "type_contrat", nullable = false)
@@ -240,4 +261,15 @@ public class Employe extends BaseEntity {
     public void setUtilisateur(Utilisateur utilisateur) {
         this.utilisateur = utilisateur;
     }
+
+    public Poste getPosteRef() { return posteRef; }
+    public void setPosteRef(Poste posteRef) { this.posteRef = posteRef; }
+
+    public Departement getDepartement() { return departement; }
+    public void setDepartement(Departement departement) { this.departement = departement; }
+
+    public Employe getManager() { return manager; }
+    public void setManager(Employe manager) { this.manager = manager; }
+
+    public List<Employe> getEquipe() { return equipe; }
 }

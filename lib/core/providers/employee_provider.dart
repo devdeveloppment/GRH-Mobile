@@ -7,9 +7,7 @@ import 'package:grh_mobile/shared/models/employe.dart';
 
 final employeeNotifierProvider =
     ChangeNotifierProvider.autoDispose<EmployeeNotifier>((ref) {
-  final notifier = EmployeeNotifier(ref);
-  unawaited(notifier.fetchInitial());
-  return notifier;
+  return EmployeeNotifier(ref);
 });
 
 class EmployeeNotifier extends ChangeNotifier {

@@ -99,7 +99,7 @@ public class CongeService {
         congeRepository.save(conge);
         notifyEmployee(conge, "Congé approuvé",
             "Votre demande de congé du " + conge.getDateDebut() + " au " + conge.getDateFin() + " a été approuvée.",
-            "CONGE");
+            "CONGE", "/rh/conges");
     }
 
     @Transactional
@@ -113,13 +113,13 @@ public class CongeService {
         congeRepository.save(conge);
         notifyEmployee(conge, "Congé refusé",
             "Votre demande de congé du " + conge.getDateDebut() + " au " + conge.getDateFin() + " a été refusée.",
-            "CONGE");
+            "CONGE", "/rh/conges");
     }
 
-    private void notifyEmployee(Conge conge, String titre, String message, String type) {
+    private void notifyEmployee(Conge conge, String titre, String message, String type, String redirectTo) {
         var utilisateur = conge.getEmploye().getUtilisateur();
         if (utilisateur != null) {
-            notificationService.create(utilisateur.getId(), titre, message, type);
+            notificationService.create(utilisateur.getId(), titre, message, type, redirectTo);
         }
     }
 

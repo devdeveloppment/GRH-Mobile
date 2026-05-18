@@ -5,6 +5,7 @@ import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/dashboard_provider.dart';
+import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/shared/models/dashboard_models.dart';
 import 'package:grh_mobile/shared/widgets/attendance_line_chart.dart';
 import 'package:grh_mobile/shared/widgets/birthday_card.dart';
@@ -23,6 +24,8 @@ class RhDashboardModernScreen extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final auth = ref.watch(authNotifierProvider);
     final dashboardAsync = ref.watch(enhancedDashboardProvider);
+    final notifNotifier = ref.watch(notificationNotifierProvider);
+    final unreadCount = notifNotifier.unreadCount;
     final isWide = MediaQuery.sizeOf(context).width >= 1120;
 
     return Scaffold(
@@ -45,15 +48,11 @@ class RhDashboardModernScreen extends ConsumerWidget {
             onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
             actions: [
               IconButton(
-                onPressed: () => ScaffoldMessenger.of(context).showSnackBar(
-                  const SnackBar(
-                    content: Text('Centre de notifications — GET /api/notifications'),
-                    duration: Duration(seconds: 2),
-                  ),
-                ),
+                onPressed: () => context.go(AppRoutes.notifications),
                 icon: Badge(
+                  isLabelVisible: unreadCount > 0,
                   backgroundColor: AppColors.accent,
-                  label: const Text('3'),
+                  label: Text('$unreadCount'),
                   child: const Icon(
                     Icons.notifications_none_rounded,
                     color: AppColors.text2,

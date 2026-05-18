@@ -20,6 +20,7 @@ import com.grhmobile.repository.PresenceRepository;
 import com.grhmobile.repository.ServiceRepository;
 import com.grhmobile.repository.UtilisateurRepository;
 
+import com.grhmobile.audit.Auditable;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
@@ -53,7 +54,7 @@ public class EmployeeService {
     @Transactional(readOnly = true)
     public PagedResponse<EmployeeResponse> search(String query, String statut, String service, int page, int limit) {
         Page<Employe> result = employeRepository.search(
-            normalize(query),
+            toLikePattern(query),
             normalize(statut),
             normalize(service),
             PageRequest.of(Math.max(page - 1, 0), limit, Sort.by("nom").ascending().and(Sort.by("prenom").ascending()))
@@ -77,6 +78,7 @@ public class EmployeeService {
         return toResponse(findByUserId(userId));
     }
 
+    @Auditable(action = "CREATE_EMPLOYEE", entite = "Employe")
     @Transactional
     public EmployeeResponse create(EmployeeRequest request) {
         ServiceEntity service = findOrCreateService(request.service());
@@ -98,6 +100,7 @@ public class EmployeeService {
         return toResponse(employe);
     }
 
+    @Auditable(action = "UPDATE_EMPLOYEE", entite = "Employe")
     @Transactional
     public EmployeeResponse update(String matricule, EmployeeRequest request) {
         Employe employe = findByMatricule(matricule);
@@ -123,6 +126,12 @@ public class EmployeeService {
             employe.getUtilisateur().setActif(false);
         }
         employeRepository.save(employe);
+    }
+
+    @Transactional(readOnly = true)
+    public Employe findById(Long id) {
+        return employeRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Employé introuvable."));
     }
 
     @Transactional(readOnly = true)
@@ -189,5 +198,12 @@ public class EmployeeService {
             return null;
         }
         return value.trim();
+    }
+
+    private String toLikePattern(String query) {
+        if (query == null || query.isBlank()) {
+            return null;
+        }
+        return "%" + query.trim().toLowerCase() + "%";
     }
 }

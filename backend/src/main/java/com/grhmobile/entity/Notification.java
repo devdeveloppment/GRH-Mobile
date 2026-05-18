@@ -1,6 +1,7 @@
 package com.grhmobile.entity;
 
 import jakarta.persistence.*;
+import java.time.OffsetDateTime;
 
 @Entity
 @Table(name = "notifications")
@@ -26,6 +27,13 @@ public class Notification extends BaseEntity {
     @Column(nullable = false)
     private boolean lu = false;
 
+    /** Route Flutter à ouvrir au tap, ex: /rh/conges, /employee/home */
+    @Column(name = "redirect_to")
+    private String redirectTo;
+
+    @Column(name = "read_at")
+    private OffsetDateTime readAt;
+
     public Long getId() { return id; }
 
     public Utilisateur getUtilisateur() { return utilisateur; }
@@ -42,4 +50,10 @@ public class Notification extends BaseEntity {
 
     public boolean isLu() { return lu; }
     public void setLu(boolean lu) { this.lu = lu; }
+
+    public String getRedirectTo() { return redirectTo; }
+    public void setRedirectTo(String redirectTo) { this.redirectTo = redirectTo; }
+
+    public OffsetDateTime getReadAt() { return readAt; }
+    public void setReadAt(OffsetDateTime readAt) { this.readAt = readAt; }
 }

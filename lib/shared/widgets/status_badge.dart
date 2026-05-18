@@ -5,7 +5,7 @@ class StatusBadge extends StatelessWidget {
   const StatusBadge({
     super.key,
     required this.label,
-    required this.type,
+    this.type = '',
   });
 
   final String label;

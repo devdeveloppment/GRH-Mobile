@@ -370,20 +370,20 @@ class _DepartmentDonutChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final values = points.isEmpty
-        ? const [
-            DashboardPoint(label: 'Finance', value: 28),
-            DashboardPoint(label: 'Commercial', value: 22),
-            DashboardPoint(label: 'Production', value: 30),
-            DashboardPoint(label: 'Support', value: 20),
-          ]
-        : points;
+    final values = points;
     const colors = <Color>[
       AppColors.primary,
       AppColors.accent,
       AppColors.warning,
       AppColors.success,
     ];
+
+    if (values.isEmpty) {
+      return const Center(
+        child: Text('Aucune donnée disponible',
+            style: TextStyle(fontSize: 12, color: AppColors.text2)),
+      );
+    }
 
     return Row(
       children: [

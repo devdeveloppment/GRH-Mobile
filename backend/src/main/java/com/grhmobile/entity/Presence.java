@@ -50,7 +50,7 @@ public class Presence extends BaseEntity {
     @Column(name = "justification", columnDefinition = "TEXT")
     private String justification;
 
-    @Column(name = "piece_jointe", columnDefinition = "LONGBLOB")
+    @Column(name = "piece_jointe")
     private byte[] pieceJointe;
 
     @Enumerated(EnumType.STRING)

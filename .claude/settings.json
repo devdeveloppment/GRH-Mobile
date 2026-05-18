@@ -1,0 +1,24 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(find \"/home/caleb/Bureau/\"*PPE*302* -type f \\\\\\( -name \"*.java\" -o -name \"*.dart\" -o -name \"*.sql\" \\\\\\))",
+      "Bash(find \"/home/caleb/Bureau/\"*PPE*302*/backend -name \"*[Ss]ervice*\" -o -name \"*[Dd]epartement*\")",
+      "Bash(find \"/home/caleb/Bureau/\"*PPE*302*/backend -name \"*.sql\")",
+      "Bash(find \"/home/caleb/Bureau/\"*PPE*302*/lib -name \"*.dart\")",
+      "Bash(find \"/home/caleb/Bureau/\"*PPE*302*/backend -name \"BaseEntity.java\")",
+      "Bash(ls \"/home/caleb/Bureau/PPE 302 /lib/features/\" && mkdir -p \"/home/caleb/Bureau/PPE 302 /lib/features/departments\")",
+      "Bash(grep -n \"^class\\\\|State<\\\\|extends\\\\|{$\" \"/home/caleb/Bureau/PPE 302 /lib/features/dashboard/admin_console_screen.dart\")",
+      "Bash(flutter build *)",
+      "Bash(head -2302 \"/home/caleb/Bureau/PPE 302 /lib/features/dashboard/admin_console_screen.dart\" > /tmp/admin_console_trimmed.dart && wc -l /tmp/admin_console_trimmed.dart)",
+      "Bash(cp /tmp/admin_console_trimmed.dart \"/home/caleb/Bureau/PPE 302 /lib/features/dashboard/admin_console_screen.dart\")",
+      "Bash(rm \"/home/caleb/Bureau/PPE 302 /lib/features/departments/departments_screen.dart\" \"/home/caleb/Bureau/PPE 302 /lib/features/departments/department_detail_screen.dart\" && ls \"/home/caleb/Bureau/PPE 302 /lib/features/departments/\")"
+    ],
+    "additionalDirectories": [
+      "/home/caleb/Bureau/PPE 302 /lib/features/notifications",
+      "/home/caleb/Bureau/PPE 302 /lib/features",
+      "/tmp",
+      "/home/caleb/Bureau/PPE 302 /lib/features/dashboard",
+      "/home/caleb/Bureau/PPE 302 /lib/features/departments"
+    ]
+  }
+}

@@ -545,26 +545,30 @@ class _UserCard extends StatelessWidget {
 
   String _roleLabel(UserRole role) {
     switch (role) {
+      case UserRole.superAdmin:
+        return 'Super Admin';
       case UserRole.admin:
         return 'Admin';
       case UserRole.rhManager:
         return 'Resp. RH';
       case UserRole.direction:
         return 'Direction';
-      case UserRole.employee:
+      default:
         return 'Employé';
     }
   }
 
   Color _roleColor(UserRole role) {
     switch (role) {
+      case UserRole.superAdmin:
+        return AppColors.error;
       case UserRole.admin:
         return AppColors.error;
       case UserRole.rhManager:
         return AppColors.warning;
       case UserRole.direction:
         return AppColors.info;
-      case UserRole.employee:
+      default:
         return AppColors.success;
     }
   }

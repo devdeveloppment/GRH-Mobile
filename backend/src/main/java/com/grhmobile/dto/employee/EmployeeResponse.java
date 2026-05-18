@@ -41,7 +41,7 @@ public record EmployeeResponse(
             employe.getDateEmbauche(),
             employe.getPoste(),
             employe.getService() != null ? employe.getService().getNom() : null,
-            employe.getTypeContrat().name(),
+            employe.getTypeContrat() != null ? employe.getTypeContrat().name() : "CDI",
             employe.getAdresse(),
             employe.getDateFinContrat(),
             employe.getPhotoUrl(),

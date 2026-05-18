@@ -31,10 +31,13 @@ public class PaieService {
 
     private final FichePaieRepository fichePaieRepository;
     private final EmployeRepository employeRepository;
+    private final NotificationService notificationService;
 
-    public PaieService(FichePaieRepository fichePaieRepository, EmployeRepository employeRepository) {
+    public PaieService(FichePaieRepository fichePaieRepository, EmployeRepository employeRepository,
+                       NotificationService notificationService) {
         this.fichePaieRepository = fichePaieRepository;
         this.employeRepository = employeRepository;
+        this.notificationService = notificationService;
     }
 
     @Transactional(readOnly = true)
@@ -74,6 +77,17 @@ public class PaieService {
             fichePaie.setCalculee(true);
 
             fichePaieRepository.save(fichePaie);
+
+            // Notifier l'employé que son bulletin est disponible
+            if (employee.getUtilisateur() != null) {
+                notificationService.create(
+                    employee.getUtilisateur().getId(),
+                    "Bulletin de paie disponible",
+                    "Votre bulletin de paie pour " + key + " est disponible.",
+                    "PAIE",
+                    "/rh/paie"
+                );
+            }
         }
     }
 

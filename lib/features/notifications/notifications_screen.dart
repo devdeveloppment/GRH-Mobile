@@ -1,11 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/models/notification_model.dart';
+import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 
@@ -46,7 +48,8 @@ class NotificationsScreen extends ConsumerWidget {
                               .markAllAsRead(),
                       child: const Text(
                         'Tout marquer lu',
-                        style: TextStyle(color: AppColors.primary, fontSize: 12),
+                        style: TextStyle(
+                            color: AppColors.primary, fontSize: 12),
                       ),
                     ),
                   ]
@@ -60,7 +63,7 @@ class NotificationsScreen extends ConsumerWidget {
             GrhSidebar(
                 currentRoute: AppRoutes.notifications, role: auth.role!),
           Expanded(
-            child: _NotifBody(notif: notif),
+            child: _NotifBody(notif: notif, role: auth.role),
           ),
         ],
       ),
@@ -69,8 +72,9 @@ class NotificationsScreen extends ConsumerWidget {
 }
 
 class _NotifBody extends StatelessWidget {
-  const _NotifBody({required this.notif});
+  const _NotifBody({required this.notif, required this.role});
   final NotificationNotifier notif;
+  final UserRole? role;
 
   @override
   Widget build(BuildContext context) {
@@ -84,7 +88,8 @@ class _NotifBody extends StatelessWidget {
           mainAxisSize: MainAxisSize.min,
           children: [
             Icon(Icons.notifications_off_outlined,
-                size: 56, color: AppColors.text2.withOpacity(0.4)),
+                size: 56,
+                color: AppColors.text2.withValues(alpha: 0.4)),
             const SizedBox(height: 12),
             const Text(
               'Aucune notification',
@@ -99,14 +104,14 @@ class _NotifBody extends StatelessWidget {
     }
 
     return RefreshIndicator(
-      onRefresh: () => Future.value(),
+      onRefresh: () => notif.load(),
       child: ListView.separated(
         padding: const EdgeInsets.symmetric(horizontal: 20, vertical: 12),
         itemCount: notif.notifications.length,
         separatorBuilder: (_, __) => const SizedBox(height: 6),
         itemBuilder: (context, index) {
           final n = notif.notifications[index];
-          return _NotifCard(notification: n, notif: notif);
+          return _NotifCard(notification: n, role: role);
         },
       ),
     );
@@ -114,52 +119,79 @@ class _NotifBody extends StatelessWidget {
 }
 
 class _NotifCard extends ConsumerWidget {
-  const _NotifCard({required this.notification, required this.notif});
+  const _NotifCard({required this.notification, required this.role});
 
   final AppNotification notification;
-  final NotificationNotifier notif;
+  final UserRole? role;
 
-  static const _typeIcon = {
-    'CONGE': Icons.event_available_outlined,
-    'conge': Icons.event_available_outlined,
-    'PAIE': Icons.payments_outlined,
-    'paie': Icons.payments_outlined,
-    'INFO': Icons.info_outline,
-    'info': Icons.info_outline,
-  };
+  // ── Icône par type ─────────────────────────────────────────────────────────
+  static IconData _iconFor(String type) => switch (type.toUpperCase()) {
+        'CONGE'    => Icons.event_available_outlined,
+        'PAIE'     => Icons.payments_outlined,
+        'PRESENCE' => Icons.fingerprint_rounded,
+        'DOCUMENT' => Icons.description_outlined,
+        'EVENT'    => Icons.celebration_outlined,
+        _          => Icons.info_outline,
+      };
 
-  static const _typeColor = {
-    'CONGE': AppColors.accent,
-    'conge': AppColors.accent,
-    'PAIE': AppColors.primary,
-    'paie': AppColors.primary,
-    'INFO': AppColors.text2,
-    'info': AppColors.text2,
-  };
+  // ── Couleur par type ───────────────────────────────────────────────────────
+  static Color _colorFor(String type) => switch (type.toUpperCase()) {
+        'CONGE'    => AppColors.accent,
+        'PAIE'     => AppColors.primary,
+        'PRESENCE' => AppColors.success,
+        'DOCUMENT' => const Color(0xFF6366F1),
+        'EVENT'    => const Color(0xFFEC4899),
+        _          => AppColors.text2,
+      };
+
+  /// Détermine la route de redirection :
+  /// 1. Utilise redirectTo fourni par le backend si présent
+  /// 2. Sinon déduit une route par défaut depuis le type + rôle
+  String? _resolveRoute() {
+    if (notification.redirectTo != null &&
+        notification.redirectTo!.isNotEmpty) {
+      return notification.redirectTo;
+    }
+    return switch (notification.type.toUpperCase()) {
+      'CONGE'    => role == UserRole.employee ? AppRoutes.employeeHome : AppRoutes.conges,
+      'PAIE'     => role == UserRole.employee ? AppRoutes.employeeHome : AppRoutes.paie,
+      'PRESENCE' => role == UserRole.employee ? AppRoutes.employeeHome : AppRoutes.presences,
+      'DOCUMENT' => role == UserRole.employee ? AppRoutes.employeeHome : AppRoutes.employees,
+      _          => null,
+    };
+  }
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final isUnread = !notification.read;
-    final icon = _typeIcon[notification.type] ?? Icons.notifications_outlined;
-    final color = _typeColor[notification.type] ?? AppColors.primary;
+    final icon = _iconFor(notification.type);
+    final color = _colorFor(notification.type);
+    final route = _resolveRoute();
 
     return GestureDetector(
-      onTap: isUnread
-          ? () => ref
+      onTap: () async {
+        // 1. Marquer comme lu si nécessaire
+        if (isUnread) {
+          await ref
               .read(notificationNotifierProvider)
-              .markAsRead(notification.id)
-          : null,
+              .markAsRead(notification.id);
+        }
+        // 2. Naviguer si une route est disponible
+        if (route != null && context.mounted) {
+          context.go(route);
+        }
+      },
       child: AnimatedContainer(
         duration: const Duration(milliseconds: 200),
         padding: const EdgeInsets.all(14),
         decoration: BoxDecoration(
           color: isUnread
-              ? AppColors.primary.withOpacity(0.04)
+              ? AppColors.primary.withValues(alpha: 0.04)
               : Colors.white,
           borderRadius: BorderRadius.circular(10),
           border: Border.all(
             color: isUnread
-                ? AppColors.primary.withOpacity(0.2)
+                ? AppColors.primary.withValues(alpha: 0.2)
                 : AppColors.border,
             width: 0.8,
           ),
@@ -167,12 +199,12 @@ class _NotifCard extends ConsumerWidget {
         child: Row(
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
-            // Icône type
+            // ── Icône type ───────────────────────────────────────────────
             Container(
               width: 36,
               height: 36,
               decoration: BoxDecoration(
-                color: color.withOpacity(0.1),
+                color: color.withValues(alpha: 0.1),
                 borderRadius: BorderRadius.circular(8),
               ),
               child: Icon(icon, size: 18, color: color),
@@ -212,6 +244,24 @@ class _NotifCard extends ConsumerWidget {
                     maxLines: 3,
                     overflow: TextOverflow.ellipsis,
                   ),
+                  // ── Indicateur de redirection ────────────────────────
+                  if (route != null) ...[
+                    const SizedBox(height: 5),
+                    Row(
+                      children: [
+                        Icon(Icons.arrow_forward_rounded,
+                            size: 12, color: color.withValues(alpha: 0.7)),
+                        const SizedBox(width: 3),
+                        Text(
+                          'Voir le détail',
+                          style: TextStyle(
+                              fontSize: 11,
+                              color: color.withValues(alpha: 0.7),
+                              fontWeight: FontWeight.w500),
+                        ),
+                      ],
+                    ),
+                  ],
                 ],
               ),
             ),

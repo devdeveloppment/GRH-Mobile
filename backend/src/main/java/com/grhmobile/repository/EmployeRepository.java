@@ -17,18 +17,35 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
 
     Optional<Employe> findByUtilisateurId(Long utilisateurId);
 
-    @Query("""
-        select e from Employe e
-        left join e.service s
-        where (:query is null or lower(e.nom) like lower(concat('%', :query, '%'))
-               or lower(e.prenom) like lower(concat('%', :query, '%'))
-               or lower(e.matricule) like lower(concat('%', :query, '%'))
-               or lower(e.poste) like lower(concat('%', :query, '%')))
-          and (:statut is null or e.statut = :statut)
-          and (:service is null or lower(s.nom) = lower(:service))
-        """)
+    @Query(value = """
+        SELECT e.* FROM employes e
+        LEFT JOIN services s ON e.service_id = s.id
+        WHERE (cast(:pattern as text) IS NULL
+               OR lower(e.nom::text)       LIKE cast(:pattern as text)
+               OR lower(e.prenom::text)    LIKE cast(:pattern as text)
+               OR lower(e.matricule::text) LIKE cast(:pattern as text)
+               OR lower(e.email::text)     LIKE cast(:pattern as text)
+               OR lower(e.poste::text)     LIKE cast(:pattern as text)
+               OR lower(s.nom::text)       LIKE cast(:pattern as text))
+          AND (cast(:statut as text) IS NULL OR e.statut = cast(:statut as text))
+          AND (cast(:service as text) IS NULL OR lower(s.nom::text) = lower(cast(:service as text)))
+        """,
+        countQuery = """
+        SELECT COUNT(e.id) FROM employes e
+        LEFT JOIN services s ON e.service_id = s.id
+        WHERE (cast(:pattern as text) IS NULL
+               OR lower(e.nom::text)       LIKE cast(:pattern as text)
+               OR lower(e.prenom::text)    LIKE cast(:pattern as text)
+               OR lower(e.matricule::text) LIKE cast(:pattern as text)
+               OR lower(e.email::text)     LIKE cast(:pattern as text)
+               OR lower(e.poste::text)     LIKE cast(:pattern as text)
+               OR lower(s.nom::text)       LIKE cast(:pattern as text))
+          AND (cast(:statut as text) IS NULL OR e.statut = cast(:statut as text))
+          AND (cast(:service as text) IS NULL OR lower(s.nom::text) = lower(cast(:service as text)))
+        """,
+        nativeQuery = true)
     Page<Employe> search(
-        @Param("query") String query,
+        @Param("pattern") String pattern,
         @Param("statut") String statut,
         @Param("service") String service,
         Pageable pageable

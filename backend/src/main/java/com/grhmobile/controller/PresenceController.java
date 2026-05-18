@@ -8,6 +8,8 @@ import com.grhmobile.dto.presence.PointageRequest;
 import com.grhmobile.dto.presence.PointageResponse;
 import com.grhmobile.dto.presence.ReportAbsenceRequest;
 import com.grhmobile.dto.presence.ReportAbsenceResponse;
+import com.grhmobile.dto.qrcode.QrScanRequest;
+import com.grhmobile.dto.qrcode.QrScanResponse;
 import com.grhmobile.service.PresenceService;
 
 import jakarta.validation.Valid;
@@ -42,6 +44,11 @@ public class PresenceController {
     @PostMapping("/pointage")
     public PointageResponse pointage(@Valid @RequestBody PointageRequest request) {
         return presenceService.pointage(request);
+    }
+
+    @PostMapping("/scan")
+    public QrScanResponse scan(@Valid @RequestBody QrScanRequest request) {
+        return presenceService.scanPointage(request);
     }
 
     @PostMapping("/report-absence")

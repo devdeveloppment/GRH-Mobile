@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
 
@@ -10,6 +11,7 @@ import com.grhmobile.exception.ResourceNotFoundException;
 import com.grhmobile.repository.NotificationRepository;
 import com.grhmobile.repository.UtilisateurRepository;
 
+import org.springframework.scheduling.annotation.Scheduled;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
@@ -26,8 +28,15 @@ public class NotificationService {
         this.utilisateurRepository = utilisateurRepository;
     }
 
+    /** Crée une notification sans redirection. */
     @Transactional
     public void create(Long utilisateurId, String titre, String message, String type) {
+        create(utilisateurId, titre, message, type, null);
+    }
+
+    /** Crée une notification avec redirection vers une route Flutter. */
+    @Transactional
+    public void create(Long utilisateurId, String titre, String message, String type, String redirectTo) {
         Utilisateur utilisateur = utilisateurRepository.findById(utilisateurId)
             .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable."));
         Notification notification = new Notification();
@@ -35,6 +44,7 @@ public class NotificationService {
         notification.setTitre(titre);
         notification.setMessage(message);
         notification.setType(type);
+        notification.setRedirectTo(redirectTo);
         notificationRepository.save(notification);
     }
 
@@ -56,12 +66,23 @@ public class NotificationService {
         if (!notification.getUtilisateur().getId().equals(utilisateurId)) {
             throw new ResourceNotFoundException("Notification introuvable.");
         }
-        notification.setLu(true);
-        notificationRepository.save(notification);
+        if (!notification.isLu()) {
+            notification.setLu(true);
+            notification.setReadAt(OffsetDateTime.now());
+            notificationRepository.save(notification);
+        }
     }
 
     @Transactional
     public void markAllRead(Long utilisateurId) {
-        notificationRepository.markAllReadForUser(utilisateurId);
+        notificationRepository.markAllReadForUser(utilisateurId, OffsetDateTime.now());
+    }
+
+    /** Purge automatique : supprime les notifications lues depuis plus de 90 jours. */
+    @Scheduled(cron = "0 0 3 * * *")
+    @Transactional
+    public void purgeOldNotifications() {
+        OffsetDateTime cutoff = OffsetDateTime.now().minusDays(90);
+        notificationRepository.deleteOldRead(cutoff);
     }
 }

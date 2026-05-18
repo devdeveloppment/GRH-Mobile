@@ -110,6 +110,19 @@ class ApiService {
     return saveFileBytes(bytes, filename);
   }
 
+  Future<Response<T>> postFormData<T>(
+    String path, {
+    required FormData formData,
+    Map<String, dynamic>? queryParameters,
+  }) {
+    return _dio.post<T>(
+      path,
+      data: formData,
+      queryParameters: queryParameters,
+      options: Options(contentType: 'multipart/form-data'),
+    );
+  }
+
   Future<String?> postAndDownload(
     String path,
     Map<String, dynamic> data,

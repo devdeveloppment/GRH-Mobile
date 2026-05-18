@@ -8,7 +8,9 @@ public record NotificationDto(
     String message,
     String type,
     boolean read,
-    String date
+    String date,
+    String redirectTo,
+    String readAt
 ) {
     public static NotificationDto fromEntity(Notification n) {
         return new NotificationDto(
@@ -17,7 +19,9 @@ public record NotificationDto(
             n.getMessage(),
             n.getType(),
             n.isLu(),
-            n.getCreatedAt() != null ? n.getCreatedAt().toInstant().toString() : null
+            n.getCreatedAt() != null ? n.getCreatedAt().toInstant().toString() : null,
+            n.getRedirectTo(),
+            n.getReadAt() != null ? n.getReadAt().toInstant().toString() : null
         );
     }
 }

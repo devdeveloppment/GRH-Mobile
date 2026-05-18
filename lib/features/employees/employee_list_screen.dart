@@ -9,6 +9,7 @@ import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/employee_provider.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
 import 'package:grh_mobile/shared/models/utilisateur.dart';
+import 'package:grh_mobile/shared/widgets/app_form_field.dart';
 import 'package:grh_mobile/shared/widgets/confirm_dialog.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
@@ -41,6 +42,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
   void initState() {
     super.initState();
     _scrollController.addListener(_onScroll);
+    Future.microtask(() => ref.read(employeeNotifierProvider).fetchInitial());
   }
 
   @override
@@ -68,6 +70,23 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     });
   }
 
+  bool get _hasActiveFilters =>
+      _serviceFilter != null ||
+      _posteFilter != null ||
+      _statutFilter != null ||
+      _searchController.text.isNotEmpty;
+
+  void _clearFilters() {
+    _searchController.clear();
+    ref.read(employeeNotifierProvider).setQuery('');
+    setState(() {
+      _serviceFilter = null;
+      _posteFilter = null;
+      _statutFilter = null;
+      _currentPage = 1;
+    });
+  }
+
   List<Employe> _filtered(List<Employe> all) {
     return all.where((e) {
       if (_serviceFilter != null && e.service != _serviceFilter) return false;
@@ -91,12 +110,9 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         .take(_pageSize)
         .toList();
 
-    // Listes uniques pour les dropdowns
-    final services = employees.employees.map((e) => e.service).toSet().toList()
-      ..sort();
-    final postes = employees.employees.map((e) => e.poste).toSet().toList()
-      ..sort();
-    final statuts = ['ACTIF', 'INACTIF', 'EN CONGE'];
+    final services = employees.employees.map((e) => e.service).toSet().toList()..sort();
+    final postes   = employees.employees.map((e) => e.poste).toSet().toList()..sort();
+    const statuts  = ['ACTIF', 'INACTIF', 'EN CONGE'];
 
     return Scaffold(
       backgroundColor: AppColors.surface,
@@ -110,13 +126,12 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
               ),
             ),
       appBar: PreferredSize(
-        preferredSize: const Size.fromHeight(84),
+        preferredSize: const Size.fromHeight(72),
         child: Builder(
-          builder: (scaffoldContext) => GrhAppBar(
+          builder: (ctx) => GrhAppBar(
             title: 'Employés',
             userName: auth.user?.fullName,
-            onMenuTap:
-                isWide ? null : () => Scaffold.of(scaffoldContext).openDrawer(),
+            onMenuTap: isWide ? null : () => Scaffold.of(ctx).openDrawer(),
           ),
         ),
       ),
@@ -134,55 +149,45 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
           if (isWide && auth.role != null)
             GrhSidebar(currentRoute: AppRoutes.employees, role: auth.role!),
           Expanded(
-            child: RefreshIndicator(
-              onRefresh: () => ref.read(employeeNotifierProvider).refresh(),
-              child: ListView(
-                controller: _scrollController,
-                padding: const EdgeInsets.all(24),
-                children: [
-                  // ── En-tête + boutons ──
-                  Row(
-                    crossAxisAlignment: CrossAxisAlignment.start,
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                // ── En-tête ──────────────────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 24, 24, 0),
+                  child: Row(
                     children: [
                       Expanded(
                         child: Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
-                            Text(
+                            const Text(
                               'Employés',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .headlineSmall
-                                  ?.copyWith(fontWeight: FontWeight.w800),
+                              style: TextStyle(
+                                fontSize: 20,
+                                fontWeight: FontWeight.w800,
+                                color: AppColors.text1,
+                              ),
                             ),
-                            const SizedBox(height: 6),
+                            const SizedBox(height: 4),
                             Text(
-                              'Gérez les informations et les profils des employés',
-                              style: Theme.of(context)
-                                  .textTheme
-                                  .bodyMedium
-                                  ?.copyWith(
-                                      color: AppColors.textSecondaryLight),
+                              '${employees.employees.length} collaborateur${employees.employees.length > 1 ? 's' : ''} enregistré${employees.employees.length > 1 ? 's' : ''}',
+                              style: const TextStyle(
+                                fontSize: 13,
+                                color: AppColors.text2,
+                              ),
                             ),
                           ],
                         ),
                       ),
-                      if (isWide) ...[
-                        const SizedBox(width: 16),
-                        OutlinedButton.icon(
-                          onPressed: () {
-                            ScaffoldMessenger.of(context).showSnackBar(
-                              const SnackBar(
-                                content:
-                                    Text('Export CSV préparé (prochaine itération).'),
-                              ),
-                            );
-                          },
-                          icon: const Icon(Icons.person_outline_rounded),
-                          label: const Text('Exporter'),
-                          style: OutlinedButton.styleFrom(
-                            foregroundColor: AppColors.text1,
-                            side: const BorderSide(color: AppColors.border),
+                      if (_canCreate(auth.role))
+                        ElevatedButton.icon(
+                          onPressed: () => _openEmployeeForm(context),
+                          icon: const Icon(Icons.add, size: 16),
+                          label: const Text('Ajouter un employé'),
+                          style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.accent,
+                            foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
                                 horizontal: 20, vertical: 14),
                             shape: RoundedRectangleBorder(
@@ -190,246 +195,244 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                             ),
                           ),
                         ),
-                        if (_canCreate(auth.role)) ...[
-                          const SizedBox(width: 12),
-                          ElevatedButton.icon(
-                            onPressed: () => _openEmployeeForm(context),
-                            icon: const Icon(Icons.add, size: 16),
-                            label: const Text('Ajouter un employé'),
-                            style: ElevatedButton.styleFrom(
-                              backgroundColor: AppColors.accent,
-                              foregroundColor: Colors.white,
-                              padding: const EdgeInsets.symmetric(
-                                  horizontal: 20, vertical: 14),
-                              shape: RoundedRectangleBorder(
-                                borderRadius: BorderRadius.circular(8),
-                              ),
-                            ),
-                          ),
-                        ],
-                      ],
                     ],
                   ),
-                  const SizedBox(height: 24),
+                ),
 
-                  // ── Carte principale ──
-                  GrhSurfaceCard(
-                    withShadow: true,
-                    child: Column(
-                      crossAxisAlignment: CrossAxisAlignment.start,
-                      children: [
-                        // Barre recherche + filtres
-                        if (isWide)
-                          Row(
-                            children: [
-                              Expanded(
-                                flex: 3,
-                                child: _SearchField(
-                                  controller: _searchController,
-                                  onChanged: (v) {
-                                    setState(() {});
-                                    _onSearchChanged(v);
-                                  },
-                                  onClear: () {
-                                    _searchController.clear();
-                                    _onSearchChanged('');
-                                    setState(() {});
-                                  },
+                // ── Stats ─────────────────────────────────────────────────
+                if (employees.employees.isNotEmpty)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                    child: _StatsRow(employees: employees.employees),
+                  ),
+
+                // ── Recherche + filtres ───────────────────────────────────
+                Padding(
+                  padding: const EdgeInsets.fromLTRB(24, 16, 24, 0),
+                  child: isWide
+                      ? Row(
+                          children: [
+                            Expanded(
+                              flex: 3,
+                              child: _SearchField(
+                                controller: _searchController,
+                                onChanged: (v) {
+                                  setState(() {});
+                                  _onSearchChanged(v);
+                                },
+                                onClear: () {
+                                  _searchController.clear();
+                                  _onSearchChanged('');
+                                  setState(() {});
+                                },
+                              ),
+                            ),
+                            const SizedBox(width: 10),
+                            _FilterDropdown(
+                              hint: 'Service',
+                              value: _serviceFilter,
+                              items: services,
+                              onChanged: (v) => setState(() {
+                                _serviceFilter = v;
+                                _currentPage = 1;
+                              }),
+                            ),
+                            const SizedBox(width: 10),
+                            _FilterDropdown(
+                              hint: 'Statut',
+                              value: _statutFilter,
+                              items: statuts,
+                              onChanged: (v) => setState(() {
+                                _statutFilter = v;
+                                _currentPage = 1;
+                              }),
+                            ),
+                            if (_hasActiveFilters) ...[
+                              const SizedBox(width: 8),
+                              TextButton.icon(
+                                onPressed: _clearFilters,
+                                icon: const Icon(Icons.close_rounded, size: 16),
+                                label: const Text('Effacer'),
+                                style: TextButton.styleFrom(
+                                    foregroundColor: AppColors.error),
+                              ),
+                            ],
+                          ],
+                        )
+                      : _SearchField(
+                          controller: _searchController,
+                          onChanged: (v) {
+                            setState(() {});
+                            _onSearchChanged(v);
+                          },
+                          onClear: () {
+                            _searchController.clear();
+                            _onSearchChanged('');
+                            setState(() {});
+                          },
+                        ),
+                ),
+
+                const SizedBox(height: 16),
+
+                // ── Contenu principal ─────────────────────────────────────
+                if (employees.isLoading && employees.employees.isEmpty)
+                  const Expanded(
+                    child: Center(child: CircularProgressIndicator()),
+                  )
+                else if (employees.errorMessage != null &&
+                    employees.employees.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: Column(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          const Icon(Icons.wifi_off_rounded,
+                              size: 52, color: AppColors.text2),
+                          const SizedBox(height: 12),
+                          Text(employees.errorMessage!,
+                              style: const TextStyle(color: AppColors.text1)),
+                          const SizedBox(height: 16),
+                          ElevatedButton.icon(
+                            onPressed: () => ref
+                                .read(employeeNotifierProvider)
+                                .refresh(),
+                            icon: const Icon(Icons.refresh_rounded, size: 16),
+                            label: const Text('Réessayer'),
+                            style: ElevatedButton.styleFrom(
+                              backgroundColor: AppColors.primary,
+                              foregroundColor: Colors.white,
+                            ),
+                          ),
+                        ],
+                      ),
+                    ),
+                  )
+                else if (filtered.isEmpty)
+                  Expanded(
+                    child: Center(
+                      child: _hasActiveFilters
+                          ? Column(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                const Icon(Icons.search_off_rounded,
+                                    size: 52, color: AppColors.text2),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Aucun employé ne correspond aux filtres.',
+                                  style: TextStyle(
+                                      fontSize: 15, color: AppColors.text1),
                                 ),
-                              ),
-                              const SizedBox(width: 12),
-                              _FilterDropdown(
-                                hint: 'Service',
-                                value: _serviceFilter,
-                                items: services,
-                                onChanged: (v) => setState(() {
-                                  _serviceFilter = v;
-                                  _currentPage = 1;
-                                }),
-                              ),
-                              const SizedBox(width: 10),
-                              _FilterDropdown(
-                                hint: 'Poste',
-                                value: _posteFilter,
-                                items: postes,
-                                onChanged: (v) => setState(() {
-                                  _posteFilter = v;
-                                  _currentPage = 1;
-                                }),
-                              ),
-                              const SizedBox(width: 10),
-                              _FilterDropdown(
-                                hint: 'Statut',
-                                value: _statutFilter,
-                                items: statuts,
-                                onChanged: (v) => setState(() {
-                                  _statutFilter = v;
-                                  _currentPage = 1;
-                                }),
-                              ),
-                              if (_serviceFilter != null ||
-                                  _posteFilter != null ||
-                                  _statutFilter != null) ...[
-                                const SizedBox(width: 10),
+                                const SizedBox(height: 12),
                                 TextButton.icon(
-                                  onPressed: () => setState(() {
-                                    _serviceFilter = null;
-                                    _posteFilter = null;
-                                    _statutFilter = null;
-                                    _currentPage = 1;
-                                  }),
+                                  onPressed: _clearFilters,
                                   icon: const Icon(Icons.close_rounded,
                                       size: 16),
-                                  label: const Text('Effacer'),
+                                  label: const Text('Effacer les filtres'),
                                   style: TextButton.styleFrom(
-                                      foregroundColor: AppColors.error),
+                                      foregroundColor: AppColors.primary),
                                 ),
                               ],
-                            ],
-                          )
-                        else
-                          _SearchField(
-                            controller: _searchController,
-                            onChanged: (v) {
-                              setState(() {});
-                              _onSearchChanged(v);
-                            },
-                            onClear: () {
-                              _searchController.clear();
-                              _onSearchChanged('');
-                              setState(() {});
-                            },
-                          ),
-
-                        // Filtres mobile (chips)
-                        if (!isWide) ...[
-                          const SizedBox(height: 12),
-                          SingleChildScrollView(
-                            scrollDirection: Axis.horizontal,
-                            child: Row(
+                            )
+                          : Column(
+                              mainAxisSize: MainAxisSize.min,
                               children: [
-                                for (final service in services)
-                                  Padding(
-                                    padding: const EdgeInsets.only(right: 8),
-                                    child: FilterChip(
-                                      label: Text(service),
-                                      selected: _serviceFilter == service,
-                                      onSelected: (_) => setState(() {
-                                        _serviceFilter = _serviceFilter == service
-                                            ? null
-                                            : service;
-                                        _currentPage = 1;
-                                      }),
+                                const Icon(Icons.people_outline_rounded,
+                                    size: 56, color: AppColors.text2),
+                                const SizedBox(height: 12),
+                                const Text(
+                                  'Aucun employé enregistré.',
+                                  style: TextStyle(
+                                      fontSize: 15, color: AppColors.text1),
+                                ),
+                                if (_canCreate(auth.role)) ...[
+                                  const SizedBox(height: 16),
+                                  ElevatedButton.icon(
+                                    onPressed: () =>
+                                        _openEmployeeForm(context),
+                                    icon: const Icon(Icons.add, size: 16),
+                                    label: const Text(
+                                        'Ajouter le premier employé'),
+                                    style: ElevatedButton.styleFrom(
+                                      backgroundColor: AppColors.accent,
+                                      foregroundColor: Colors.white,
                                     ),
                                   ),
+                                ],
                               ],
                             ),
-                          ),
-                        ],
-
-                        const SizedBox(height: 20),
-
-                        // Contenu tableau / liste
-                        if (employees.isLoading && employees.employees.isEmpty)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 80),
-                            child: Center(child: CircularProgressIndicator()),
-                          )
-                        else if (filtered.isEmpty)
-                          Padding(
-                            padding: const EdgeInsets.symmetric(vertical: 48),
-                            child: Center(
+                    ),
+                  )
+                else
+                  Expanded(
+                    child: RefreshIndicator(
+                      onRefresh: () =>
+                          ref.read(employeeNotifierProvider).refresh(),
+                      child: isWide
+                          ? SingleChildScrollView(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(24, 0, 24, 24),
                               child: Column(
                                 children: [
-                                  Icon(Icons.search_off_rounded,
-                                      size: 48,
-                                      color: AppColors.textSecondaryLight),
-                                  const SizedBox(height: 12),
-                                  Text(
-                                    'Aucun employé ne correspond aux filtres actifs.',
-                                    style: Theme.of(context).textTheme.bodyLarge,
+                                  _DesktopEmployeeTable(
+                                    employees: pageItems,
+                                    canEdit: _canEdit(auth.role),
+                                    canArchive: _canArchive(auth.role),
+                                    onOpen: (e) => context.go(
+                                      '${AppRoutes.employees}/${e.matricule}',
+                                      extra: e,
+                                    ),
+                                    onEdit: (e) =>
+                                        _openEmployeeForm(context, employee: e),
+                                    onArchive: (e) => _archiveEmployee(e),
                                   ),
+                                  if (employees.isFetchingMore)
+                                    const Padding(
+                                      padding:
+                                          EdgeInsets.symmetric(vertical: 12),
+                                      child: Center(
+                                          child: CircularProgressIndicator()),
+                                    ),
+                                  if (totalPages > 1) ...[
+                                    const SizedBox(height: 16),
+                                    const Divider(color: AppColors.borderLight),
+                                    const SizedBox(height: 12),
+                                    _PaginationBar(
+                                      currentPage: _currentPage,
+                                      totalPages: totalPages,
+                                      totalItems: filtered.length,
+                                      pageSize: _pageSize,
+                                      onPageChanged: (p) =>
+                                          setState(() => _currentPage = p),
+                                    ),
+                                  ],
                                 ],
                               ),
+                            )
+                          : ListView.builder(
+                              controller: _scrollController,
+                              padding: const EdgeInsets.fromLTRB(16, 0, 16, 24),
+                              itemCount: pageItems.length +
+                                  (employees.isFetchingMore ? 1 : 0),
+                              itemBuilder: (_, i) {
+                                if (i == pageItems.length) {
+                                  return const Padding(
+                                    padding:
+                                        EdgeInsets.symmetric(vertical: 12),
+                                    child: Center(
+                                        child: CircularProgressIndicator()),
+                                  );
+                                }
+                                final e = pageItems[i];
+                                return Padding(
+                                  padding: const EdgeInsets.only(bottom: 12),
+                                  child: _EmployeeMobileCard(employee: e),
+                                );
+                              },
                             ),
-                          )
-                        else if (isWide)
-                          _DesktopEmployeeTable(
-                            employees: pageItems,
-                            canEdit: _canEdit(auth.role),
-                            canArchive: _canArchive(auth.role),
-                            onOpen: (e) => context.go(
-                              '${AppRoutes.employees}/${e.matricule}',
-                              extra: e,
-                            ),
-                            onEdit: (e) =>
-                                _openEmployeeForm(context, employee: e),
-                            onArchive: (e) => _archiveEmployee(e),
-                          )
-                        else
-                          ...pageItems.map(
-                            (e) => Padding(
-                              padding: const EdgeInsets.only(bottom: 14),
-                              child: Dismissible(
-                                key: ValueKey(e.matricule),
-                                background: _canEdit(auth.role)
-                                    ? const _SwipeActionBackground(
-                                        color: AppColors.info,
-                                        icon: Icons.edit_outlined,
-                                        alignment: Alignment.centerLeft,
-                                        label: 'Modifier',
-                                      )
-                                    : const SizedBox.shrink(),
-                                secondaryBackground: _canArchive(auth.role)
-                                    ? const _SwipeActionBackground(
-                                        color: AppColors.danger,
-                                        icon: Icons.archive_outlined,
-                                        alignment: Alignment.centerRight,
-                                        label: 'Archiver',
-                                      )
-                                    : const SizedBox.shrink(),
-                                confirmDismiss: (direction) async {
-                                  if (direction == DismissDirection.startToEnd) {
-                                    if (_canEdit(auth.role)) {
-                                      _openEmployeeForm(context, employee: e);
-                                    }
-                                    return false;
-                                  }
-                                  if (_canArchive(auth.role)) {
-                                    await _archiveEmployee(e);
-                                  }
-                                  return false;
-                                },
-                                child: _EmployeeMobileCard(employee: e),
-                              ),
-                            ),
-                          ),
-
-                        if (employees.isFetchingMore)
-                          const Padding(
-                            padding: EdgeInsets.symmetric(vertical: 12),
-                            child: Center(child: CircularProgressIndicator()),
-                          ),
-
-                        // ── Pagination ──
-                        if (filtered.isNotEmpty && totalPages > 1) ...[
-                          const SizedBox(height: 20),
-                          const Divider(color: AppColors.borderLight),
-                          const SizedBox(height: 12),
-                          _PaginationBar(
-                            currentPage: _currentPage,
-                            totalPages: totalPages,
-                            totalItems: filtered.length,
-                            pageSize: _pageSize,
-                            onPageChanged: (p) =>
-                                setState(() => _currentPage = p),
-                          ),
-                        ],
-                      ],
                     ),
                   ),
-                ],
-              ),
+              ],
             ),
           ),
         ],
@@ -437,10 +440,14 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
     );
   }
 
-  static bool _canCreate(UserRole? role) => role == UserRole.rhManager;
-  static bool _canEdit(UserRole? role) => role == UserRole.rhManager;
+  static bool _canCreate(UserRole? role) =>
+      role == UserRole.rhManager || role == UserRole.hrAdmin;
+  static bool _canEdit(UserRole? role) =>
+      role == UserRole.rhManager || role == UserRole.hrAdmin;
   static bool _canArchive(UserRole? role) =>
-      role == UserRole.admin || role == UserRole.rhManager;
+      role == UserRole.admin ||
+      role == UserRole.rhManager ||
+      role == UserRole.hrAdmin;
 
   Future<void> _archiveEmployee(Employe employee) {
     return ConfirmDialog.show(
@@ -597,128 +604,155 @@ class _DesktopEmployeeTable extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return SingleChildScrollView(
-        scrollDirection: Axis.horizontal,
-        child: DataTable(
-          headingRowColor: const WidgetStatePropertyAll(AppColors.surface),
-          headingTextStyle: const TextStyle(
-            color: AppColors.text2,
-            fontWeight: FontWeight.w600,
-            fontSize: 12,
-            letterSpacing: 0.2,
+    return Column(
+      children: [
+        // En-tête du tableau
+        Container(
+          padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 10),
+          decoration: const BoxDecoration(
+            color: AppColors.surface,
+            border: Border(bottom: BorderSide(color: AppColors.border, width: 0.5)),
           ),
-          dataRowMinHeight: 68,
-          dataRowMaxHeight: 68,
-          dividerThickness: 0.8,
-          horizontalMargin: 20,
-          columnSpacing: 28,
-          columns: const [
-            DataColumn(label: Text('Employé')),
-            DataColumn(label: Text('Matricule')),
-            DataColumn(label: Text('Poste')),
-            DataColumn(label: Text('Service')),
-            DataColumn(label: Text('Statut')),
-            DataColumn(label: Text('Actions')),
-          ],
-          rows: [
-            for (final employee in employees)
-              DataRow(
-                onSelectChanged: (_) => onOpen(employee),
-                cells: [
-                  // Employé (avatar + nom + email)
-                  DataCell(
-                    Row(
-                      children: [
-                        EmployeeAvatar(
-                          name: employee.fullName,
-                          imageUrl: employee.photoUrl,
-                          size: 40,
-                        ),
-                        const SizedBox(width: 12),
-                        Text(
-                          employee.fullName,
-                          style: Theme.of(context)
-                              .textTheme
-                              .bodyMedium
-                              ?.copyWith(fontWeight: FontWeight.w600),
-                        ),
-                      ],
-                    ),
-                  ),
-                  // Matricule
-                  DataCell(
-                    Text(
-                      employee.matricule,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            fontWeight: FontWeight.w500,
-                            color: AppColors.text2,
-                          ),
-                    ),
-                  ),
-                  // Poste
-                  DataCell(
-                    Text(
-                      employee.poste,
-                      style: Theme.of(context).textTheme.bodyMedium,
-                    ),
-                  ),
-                  // Service
-                  DataCell(
-                    Text(
-                      employee.service,
-                      style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                            color: AppColors.info,
-                            fontWeight: FontWeight.w500,
-                          ),
-                    ),
-                  ),
-                  // Statut
-                  DataCell(
-                    StatusBadge(
-                      label: employee.statut,
-                      type: _statutType(employee.statut),
-                    ),
-                  ),
-                  // Actions
-                  DataCell(
-                    Row(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        _ActionBtn(
-                          icon: Icons.visibility_outlined,
-                          color: AppColors.primary,
-                          tooltip: 'Voir le dossier',
-                          onPressed: () => onOpen(employee),
-                        ),
-                        if (canEdit)
-                          _ActionBtn(
-                            icon: Icons.edit_outlined,
-                            color: AppColors.accent,
-                            tooltip: 'Modifier',
-                            onPressed: () => onEdit(employee),
-                          ),
-                        if (canArchive)
-                          _ActionBtn(
-                            icon: Icons.delete_outline_rounded,
-                            color: AppColors.error,
-                            tooltip: 'Archiver',
-                            onPressed: () => onArchive(employee),
-                          ),
-                      ],
-                    ),
-                  ),
-                ],
-              ),
-          ],
+          child: const Row(
+            children: [
+              SizedBox(width: 46), // avatar
+              SizedBox(width: 12),
+              Expanded(flex: 3, child: Text('Employé',   style: _headerStyle)),
+              Expanded(flex: 2, child: Text('Matricule', style: _headerStyle)),
+              Expanded(flex: 2, child: Text('Poste',     style: _headerStyle)),
+              Expanded(flex: 2, child: Text('Service',   style: _headerStyle)),
+              Expanded(flex: 1, child: Text('Statut',    style: _headerStyle)),
+              SizedBox(width: 100), // actions
+            ],
+          ),
         ),
+        // Lignes
+        ...employees.map((e) => _EmployeeRow(
+              employee: e,
+              canEdit: canEdit,
+              canArchive: canArchive,
+              onOpen: onOpen,
+              onEdit: onEdit,
+              onArchive: onArchive,
+            )),
+      ],
     );
   }
 
-  String _statutType(String statut) {
-    final s = statut.toUpperCase();
-    if (s.contains('ACTIF')) return 'success';
-    if (s.contains('CONGE')) return 'warning';
-    return 'error';
+  static const _headerStyle = TextStyle(
+    color: AppColors.text2,
+    fontWeight: FontWeight.w600,
+    fontSize: 12,
+    letterSpacing: 0.2,
+  );
+}
+
+class _EmployeeRow extends StatelessWidget {
+  const _EmployeeRow({
+    required this.employee,
+    required this.canEdit,
+    required this.canArchive,
+    required this.onOpen,
+    required this.onEdit,
+    required this.onArchive,
+  });
+
+  final Employe employee;
+  final bool canEdit;
+  final bool canArchive;
+  final ValueChanged<Employe> onOpen;
+  final ValueChanged<Employe> onEdit;
+  final ValueChanged<Employe> onArchive;
+
+  @override
+  Widget build(BuildContext context) {
+    final statut = employee.statut.toUpperCase();
+    final statutType = statut.contains('ACTIF')
+        ? 'success'
+        : statut.contains('CONGE')
+            ? 'warning'
+            : 'error';
+
+    return InkWell(
+      onTap: () => onOpen(employee),
+      child: Container(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
+        decoration: const BoxDecoration(
+          border: Border(
+              bottom: BorderSide(color: AppColors.border, width: 0.5)),
+        ),
+        child: Row(
+          children: [
+            EmployeeAvatar(
+                name: employee.fullName,
+                imageUrl: employee.photoUrl,
+                size: 40),
+            const SizedBox(width: 12),
+            Expanded(
+              flex: 3,
+              child: Text(
+                employee.fullName,
+                style: const TextStyle(
+                    fontWeight: FontWeight.w600, color: AppColors.text1),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(employee.matricule,
+                  style: const TextStyle(color: AppColors.text2, fontSize: 13)),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(employee.poste,
+                  style: const TextStyle(fontSize: 13),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            Expanded(
+              flex: 2,
+              child: Text(employee.service,
+                  style: const TextStyle(
+                      color: AppColors.info,
+                      fontWeight: FontWeight.w500,
+                      fontSize: 13),
+                  overflow: TextOverflow.ellipsis),
+            ),
+            Expanded(
+              flex: 1,
+              child: StatusBadge(label: employee.statut, type: statutType),
+            ),
+            SizedBox(
+              width: 100,
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  _ActionBtn(
+                    icon: Icons.visibility_outlined,
+                    color: AppColors.primary,
+                    tooltip: 'Voir',
+                    onPressed: () => onOpen(employee),
+                  ),
+                  if (canEdit)
+                    _ActionBtn(
+                      icon: Icons.edit_outlined,
+                      color: AppColors.accent,
+                      tooltip: 'Modifier',
+                      onPressed: () => onEdit(employee),
+                    ),
+                  if (canArchive)
+                    _ActionBtn(
+                      icon: Icons.delete_outline_rounded,
+                      color: AppColors.error,
+                      tooltip: 'Archiver',
+                      onPressed: () => onArchive(employee),
+                    ),
+                ],
+              ),
+            ),
+          ],
+        ),
+      ),
+    );
   }
 }
 
@@ -739,6 +773,7 @@ class _ActionBtn extends StatelessWidget {
   Widget build(BuildContext context) {
     return Tooltip(
       message: tooltip,
+      excludeFromSemantics: true,
       child: InkWell(
         onTap: onPressed,
         borderRadius: BorderRadius.circular(10),
@@ -1023,11 +1058,118 @@ class _SwipeActionBackground extends StatelessWidget {
   }
 }
 
-// ── Formulaire employé ─────────────────────────────────────────────────────────
+// ── Bandeau statistiques ───────────────────────────────────────────────────────
+
+class _StatsRow extends StatelessWidget {
+  const _StatsRow({required this.employees});
+  final List<Employe> employees;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = employees.length;
+    final actifs = employees
+        .where((e) => e.statut.toUpperCase().contains('ACTIF'))
+        .length;
+    final conge = employees
+        .where((e) => e.statut.toUpperCase().contains('CONGE'))
+        .length;
+    final inactifs = total - actifs - conge;
+
+    return Row(
+      children: [
+        _StatCard(
+          label: 'Total',
+          value: total,
+          icon: Icons.people_alt_outlined,
+          color: AppColors.primary,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          label: 'Actifs',
+          value: actifs,
+          icon: Icons.check_circle_outline_rounded,
+          color: AppColors.success,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          label: 'En congé',
+          value: conge,
+          icon: Icons.beach_access_outlined,
+          color: AppColors.warning,
+        ),
+        const SizedBox(width: 12),
+        _StatCard(
+          label: 'Inactifs',
+          value: inactifs,
+          icon: Icons.person_off_outlined,
+          color: AppColors.error,
+        ),
+      ],
+    );
+  }
+}
+
+class _StatCard extends StatelessWidget {
+  const _StatCard({
+    required this.label,
+    required this.value,
+    required this.icon,
+    required this.color,
+  });
+
+  final String label;
+  final int value;
+  final IconData icon;
+  final Color color;
+
+  @override
+  Widget build(BuildContext context) {
+    return Expanded(
+      child: GrhSurfaceCard(
+        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        child: Row(
+          children: [
+            Container(
+              padding: const EdgeInsets.all(10),
+              decoration: BoxDecoration(
+                color: color.withOpacity(0.10),
+                borderRadius: BorderRadius.circular(10),
+              ),
+              child: Icon(icon, color: color, size: 20),
+            ),
+            const SizedBox(width: 12),
+            Column(
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  '$value',
+                  style: TextStyle(
+                    fontSize: 22,
+                    fontWeight: FontWeight.w800,
+                    color: color,
+                  ),
+                ),
+                Text(
+                  label,
+                  style: const TextStyle(
+                    fontSize: 12,
+                    color: AppColors.text2,
+                    fontWeight: FontWeight.w500,
+                  ),
+                ),
+              ],
+            ),
+          ],
+        ),
+      ),
+    );
+  }
+}
+
+// ── Formulaire employé — stepper 3 étapes ─────────────────────────────────────
 
 class _EmployeeFormSheet extends ConsumerStatefulWidget {
   const _EmployeeFormSheet({this.employee});
-
   final Employe? employee;
 
   @override
@@ -1035,41 +1177,89 @@ class _EmployeeFormSheet extends ConsumerStatefulWidget {
 }
 
 class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
-  final _formKey = GlobalKey<FormState>();
-  late final TextEditingController _nomController;
-  late final TextEditingController _prenomController;
-  late final TextEditingController _emailController;
-  late final TextEditingController _posteController;
-  late final TextEditingController _serviceController;
-  late final TextEditingController _salaireController;
+  final _step1Key = GlobalKey<FormState>();
+  final _step2Key = GlobalKey<FormState>();
+  final _step3Key = GlobalKey<FormState>();
+
+  int _currentStep = 0;
+  bool _loading = false;
+
+  late final TextEditingController _prenom;
+  late final TextEditingController _nom;
+  late final TextEditingController _email;
+  late final TextEditingController _telephone;
+  late final TextEditingController _poste;
+  late final TextEditingController _service;
+  late final TextEditingController _salaire;
   String _typeContrat = 'CDI';
+  String _statut = 'ACTIF';
+
+  static const _stepLabels = ['Identité', 'Poste', 'Contrat'];
 
   @override
   void initState() {
     super.initState();
-    final employee = widget.employee;
-    _nomController = TextEditingController(text: employee?.nom ?? '');
-    _prenomController = TextEditingController(text: employee?.prenom ?? '');
-    _emailController = TextEditingController(text: employee?.email ?? '');
-    _posteController = TextEditingController(text: employee?.poste ?? '');
-    _serviceController = TextEditingController(text: employee?.service ?? '');
-    _salaireController = TextEditingController(
-      text: employee?.salaire != null
-          ? employee!.salaire!.toStringAsFixed(0)
-          : '',
-    );
-    _typeContrat = employee?.typeContrat ?? 'CDI';
+    final e = widget.employee;
+    _prenom = TextEditingController(text: e?.prenom ?? '');
+    _nom = TextEditingController(text: e?.nom ?? '');
+    _email = TextEditingController(text: e?.email ?? '');
+    _telephone = TextEditingController(text: e?.telephone ?? '');
+    _poste = TextEditingController(text: e?.poste ?? '');
+    _service = TextEditingController(text: e?.service ?? '');
+    _salaire = TextEditingController(
+        text: e?.salaire != null ? e!.salaire!.toStringAsFixed(0) : '');
+    _typeContrat = e?.typeContrat ?? 'CDI';
+    _statut = e?.statut ?? 'ACTIF';
   }
 
   @override
   void dispose() {
-    _nomController.dispose();
-    _prenomController.dispose();
-    _emailController.dispose();
-    _posteController.dispose();
-    _serviceController.dispose();
-    _salaireController.dispose();
+    for (final c in [_prenom, _nom, _email, _telephone, _poste, _service, _salaire]) {
+      c.dispose();
+    }
     super.dispose();
+  }
+
+  GlobalKey<FormState> get _currentFormKey =>
+      [_step1Key, _step2Key, _step3Key][_currentStep];
+
+  void _next() {
+    if (!_currentFormKey.currentState!.validate()) return;
+    if (_currentStep < 2) {
+      setState(() => _currentStep++);
+    } else {
+      _submit();
+    }
+  }
+
+  void _back() {
+    if (_currentStep > 0) setState(() => _currentStep--);
+  }
+
+  Future<void> _submit() async {
+    setState(() => _loading = true);
+    final payload = {
+      'nom': _nom.text.trim(),
+      'prenom': _prenom.text.trim(),
+      'email': _email.text.trim(),
+      'telephone': _telephone.text.trim(),
+      'poste': _poste.text.trim(),
+      'service': _service.text.trim(),
+      'typeContrat': _typeContrat,
+      'statut': _statut,
+      'salaire': double.tryParse(_salaire.text.trim().replaceAll(' ', '')) ?? 0,
+    };
+    try {
+      if (widget.employee != null) {
+        await ref.read(employeeNotifierProvider).updateEmployee(
+              widget.employee!.matricule, payload);
+      } else {
+        await ref.read(employeeNotifierProvider).createEmployee(payload);
+      }
+      if (mounted) Navigator.of(context).pop();
+    } finally {
+      if (mounted) setState(() => _loading = false);
+    }
   }
 
   @override
@@ -1081,140 +1271,260 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
       padding: EdgeInsets.only(bottom: bottomInset),
       child: Container(
         decoration: const BoxDecoration(
-          color: AppColors.background,
-          borderRadius: BorderRadius.vertical(top: Radius.circular(20)),
+          color: Color(0xFFF8F9FB),
+          borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
         ),
-        child: SingleChildScrollView(
-          padding: const EdgeInsets.all(24),
-          child: Form(
-            key: _formKey,
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                // Poignée
-                Center(
-                  child: Container(
-                    width: 40,
-                    height: 4,
-                    margin: const EdgeInsets.only(bottom: 20),
-                    decoration: BoxDecoration(
-                      color: AppColors.borderLight,
-                      borderRadius: BorderRadius.circular(99),
-                    ),
-                  ),
-                ),
-                Text(
-                  isEditing ? 'Modifier un employé' : 'Ajouter un employé',
-                  style: Theme.of(context)
-                      .textTheme
-                      .headlineSmall
-                      ?.copyWith(fontWeight: FontWeight.w800),
-                ),
-                const SizedBox(height: 8),
-                Text(
-                  'Renseignez les informations principales du collaborateur.',
-                  style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                        color: AppColors.textSecondaryLight,
+        child: Column(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            // ── Poignée + en-tête ──
+            Container(
+              decoration: const BoxDecoration(
+                color: Colors.white,
+                borderRadius: BorderRadius.vertical(top: Radius.circular(24)),
+                boxShadow: [BoxShadow(color: Color(0x0A000000), blurRadius: 8, offset: Offset(0, 2))],
+              ),
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 20),
+              child: Column(
+                children: [
+                  Center(
+                    child: Container(
+                      width: 36,
+                      height: 4,
+                      decoration: BoxDecoration(
+                        color: Colors.grey.shade300,
+                        borderRadius: BorderRadius.circular(99),
                       ),
-                ),
-                const SizedBox(height: 20),
-                TextFormField(
-                  controller: _prenomController,
-                  decoration: const InputDecoration(labelText: 'Prénom'),
-                  validator: (v) => (v ?? '').isEmpty ? 'Champ requis' : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _nomController,
-                  decoration: const InputDecoration(labelText: 'Nom'),
-                  validator: (v) => (v ?? '').isEmpty ? 'Champ requis' : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _emailController,
-                  decoration: const InputDecoration(labelText: 'E-mail'),
-                  validator: (v) =>
-                      (v ?? '').contains('@') ? null : 'E-mail invalide',
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _posteController,
-                  decoration: const InputDecoration(labelText: 'Poste'),
-                  validator: (v) => (v ?? '').isEmpty ? 'Champ requis' : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _serviceController,
-                  decoration:
-                      const InputDecoration(labelText: 'Département / service'),
-                  validator: (v) => (v ?? '').isEmpty ? 'Champ requis' : null,
-                ),
-                const SizedBox(height: 14),
-                TextFormField(
-                  controller: _salaireController,
-                  keyboardType: TextInputType.number,
-                  decoration:
-                      const InputDecoration(labelText: 'Salaire brut de base'),
-                  validator: (v) {
-                    if ((v ?? '').trim().isEmpty) return 'Champ requis';
-                    return double.tryParse(v!.trim().replaceAll(' ', '')) == null
-                        ? 'Montant invalide'
-                        : null;
-                  },
-                ),
-                const SizedBox(height: 14),
-                DropdownButtonFormField<String>(
-                  value: _typeContrat,
-                  decoration:
-                      const InputDecoration(labelText: 'Type de contrat'),
-                  items: const [
-                    DropdownMenuItem(value: 'CDI', child: Text('CDI')),
-                    DropdownMenuItem(value: 'CDD', child: Text('CDD')),
-                  ],
-                  onChanged: (v) => setState(() => _typeContrat = v ?? 'CDI'),
-                ),
-                const SizedBox(height: 28),
-                SizedBox(
-                  width: double.infinity,
-                  child: FilledButton(
-                    onPressed: () async {
-                      if (!_formKey.currentState!.validate()) return;
-                      final payload = {
-                        'nom': _nomController.text.trim(),
-                        'prenom': _prenomController.text.trim(),
-                        'email': _emailController.text.trim(),
-                        'poste': _posteController.text.trim(),
-                        'service': _serviceController.text.trim(),
-                        'typeContrat': _typeContrat,
-                        'statut': 'ACTIF',
-                        'salaire': double.parse(
-                            _salaireController.text.trim().replaceAll(' ', '')),
-                      };
-                      if (isEditing) {
-                        await ref.read(employeeNotifierProvider).updateEmployee(
-                              widget.employee!.matricule,
-                              payload,
-                            );
-                      } else {
-                        await ref
-                            .read(employeeNotifierProvider)
-                            .createEmployee(payload);
-                      }
-                      if (mounted) Navigator.of(context).pop();
-                    },
-                    style: ElevatedButton.styleFrom(
-                      padding: const EdgeInsets.symmetric(vertical: 14),
                     ),
-                    child: Text(isEditing ? 'Enregistrer' : "Créer l'employé"),
+                  ),
+                  const SizedBox(height: 16),
+                  Row(
+                    children: [
+                      Container(
+                        padding: const EdgeInsets.all(10),
+                        decoration: BoxDecoration(
+                          color: AppColors.primary.withValues(alpha: 0.1),
+                          borderRadius: BorderRadius.circular(12),
+                        ),
+                        child: Icon(
+                          isEditing ? Icons.edit_outlined : Icons.person_add_outlined,
+                          color: AppColors.primary,
+                          size: 22,
+                        ),
+                      ),
+                      const SizedBox(width: 14),
+                      Column(
+                        crossAxisAlignment: CrossAxisAlignment.start,
+                        children: [
+                          Text(
+                            isEditing ? 'Modifier le collaborateur' : 'Nouveau collaborateur',
+                            style: const TextStyle(fontSize: 17, fontWeight: FontWeight.w800, color: AppColors.text1),
+                          ),
+                          Text(
+                            'Étape ${_currentStep + 1} sur 3 — ${_stepLabels[_currentStep]}',
+                            style: const TextStyle(fontSize: 12, color: AppColors.text2),
+                          ),
+                        ],
+                      ),
+                    ],
+                  ),
+                  const SizedBox(height: 20),
+                  AppStepIndicator(
+                    currentStep: _currentStep,
+                    totalSteps: 3,
+                    labels: _stepLabels,
+                  ),
+                ],
+              ),
+            ),
+
+            // ── Contenu de l'étape ──
+            Flexible(
+              child: SingleChildScrollView(
+                padding: const EdgeInsets.all(24),
+                child: AnimatedSwitcher(
+                  duration: const Duration(milliseconds: 220),
+                  child: KeyedSubtree(
+                    key: ValueKey(_currentStep),
+                    child: _buildStep(),
                   ),
                 ),
-                const SizedBox(height: 8),
-              ],
+              ),
             ),
-          ),
+
+            // ── Boutons navigation ──
+            Container(
+              padding: const EdgeInsets.fromLTRB(24, 12, 24, 24),
+              color: Colors.white,
+              child: Row(
+                children: [
+                  if (_currentStep > 0)
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _back,
+                        icon: const Icon(Icons.arrow_back_ios_rounded, size: 14),
+                        label: const Text('Retour'),
+                        style: OutlinedButton.styleFrom(
+                          padding: const EdgeInsets.symmetric(vertical: 14),
+                          shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                          side: BorderSide(color: Colors.grey.shade300),
+                          foregroundColor: AppColors.text1,
+                        ),
+                      ),
+                    ),
+                  if (_currentStep > 0) const SizedBox(width: 12),
+                  Expanded(
+                    flex: 2,
+                    child: FilledButton.icon(
+                      onPressed: _loading ? null : _next,
+                      icon: _loading
+                          ? const SizedBox(width: 16, height: 16, child: CircularProgressIndicator(strokeWidth: 2, color: Colors.white))
+                          : Icon(_currentStep < 2 ? Icons.arrow_forward_ios_rounded : Icons.check_rounded, size: 16),
+                      label: Text(_currentStep < 2 ? 'Suivant' : (isEditing ? 'Enregistrer' : "Créer l'employé")),
+                      style: FilledButton.styleFrom(
+                        backgroundColor: AppColors.primary,
+                        padding: const EdgeInsets.symmetric(vertical: 14),
+                        shape: RoundedRectangleBorder(borderRadius: BorderRadius.circular(12)),
+                      ),
+                    ),
+                  ),
+                ],
+              ),
+            ),
+          ],
         ),
       ),
     );
+  }
+
+  Widget _buildStep() {
+    switch (_currentStep) {
+      case 0:
+        return Form(
+          key: _step1Key,
+          child: AppFormSection(
+            title: 'Identité',
+            subtitle: 'Informations personnelles du collaborateur',
+            icon: Icons.person_outline_rounded,
+            children: [
+              Row(
+                children: [
+                  Expanded(
+                    child: AppFormField(
+                      controller: _prenom,
+                      label: 'Prénom *',
+                      prefixIcon: Icons.badge_outlined,
+                      textCapitalization: TextCapitalization.words,
+                      validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
+                    ),
+                  ),
+                  const SizedBox(width: 12),
+                  Expanded(
+                    child: AppFormField(
+                      controller: _nom,
+                      label: 'Nom *',
+                      prefixIcon: Icons.badge_outlined,
+                      textCapitalization: TextCapitalization.words,
+                      validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
+                    ),
+                  ),
+                ],
+              ),
+              const SizedBox(height: 14),
+              AppFormField(
+                controller: _email,
+                label: 'Adresse e-mail *',
+                prefixIcon: Icons.email_outlined,
+                keyboardType: TextInputType.emailAddress,
+                validator: (v) => (v ?? '').contains('@') ? null : 'E-mail invalide',
+                helperText: 'Servira d\'identifiant de connexion',
+              ),
+              const SizedBox(height: 14),
+              AppFormField(
+                controller: _telephone,
+                label: 'Téléphone',
+                prefixIcon: Icons.phone_outlined,
+                keyboardType: TextInputType.phone,
+              ),
+            ],
+          ),
+        );
+      case 1:
+        return Form(
+          key: _step2Key,
+          child: AppFormSection(
+            title: 'Poste & Organisation',
+            subtitle: 'Rôle et rattachement hiérarchique',
+            icon: Icons.work_outline_rounded,
+            children: [
+              AppFormField(
+                controller: _poste,
+                label: 'Intitulé du poste *',
+                prefixIcon: Icons.work_outline,
+                textCapitalization: TextCapitalization.words,
+                validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
+              ),
+              const SizedBox(height: 14),
+              AppFormField(
+                controller: _service,
+                label: 'Département / Service *',
+                prefixIcon: Icons.business_outlined,
+                textCapitalization: TextCapitalization.words,
+                validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
+              ),
+              const SizedBox(height: 14),
+              AppDropdownField<String>(
+                label: 'Statut',
+                value: _statut,
+                prefixIcon: Icons.toggle_on_outlined,
+                items: const [
+                  DropdownMenuItem(value: 'ACTIF', child: Text('Actif')),
+                  DropdownMenuItem(value: 'INACTIF', child: Text('Inactif')),
+                  DropdownMenuItem(value: 'EN CONGE', child: Text('En congé')),
+                ],
+                onChanged: (v) => setState(() => _statut = v ?? 'ACTIF'),
+              ),
+            ],
+          ),
+        );
+      case 2:
+      default:
+        return Form(
+          key: _step3Key,
+          child: AppFormSection(
+            title: 'Contrat & Rémunération',
+            subtitle: 'Type de contrat et salaire brut',
+            icon: Icons.description_outlined,
+            children: [
+              AppDropdownField<String>(
+                label: 'Type de contrat *',
+                value: _typeContrat,
+                prefixIcon: Icons.article_outlined,
+                items: const [
+                  DropdownMenuItem(value: 'CDI', child: Text('CDI — Contrat à Durée Indéterminée')),
+                  DropdownMenuItem(value: 'CDD', child: Text('CDD — Contrat à Durée Déterminée')),
+                  DropdownMenuItem(value: 'STAGE', child: Text('Stage / Alternance')),
+                  DropdownMenuItem(value: 'FREELANCE', child: Text('Prestataire / Freelance')),
+                ],
+                onChanged: (v) => setState(() => _typeContrat = v ?? 'CDI'),
+              ),
+              const SizedBox(height: 14),
+              AppFormField(
+                controller: _salaire,
+                label: 'Salaire brut mensuel *',
+                prefixIcon: Icons.account_balance_wallet_outlined,
+                keyboardType: TextInputType.number,
+                helperText: 'Montant en FCFA',
+                validator: (v) {
+                  if ((v ?? '').trim().isEmpty) return 'Requis';
+                  return double.tryParse(v!.trim().replaceAll(' ', '')) == null
+                      ? 'Montant invalide'
+                      : null;
+                },
+              ),
+            ],
+          ),
+        );
+    }
   }
 }

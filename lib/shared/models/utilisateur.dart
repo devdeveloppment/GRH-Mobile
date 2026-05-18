@@ -1,15 +1,33 @@
 enum UserRole {
+  superAdmin,
   admin,
+  hrAdmin,
   rhManager,
+  payrollOfficer,
+  manager,
+  recruiter,
+  trainer,
   employee,
   direction;
 
   static UserRole fromApi(String? value) {
     switch ((value ?? '').toUpperCase()) {
+      case 'SUPER_ADMIN':
+        return UserRole.superAdmin;
       case 'ADMIN':
         return UserRole.admin;
+      case 'HR_ADMIN':
+        return UserRole.hrAdmin;
       case 'RH_MANAGER':
         return UserRole.rhManager;
+      case 'PAYROLL_OFFICER':
+        return UserRole.payrollOfficer;
+      case 'MANAGER':
+        return UserRole.manager;
+      case 'RECRUITER':
+        return UserRole.recruiter;
+      case 'TRAINER':
+        return UserRole.trainer;
       case 'EMPLOYEE':
         return UserRole.employee;
       case 'DIRECTION':
@@ -18,15 +36,36 @@ enum UserRole {
         return UserRole.employee;
     }
   }
+
+  bool get isHrFamily =>
+      this == UserRole.superAdmin ||
+      this == UserRole.admin ||
+      this == UserRole.hrAdmin ||
+      this == UserRole.rhManager;
+
+  bool get isAdmin =>
+      this == UserRole.superAdmin || this == UserRole.admin;
 }
 
 extension UserRoleX on UserRole {
   String get apiValue {
     switch (this) {
+      case UserRole.superAdmin:
+        return 'SUPER_ADMIN';
       case UserRole.admin:
         return 'ADMIN';
+      case UserRole.hrAdmin:
+        return 'HR_ADMIN';
       case UserRole.rhManager:
         return 'RH_MANAGER';
+      case UserRole.payrollOfficer:
+        return 'PAYROLL_OFFICER';
+      case UserRole.manager:
+        return 'MANAGER';
+      case UserRole.recruiter:
+        return 'RECRUITER';
+      case UserRole.trainer:
+        return 'TRAINER';
       case UserRole.employee:
         return 'EMPLOYEE';
       case UserRole.direction:
@@ -36,10 +75,22 @@ extension UserRoleX on UserRole {
 
   String get label {
     switch (this) {
+      case UserRole.superAdmin:
+        return 'Super Admin';
       case UserRole.admin:
         return 'Administration';
+      case UserRole.hrAdmin:
+        return 'Admin RH';
       case UserRole.rhManager:
         return 'Responsable RH';
+      case UserRole.payrollOfficer:
+        return 'Gestionnaire Paie';
+      case UserRole.manager:
+        return 'Manager';
+      case UserRole.recruiter:
+        return 'Recruteur';
+      case UserRole.trainer:
+        return 'Formateur';
       case UserRole.employee:
         return 'Employé';
       case UserRole.direction:
