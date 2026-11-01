@@ -40,6 +40,9 @@ const _accounts = [
       String.fromEnvironment('GRH_TEST_DIRECTION_PASSWORD'), UserRole.direction),
 ];
 
+/// Mode captures d'écran : --dart-define=GRH_CAPTURES=true
+const _captures = bool.fromEnvironment('GRH_CAPTURES');
+
 final _errorWords = RegExp(r'erreur|impossible|échec|echec|exception|inattendu', caseSensitive: false);
 final _emptyWords = RegExp(r'aucun|aucune|pas encore|vide', caseSensitive: false);
 
@@ -112,6 +115,11 @@ void main() {
           debugDumpRenderTree();
         }
 
+        if (_captures) {
+          // Repère lu par un script hôte qui prend une capture (adb screencap) de l'écran réel.
+          debugPrint('GRH_CAPTURE ${account.label} ${route.replaceAll('/', '_')}');
+          await _settle(tester, seconds: 3);
+        }
         final location = router.routerDelegate.currentConfiguration.uri.path;
         final texts = _visibleTexts(tester);
         final loading = find.byType(CircularProgressIndicator).evaluate().isNotEmpty;

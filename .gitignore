@@ -27,3 +27,6 @@ integration_test/test_accounts.env
 # Fichiers deposes (CV, documents RH) : donnees personnelles, jamais versionnees
 uploads/
 backend/uploads/
+
+# Captures d ecran : peuvent contenir des donnees personnelles, ne jamais versionner
+docs/captures/
