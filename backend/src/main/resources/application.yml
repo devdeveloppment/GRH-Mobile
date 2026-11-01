@@ -56,6 +56,11 @@ app:
   upload:
     dir: ${UPLOAD_DIR:uploads/photos}
     inactivity-timeout-minutes: ${AUTO_LOGOUT_MINUTES:30}
+  ai:
+    # Assistant RH : desactive par defaut. Activation = AI_ENABLED=true + ANTHROPIC_API_KEY (jamais dans Git).
+    enabled: ${AI_ENABLED:false}
+    model: ${AI_MODEL:claude-opus-5-5}
+    max-iterations: ${AI_MAX_ITERATIONS:5}
   demo:
     # Utilise uniquement avec le profil Spring "demo" (jamais en production).
     password: ${DEMO_PASSWORD:}
