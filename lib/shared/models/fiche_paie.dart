@@ -11,6 +11,9 @@ class FichePaie {
     this.nomEmploye,
     this.calculee = false,
     this.validee = false,
+    this.autresRetenues = 0,
+    this.conformeReglementation = false,
+    this.avertissement,
   });
 
   final int id;
@@ -24,6 +27,11 @@ class FichePaie {
   final String? nomEmploye;
   final bool calculee;
   final bool validee;
+  final double autresRetenues;
+
+  /// Faux tant que les règles de paie utilisées ne sont pas validées par un expert-comptable.
+  final bool conformeReglementation;
+  final String? avertissement;
 
   factory FichePaie.fromJson(Map<String, dynamic> json) {
     return FichePaie(
@@ -38,6 +46,9 @@ class FichePaie {
       nomEmploye: json['nomEmploye'] as String?,
       calculee: json['calculee'] as bool? ?? false,
       validee: json['validee'] as bool? ?? false,
+      autresRetenues: (json['autresRetenues'] as num?)?.toDouble() ?? 0,
+      conformeReglementation: json['conformeReglementation'] as bool? ?? false,
+      avertissement: json['avertissement'] as String?,
     );
   }
 
@@ -54,6 +65,9 @@ class FichePaie {
       'nomEmploye': nomEmploye,
       'calculee': calculee,
       'validee': validee,
+      'autresRetenues': autresRetenues,
+      'conformeReglementation': conformeReglementation,
+      'avertissement': avertissement,
     };
   }
 }

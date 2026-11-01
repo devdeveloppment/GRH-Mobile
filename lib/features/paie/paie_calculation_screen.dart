@@ -280,6 +280,33 @@ class PaieCalculationScreen extends ConsumerWidget {
                 ),
                 const SizedBox(height: 22),
 
+                // ── Avertissement réglementaire ─────────────────────────────
+                if (paie.bulletins.any((b) => !b.conformeReglementation)) ...[
+                  Container(
+                    padding: const EdgeInsets.all(12),
+                    decoration: BoxDecoration(
+                      color: Colors.amber.shade50,
+                      borderRadius: BorderRadius.circular(10),
+                      border: Border.all(color: Colors.amber.shade300),
+                    ),
+                    child: const Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Icon(Icons.warning_amber_rounded, color: Colors.orange),
+                        SizedBox(width: 8),
+                        Expanded(
+                          child: Text(
+                            'SIMULATION : les règles de paie (cotisations, impôt) ne sont pas validées par un '
+                            'expert-comptable. Ces bulletins ne constituent pas des bulletins légaux.',
+                            style: TextStyle(fontSize: 13),
+                          ),
+                        ),
+                      ],
+                    ),
+                  ),
+                  const SizedBox(height: 16),
+                ],
+
                 // ── Bulletins ───────────────────────────────────────────────
                 if (paie.isLoading && paie.bulletins.isEmpty)
                   const Center(
@@ -512,7 +539,7 @@ class _PayslipDocCard extends StatelessWidget {
                 const _PaySectionLabel('RETENUES'),
                 const SizedBox(height: 10),
                 _PayLineItem(
-                  label: 'Cotisations CNSS',
+                  label: 'Cotisations salariales',
                   value: AppFormatters.currency(item.cotisations),
                   isDeduction: true,
                 ),

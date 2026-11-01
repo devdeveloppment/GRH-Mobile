@@ -1629,11 +1629,20 @@ class _PayslipDetail extends StatelessWidget {
           decoration: _card(),
           child: Column(
             children: [
-              _PayRow('Salaire de base', payslip.salaireBrut, false),
-              _PayRow('Primes', payslip.indemnites, false),
-              _PayRow('Indemnités', payslip.indemnites, false),
-              _PayRow('CNSS (4%)', payslip.cotisations, true),
+              if (!payslip.conformeReglementation)
+                const Padding(
+                  padding: EdgeInsets.only(bottom: 12),
+                  child: Text(
+                    'Simulation : règles de paie non validées par un expert-comptable. '
+                    'Ce bulletin ne constitue pas un bulletin légal.',
+                    style: TextStyle(fontSize: 12, color: Colors.orange),
+                  ),
+                ),
+              _PayRow('Salaire de base', payslip.salaireBrut - payslip.indemnites, false),
+              _PayRow('Primes et indemnités', payslip.indemnites, false),
+              _PayRow('Cotisations salariales', payslip.cotisations, true),
               _PayRow('Impôts', payslip.impots, true),
+              if (payslip.autresRetenues > 0) _PayRow('Autres retenues', payslip.autresRetenues, true),
               const Divider(
                   height: 24, color: Color(0xFFF0F0F0)),
               Row(

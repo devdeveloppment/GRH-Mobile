@@ -13,6 +13,8 @@ import 'package:grh_mobile/features/dashboard/admin_console_screen.dart';
 import 'package:grh_mobile/features/dashboard/direction_dashboard.dart';
 import 'package:grh_mobile/features/dashboard/employee_workspace_screen.dart';
 import 'package:grh_mobile/features/dashboard/rh_dashboard_modern.dart';
+import 'package:grh_mobile/features/frais/notes_frais_screen.dart';
+import 'package:grh_mobile/features/parametrage/parametrage_rh_screen.dart';
 import 'package:grh_mobile/features/employees/employee_detail_screen.dart';
 import 'package:grh_mobile/features/employees/employee_list_screen.dart';
 import 'package:grh_mobile/features/notifications/notifications_screen.dart';
@@ -46,12 +48,14 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       case UserRole.hrAdmin:
       case UserRole.rhManager:
         return location.startsWith('/rh') ||
+            location == AppRoutes.notesFrais ||
             location == AppRoutes.notifications ||
             location == AppRoutes.qrScanner ||
             location == AppRoutes.profile;
       case UserRole.payrollOfficer:
         return location == AppRoutes.paie ||
             location == AppRoutes.contrats ||
+            location == AppRoutes.notesFrais ||
             location == AppRoutes.rapports ||
             location == AppRoutes.notifications ||
             location == AppRoutes.profile;
@@ -75,6 +79,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             location == AppRoutes.profile;
       case UserRole.employee:
         return location.startsWith('/employee') ||
+            location == AppRoutes.notesFrais ||
             location == AppRoutes.notifications ||
             location == AppRoutes.employeeQr ||
             location == AppRoutes.profile;
@@ -180,6 +185,10 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const FormationsScreen()),
       GoRoute(path: AppRoutes.evaluations,
           builder: (_, __) => const EvaluationsScreen()),
+      GoRoute(path: AppRoutes.parametrageRh,
+          builder: (_, __) => const ParametrageRhScreen()),
+      GoRoute(path: AppRoutes.notesFrais,
+          builder: (_, __) => const NotesFraisScreen()),
 
       // ─── Admin ─────────────────────────────────────────────────────────────
       GoRoute(path: AppRoutes.adminDashboard,

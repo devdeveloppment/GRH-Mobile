@@ -25,6 +25,8 @@ class AppRoutes {
   static const String formations         = '/rh/formations';
   static const String evaluations        = '/rh/evaluations';
   static const String auditLog           = '/admin/audit';
+  static const String parametrageRh      = '/rh/parametrage';
+  static const String notesFrais         = '/frais';
 
   static const String recrutementCandidatures = '/rh/recrutement/candidatures';
   static const String postuler            = '/apply';
@@ -68,6 +70,8 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Évaluations',  route: AppRoutes.evaluations,     icon: Icons.star_outline),
         NavigationItem(label: 'Rapports',     route: AppRoutes.rapports,        icon: Icons.bar_chart_outlined),
         NavigationItem(label: 'Utilisateurs', route: AppRoutes.adminUsers,      icon: Icons.group_outlined),
+        NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
+        NavigationItem(label: 'Paramétrage RH', route: AppRoutes.parametrageRh, icon: Icons.tune_outlined),
         NavigationItem(label: 'Audit',        route: AppRoutes.auditLog,        icon: Icons.history_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
         NavigationItem(label: 'Paramètres',   route: AppRoutes.adminSettings,   icon: Icons.settings_outlined),
@@ -87,6 +91,8 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Évaluations',  route: AppRoutes.evaluations,     icon: Icons.star_outline),
         NavigationItem(label: 'Contrats',     route: AppRoutes.contrats,        icon: Icons.description_outlined),
         NavigationItem(label: 'Paie',         route: AppRoutes.paie,            icon: Icons.receipt_long_outlined),
+        NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
+        NavigationItem(label: 'Paramétrage RH', route: AppRoutes.parametrageRh, icon: Icons.tune_outlined),
         NavigationItem(label: 'Rapports',     route: AppRoutes.rapports,        icon: Icons.bar_chart_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
@@ -95,6 +101,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
       return const [
         NavigationItem(label: 'Paie',         route: AppRoutes.paie,            icon: Icons.receipt_long_outlined),
         NavigationItem(label: 'Contrats',     route: AppRoutes.contrats,        icon: Icons.description_outlined),
+        NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
         NavigationItem(label: 'Rapports',     route: AppRoutes.rapports,        icon: Icons.bar_chart_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
@@ -127,6 +134,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Présences',    route: AppRoutes.employeeHome,    icon: Icons.access_time_outlined),
         NavigationItem(label: 'Congés',       route: AppRoutes.employeeHome,    icon: Icons.event_note_outlined),
         NavigationItem(label: 'Bulletin',     route: AppRoutes.employeeHome,    icon: Icons.description_outlined),
+        NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
