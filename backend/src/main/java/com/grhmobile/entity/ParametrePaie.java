@@ -38,10 +38,42 @@ public class ParametrePaie extends BaseEntity {
     @Column(name = "date_validation")
     private LocalDate dateValidation;
 
-    /** Validé = une source officielle et un validateur (expert-comptable, juriste) sont renseignés. */
+    /** BROUILLON, SOUMIS ou VALIDE. */
+    @Column(nullable = false, length = 20)
+    private String statut = "BROUILLON";
+
+    @Column(name = "soumis_par")
+    private Long soumisPar;
+
+    @Column(name = "date_soumission")
+    private java.time.OffsetDateTime dateSoumission;
+
+    /** EXPERT_COMPTABLE, JURISTE ou AUTRE (déclaratif). */
+    @Column(name = "qualite_validateur", length = 30)
+    private String qualiteValidateur;
+
+    @Column(name = "enregistre_par")
+    private Long enregistrePar;
+
+    /**
+     * Validé = statut VALIDE, avec une source officielle et un validateur déclarés.
+     * Tout autre paramètre est une simple hypothèse de simulation.
+     */
     public boolean estValide() {
-        return validePar != null && !validePar.isBlank() && source != null && !source.isBlank();
+        return "VALIDE".equals(statut) && validePar != null && !validePar.isBlank()
+            && source != null && !source.isBlank();
     }
+
+    public String getStatut() { return statut; }
+    public void setStatut(String statut) { this.statut = statut; }
+    public Long getSoumisPar() { return soumisPar; }
+    public void setSoumisPar(Long soumisPar) { this.soumisPar = soumisPar; }
+    public java.time.OffsetDateTime getDateSoumission() { return dateSoumission; }
+    public void setDateSoumission(java.time.OffsetDateTime dateSoumission) { this.dateSoumission = dateSoumission; }
+    public String getQualiteValidateur() { return qualiteValidateur; }
+    public void setQualiteValidateur(String qualiteValidateur) { this.qualiteValidateur = qualiteValidateur; }
+    public Long getEnregistrePar() { return enregistrePar; }
+    public void setEnregistrePar(Long enregistrePar) { this.enregistrePar = enregistrePar; }
 
     public boolean couvre(LocalDate date) {
         return !dateDebut.isAfter(date) && (dateFin == null || !dateFin.isBefore(date));

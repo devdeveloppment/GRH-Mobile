@@ -38,12 +38,29 @@ public class IntegrationController {
     @ResponseStatus(HttpStatus.CREATED)
     public Map<String, Object> ajouter(@PathVariable String matricule, @PathVariable String type,
                                        @RequestBody Map<String, String> body) {
-        return service.ajouter(matricule, type.toUpperCase(), body.get("libelle"), date(body));
+        Map<String, Object> t = service.ajouter(matricule, type.toUpperCase(), body.get("libelle"), date(body));
+        if (body.get("responsable") != null) {
+            t = service.marquer((Long) t.get("id"), Map.of("responsable", body.get("responsable")));
+        }
+        return t;
     }
 
+    /** Mise à jour d'une tâche : faite, responsable, échéance, commentaire. */
     @PutMapping("/integration/taches/{id}")
-    public Map<String, Object> marquer(@PathVariable Long id, @RequestBody Map<String, Boolean> body) {
-        return service.marquer(id, Boolean.TRUE.equals(body.get("faite")));
+    public Map<String, Object> marquer(@PathVariable Long id, @RequestBody Map<String, Object> body) {
+        return service.marquer(id, body);
+    }
+
+    /** Vue d'ensemble des arrivées et départs en cours ou clôturés. */
+    @org.springframework.web.bind.annotation.GetMapping("/integration/processus")
+    public Map<String, Object> processus() {
+        return service.processus();
+    }
+
+    @PostMapping("/employees/{matricule}/integration/{type}/cloture")
+    public Map<String, Object> cloturer(@PathVariable String matricule, @PathVariable String type,
+                                        @RequestBody(required = false) Map<String, String> body) {
+        return service.cloturer(matricule, type.toUpperCase(), body == null ? null : body.get("commentaire"));
     }
 
     private static LocalDate date(Map<String, String> body) {

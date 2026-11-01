@@ -36,6 +36,17 @@ public class TacheIntegration extends BaseEntity {
     @JoinColumn(name = "faite_par")
     private Utilisateur faitePar;
 
+    @Column(length = 200)
+    private String responsable;
+
+    @Column(columnDefinition = "TEXT")
+    private String commentaire;
+
+    public String getResponsable() { return responsable; }
+    public void setResponsable(String responsable) { this.responsable = responsable; }
+    public String getCommentaire() { return commentaire; }
+    public void setCommentaire(String commentaire) { this.commentaire = commentaire; }
+
     @Column(name = "faite_le")
     private OffsetDateTime faiteLe;
 

@@ -92,9 +92,29 @@ class Lot1FonctionnalitesIT extends AbstractIntegrationTest {
             assertThat(f.get("cotisations").asDouble()).isEqualTo(Math.round(f.get("salaireBrut").asDouble() * 0.10 * 100) / 100.0);
             assertThat(f.get("conformeReglementation").asBoolean()).as("paramètre non validé").isFalse();
 
-            mvc.perform(put("/api/paie/parametres/" + p.get("id").asLong() + "/validation").header("Authorization", admin)
-                    .contentType(MediaType.APPLICATION_JSON)
-                    .content(body(Map.of("source", "Source fictive de test", "validePar", "Validateur de test"))))
+            String validation = body(Map.of("source", "Source fictive de test", "validePar", "Validateur de test",
+                "qualiteValidateur", "EXPERT_COMPTABLE"));
+            String url = "/api/paie/parametres/" + p.get("id").asLong();
+            // Pas de validation sans soumission préalable.
+            mvc.perform(put(url + "/validation").header("Authorization", admin)
+                    .contentType(MediaType.APPLICATION_JSON).content(validation))
+                .andExpect(status().isBadRequest());
+            mvc.perform(put(url + "/soumission").header("Authorization", admin)
+                    .contentType(MediaType.APPLICATION_JSON).content(body(Map.of("source", "Source fictive de test"))))
+                .andExpect(status().isOk());
+            // La personne qui a soumis ne peut pas enregistrer la validation.
+            mvc.perform(put(url + "/validation").header("Authorization", admin)
+                    .contentType(MediaType.APPLICATION_JSON).content(validation))
+                .andExpect(status().isBadRequest());
+            JsonNode soumis = getJson("/api/paie/parametres", admin).get("items");
+            for (JsonNode x : soumis) {
+                if (x.get("id").asLong() == p.get("id").asLong()) {
+                    assertThat(x.get("statut").asText()).isEqualTo("SOUMIS");
+                    assertThat(x.get("valide").asBoolean()).isFalse();
+                }
+            }
+            mvc.perform(put(url + "/validation").header("Authorization", bearer(RH))
+                    .contentType(MediaType.APPLICATION_JSON).content(validation))
                 .andExpect(status().isOk());
             mvc.perform(post("/api/paie/calculate").header("Authorization", admin).contentType(MediaType.APPLICATION_JSON)
                 .content(body(Map.of("month", 5, "year", 2026)))).andExpect(status().is2xxSuccessful());

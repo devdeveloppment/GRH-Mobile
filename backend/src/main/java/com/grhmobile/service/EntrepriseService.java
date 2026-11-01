@@ -35,6 +35,8 @@ import org.springframework.transaction.support.TransactionTemplate;
 @Service
 public class EntrepriseService {
 
+    private static final org.slf4j.Logger log = org.slf4j.LoggerFactory.getLogger(EntrepriseService.class);
+
     public static final Set<String> OFFRES = Set.of("ESSAI", "ESSENTIEL", "PRO", "SUR_MESURE");
 
     private final EntrepriseRepository entrepriseRepository;
@@ -136,10 +138,69 @@ public class EntrepriseService {
     }
 
     public Map<String, Object> changerOffre(Long id, String offre) {
+        return changerOffre(id, offre, null);
+    }
+
+    /**
+     * Change l'offre (déclarative : aucune facturation). L'offre ESSAI exige une date de fin d'essai
+     * (30 jours par défaut) ; les autres offres n'en ont pas.
+     */
+    public Map<String, Object> changerOffre(Long id, String offre, String dateFinEssai) {
         if (!OFFRES.contains(offre)) throw new BusinessException("Offre attendue : " + OFFRES);
         Entreprise e = parId(id);
         e.setOffre(offre);
+        if ("ESSAI".equals(offre)) {
+            e.setDateFinEssai(dateFinEssai != null && !dateFinEssai.isBlank()
+                ? date(dateFinEssai) : java.time.LocalDate.now().plusDays(30));
+        } else {
+            e.setDateFinEssai(null);
+        }
+        log.info("Plateforme : offre de l'entreprise {} -> {}", id, offre);
         return toMap(tx.execute(s -> entrepriseRepository.save(e)));
+    }
+
+    /** Fiche d'une entreprise : informations et volumes (comptés dans son propre contexte). */
+    public Map<String, Object> detail(Long id) {
+        Entreprise e = parId(id);
+        Map<String, Object> m = toMap(e);
+        m.put("creeLe", e.getCreatedAt() != null ? e.getCreatedAt().toString() : null);
+        com.grhmobile.tenant.TenantContext.executer(id, () -> tx.execute(s -> {
+            m.put("utilisateurs", utilisateurRepository.count());
+            m.put("utilisateursActifs", utilisateurRepository.findAll().stream().filter(u -> u.isActif()).count());
+            m.put("administrateurs", utilisateurRepository.findAll().stream()
+                .filter(u -> u.getRole() == com.grhmobile.enums.Role.ADMIN)
+                .map(u -> u.getEmail()).toList());
+            return null;
+        }));
+        return m;
+    }
+
+    /** Informations modifiables : nom et pays. Le slug (adresse publique) reste fixe. */
+    public Map<String, Object> modifier(Long id, Map<String, String> body) {
+        Entreprise e = parId(id);
+        String nom = body.get("nom");
+        if (nom != null) {
+            if (nom.isBlank() || nom.trim().length() > 200) throw new BusinessException("Nom invalide.");
+            e.setNom(nom.trim());
+        }
+        String pays = body.get("pays");
+        if (pays != null) {
+            if (!pays.trim().matches("^[A-Z]{2}$")) throw new BusinessException("Pays attendu : code ISO à 2 lettres (ex. TG).");
+            e.setPays(pays.trim());
+        }
+        if (body.containsKey("slug") && !e.getSlug().equals(body.get("slug"))) {
+            throw new BusinessException("L'identifiant public (slug) ne peut pas être modifié.");
+        }
+        log.info("Plateforme : informations de l'entreprise {} modifiées", id);
+        return toMap(tx.execute(s -> entrepriseRepository.save(e)));
+    }
+
+    private static java.time.LocalDate date(String v) {
+        try {
+            return java.time.LocalDate.parse(v);
+        } catch (Exception ex) {
+            throw new BusinessException("Date invalide (format AAAA-MM-JJ).");
+        }
     }
 
     /** Données de départ d'une entreprise (dans son propre contexte). Aucune règle légale. */

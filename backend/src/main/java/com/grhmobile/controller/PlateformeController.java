@@ -44,6 +44,16 @@ public class PlateformeController {
 
     @PutMapping("/{id}/offre")
     public Map<String, Object> offre(@PathVariable Long id, @RequestBody Map<String, String> body) {
-        return service.changerOffre(id, body.get("offre"));
+        return service.changerOffre(id, body.get("offre"), body.get("dateFinEssai"));
+    }
+
+    @GetMapping("/{id}")
+    public Map<String, Object> detail(@PathVariable Long id) {
+        return service.detail(id);
+    }
+
+    @PutMapping("/{id}")
+    public Map<String, Object> modifier(@PathVariable Long id, @RequestBody Map<String, String> body) {
+        return service.modifier(id, body);
     }
 }

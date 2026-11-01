@@ -47,6 +47,12 @@ public class PaieConfigController {
         return service.createParametre(body);
     }
 
+    /** Soumet un paramètre à validation (BROUILLON -> SOUMIS). */
+    @PutMapping("/parametres/{id}/soumission")
+    public Map<String, Object> soumettreParametre(@PathVariable Long id, @RequestBody(required = false) Map<String, Object> body) {
+        return service.soumettreParametre(id, body == null ? Map.of() : body);
+    }
+
     /** Enregistre la validation d'un paramètre (source officielle + validateur). */
     @PutMapping("/parametres/{id}/validation")
     public Map<String, Object> validerParametre(@PathVariable Long id, @RequestBody Map<String, Object> body) {

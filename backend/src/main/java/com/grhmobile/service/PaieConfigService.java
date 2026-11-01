@@ -118,6 +118,29 @@ public class PaieConfigService {
             throw new BusinessException("La date de fin doit suivre la date de début.");
         }
         p.setSource(str(body, "source"));
+        p.setEnregistrePar(utilisateurCourant());
+        parametreRepository.save(p);
+        return toMap(p);
+    }
+
+    /** Soumet un paramètre en brouillon à la validation d'un expert (source obligatoire). */
+    @Auditable(action = "SUBMIT_PARAMETRE_PAIE", entite = "ParametrePaie")
+    @Transactional
+    public Map<String, Object> soumettreParametre(Long id, Map<String, Object> body) {
+        ParametrePaie p = parametreRepository.findById(id)
+            .orElseThrow(() -> new ResourceNotFoundException("Paramètre introuvable."));
+        if (!"BROUILLON".equals(p.getStatut())) {
+            throw new BusinessException("Seul un paramètre en brouillon peut être soumis.");
+        }
+        if (str(body, "source") != null) {
+            p.setSource(str(body, "source"));
+        }
+        if (p.getSource() == null) {
+            throw new BusinessException("Indiquez la source officielle (texte, article, date de publication).");
+        }
+        p.setStatut("SOUMIS");
+        p.setSoumisPar(utilisateurCourant());
+        p.setDateSoumission(java.time.OffsetDateTime.now());
         parametreRepository.save(p);
         return toMap(p);
     }
@@ -127,9 +150,22 @@ public class PaieConfigService {
     public Map<String, Object> validerParametre(Long id, Map<String, Object> body) {
         ParametrePaie p = parametreRepository.findById(id)
             .orElseThrow(() -> new ResourceNotFoundException("Paramètre introuvable."));
+        if (!"SOUMIS".equals(p.getStatut())) {
+            throw new BusinessException("Le paramètre doit d'abord être soumis à validation.");
+        }
+        Long courant = utilisateurCourant();
+        if (courant != null && courant.equals(p.getSoumisPar())) {
+            throw new BusinessException("La validation doit être enregistrée par une autre personne que celle qui a soumis le paramètre.");
+        }
+        String qualite = required(body, "qualiteValidateur").toUpperCase(java.util.Locale.ROOT);
+        if (!List.of("EXPERT_COMPTABLE", "JURISTE", "AUTRE").contains(qualite)) {
+            throw new BusinessException("Qualité du validateur invalide.");
+        }
         p.setSource(required(body, "source"));
         p.setValidePar(required(body, "validePar"));
+        p.setQualiteValidateur(qualite);
         p.setDateValidation(LocalDate.now());
+        p.setStatut("VALIDE");
         parametreRepository.save(p);
         return toMap(p);
     }
@@ -179,6 +215,10 @@ public class PaieConfigService {
         m.put("source", p.getSource());
         m.put("validePar", p.getValidePar());
         m.put("valide", p.estValide());
+        m.put("statut", p.getStatut());
+        m.put("qualiteValidateur", p.getQualiteValidateur());
+        m.put("dateValidation", p.getDateValidation() != null ? p.getDateValidation().toString() : null);
+        m.put("dateSoumission", p.getDateSoumission() != null ? p.getDateSoumission().toString() : null);
         return m;
     }
 
@@ -191,6 +231,13 @@ public class PaieConfigService {
         m.put("formule", l.getFormule());
         m.put("parametresUtilises", l.getParametresUtilises());
         return m;
+    }
+
+    private Long utilisateurCourant() {
+        org.springframework.security.core.Authentication a =
+            org.springframework.security.core.context.SecurityContextHolder.getContext().getAuthentication();
+        return a != null && a.getPrincipal() instanceof com.grhmobile.security.UserPrincipal up
+            ? up.getUtilisateur().getId() : null;
     }
 
     private static String str(Map<String, Object> body, String key) {
