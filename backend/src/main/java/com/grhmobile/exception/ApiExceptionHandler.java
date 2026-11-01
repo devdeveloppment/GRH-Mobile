@@ -78,6 +78,11 @@ public class ApiExceptionHandler {
         return build(HttpStatus.CONFLICT, "Une contrainte de données a été violée.", null);
     }
 
+    @ExceptionHandler(com.grhmobile.tenant.EntrepriseSuspendueException.class)
+    public org.springframework.http.ResponseEntity<?> entrepriseSuspendue(com.grhmobile.tenant.EntrepriseSuspendueException exception) {
+        return build(HttpStatus.FORBIDDEN, exception.getMessage(), null);
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Map<String, Object>> handleDisabled(DisabledException exception) {
         return build(HttpStatus.UNAUTHORIZED, "Ce compte est désactivé. Contactez votre administrateur.", null);

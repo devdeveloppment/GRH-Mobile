@@ -37,6 +37,7 @@ public class SecurityConfig {
     SecurityFilterChain securityFilterChain(
         HttpSecurity http,
         JwtAuthenticationFilter jwtAuthenticationFilter,
+        com.grhmobile.repository.EntrepriseRepository entrepriseRepository,
         AuthenticationProvider authenticationProvider,
         CorsConfigurationSource corsConfigurationSource
     ) throws Exception {
@@ -57,7 +58,8 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.POST, "/api/offres/*/candidatures", "/api/offres/*/candidatures/upload").permitAll()
                 .anyRequest().authenticated()
             )
-            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
+            .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterBefore(new com.grhmobile.tenant.TenantRequestFilter(entrepriseRepository), JwtAuthenticationFilter.class);
 
         return http.build();
     }

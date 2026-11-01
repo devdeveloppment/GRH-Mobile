@@ -1,10 +1,21 @@
 package com.grhmobile.entity;
 
+import org.hibernate.annotations.TenantId;
+
 import jakarta.persistence.*;
 
 @Entity
 @Table(name = "app_settings")
 public class AppSetting {
+
+    /** Entreprise propriétaire (multi-entreprise) : renseignée et filtrée automatiquement par Hibernate. */
+    @TenantId
+    @Column(name = "entreprise_id", nullable = false, updatable = false)
+    private Long entrepriseId;
+
+    public Long getEntrepriseId() {
+        return entrepriseId;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

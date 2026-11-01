@@ -4,7 +4,10 @@ import java.time.OffsetDateTime;
 
 import jakarta.persistence.Column;
 import jakarta.persistence.Entity;
+import jakarta.persistence.GeneratedValue;
+import jakarta.persistence.GenerationType;
 import jakarta.persistence.Id;
+import org.hibernate.annotations.TenantId;
 import jakarta.persistence.PrePersist;
 import jakarta.persistence.PreUpdate;
 import jakarta.persistence.Table;
@@ -15,7 +18,15 @@ import jakarta.persistence.Table;
 public class ParametreRh {
 
     @Id
-    @Column(length = 80)
+    @GeneratedValue(strategy = GenerationType.IDENTITY)
+    private Long id;
+
+    /** Entreprise propriétaire (multi-entreprise). */
+    @TenantId
+    @Column(name = "entreprise_id", nullable = false, updatable = false)
+    private Long entrepriseId;
+
+    @Column(nullable = false, length = 80)
     private String cle;
 
     @Column(length = 200)
@@ -33,6 +44,7 @@ public class ParametreRh {
         updatedAt = OffsetDateTime.now();
     }
 
+    public Long getId() { return id; }
     public String getCle() { return cle; }
     public void setCle(String cle) { this.cle = cle; }
     public String getValeur() { return valeur; }

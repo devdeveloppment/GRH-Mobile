@@ -46,7 +46,7 @@ public class ParametresRhService {
 
     @Transactional
     public void update(String cle, String valeur) {
-        ParametreRh p = repository.findById(cle)
+        ParametreRh p = repository.findByCle(cle)
             .orElseThrow(() -> new ResourceNotFoundException("Paramètre inconnu : " + cle));
         String v = valeur == null || valeur.isBlank() ? null : valeur.trim();
         switch (cle) {
@@ -76,12 +76,12 @@ public class ParametresRhService {
 
     @Transactional(readOnly = true)
     public String modeDecompte() {
-        return repository.findById(MODE_DECOMPTE).map(ParametreRh::getValeur).filter(MODES::contains).orElse("CALENDAIRES");
+        return repository.findByCle(MODE_DECOMPTE).map(ParametreRh::getValeur).filter(MODES::contains).orElse("CALENDAIRES");
     }
 
     @Transactional(readOnly = true)
     public Optional<BigDecimal> nombre(String cle) {
-        return repository.findById(cle)
+        return repository.findByCle(cle)
             .map(ParametreRh::getValeur)
             .filter(v -> v != null && !v.isBlank())
             .map(BigDecimal::new);

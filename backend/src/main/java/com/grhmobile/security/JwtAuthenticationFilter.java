@@ -11,6 +11,8 @@ import org.springframework.security.authentication.UsernamePasswordAuthenticatio
 import org.springframework.security.core.context.SecurityContextHolder;
 import org.springframework.security.web.authentication.WebAuthenticationDetailsSource;
 import org.springframework.stereotype.Component;
+import com.grhmobile.repository.EntrepriseRepository;
+import com.grhmobile.tenant.TenantContext;
 import org.springframework.web.filter.OncePerRequestFilter;
 
 @Component
@@ -18,8 +20,11 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
 
     private final JwtService jwtService;
     private final UserPrincipalService userPrincipalService;
+    private final EntrepriseRepository entrepriseRepository;
 
-    public JwtAuthenticationFilter(JwtService jwtService, UserPrincipalService userPrincipalService) {
+    public JwtAuthenticationFilter(JwtService jwtService, UserPrincipalService userPrincipalService,
+                                   EntrepriseRepository entrepriseRepository) {
+        this.entrepriseRepository = entrepriseRepository;
         this.jwtService = jwtService;
         this.userPrincipalService = userPrincipalService;
     }
@@ -48,7 +53,8 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
         if (username != null && SecurityContextHolder.getContext().getAuthentication() == null) {
             UserPrincipal userPrincipal;
             try {
-                userPrincipal = userPrincipalService.loadUserByUsername(username);
+                // Recherche par e-mail sur toutes les entreprises (e-mail unique globalement, décision D2).
+                userPrincipal = TenantContext.systeme(() -> userPrincipalService.loadUserByUsername(username));
             } catch (RuntimeException exception) {
                 filterChain.doFilter(request, response);
                 return;
@@ -63,6 +69,17 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 authenticationToken.setDetails(
                     new WebAuthenticationDetailsSource().buildDetails(request)
                 );
+                Long entrepriseId = userPrincipal.getUtilisateur().getEntrepriseId();
+                boolean active = entrepriseId != null && entrepriseRepository.findById(entrepriseId)
+                    .map(com.grhmobile.entity.Entreprise::estActive).orElse(false);
+                if (!active) {
+                    response.setStatus(HttpServletResponse.SC_FORBIDDEN);
+                    response.setContentType("application/json;charset=UTF-8");
+                    response.getWriter().write("{\"status\":403,\"message\":\"L'accès de votre entreprise est suspendu.\"}");
+                    return;
+                }
+                // Toutes les requêtes de la suite sont limitées à l'entreprise de l'utilisateur.
+                TenantContext.set(entrepriseId);
                 SecurityContextHolder.getContext().setAuthentication(authenticationToken);
             }
         }

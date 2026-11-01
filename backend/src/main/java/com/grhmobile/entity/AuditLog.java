@@ -1,5 +1,7 @@
 package com.grhmobile.entity;
 
+import org.hibernate.annotations.TenantId;
+
 import org.hibernate.annotations.JdbcTypeCode;
 import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
@@ -17,6 +19,15 @@ import jakarta.persistence.Table;
 @Entity
 @Table(name = "audit_logs")
 public class AuditLog {
+
+    /** Entreprise propriétaire (multi-entreprise) : renseignée et filtrée automatiquement par Hibernate. */
+    @TenantId
+    @Column(name = "entreprise_id", nullable = false, updatable = false)
+    private Long entrepriseId;
+
+    public Long getEntrepriseId() {
+        return entrepriseId;
+    }
 
     @Id
     @GeneratedValue(strategy = GenerationType.IDENTITY)

@@ -29,6 +29,7 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
                OR lower(s.nom::text)       LIKE cast(:pattern as text))
           AND (cast(:statut as text) IS NULL OR e.statut = cast(:statut as text))
           AND (cast(:service as text) IS NULL OR lower(s.nom::text) = lower(cast(:service as text)))
+          AND e.entreprise_id = app_entreprise_courante()
         """,
         countQuery = """
         SELECT COUNT(e.id) FROM employes e
@@ -42,6 +43,7 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
                OR lower(s.nom::text)       LIKE cast(:pattern as text))
           AND (cast(:statut as text) IS NULL OR e.statut = cast(:statut as text))
           AND (cast(:service as text) IS NULL OR lower(s.nom::text) = lower(cast(:service as text)))
+          AND e.entreprise_id = app_entreprise_courante()
         """,
         nativeQuery = true)
     Page<Employe> search(

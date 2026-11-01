@@ -21,14 +21,17 @@ public class AuthService {
     private final JwtService jwtService;
     private final AccessControlService acl;
     private final AppSettingRepository appSettingRepository;
+    private final com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
 
     public AuthService(
         AuthenticationManager authenticationManager,
         UtilisateurRepository utilisateurRepository,
         JwtService jwtService,
         AccessControlService acl,
-        AppSettingRepository appSettingRepository
+        AppSettingRepository appSettingRepository,
+        com.grhmobile.repository.EntrepriseRepository entrepriseRepository
     ) {
+        this.entrepriseRepository = entrepriseRepository;
         this.acl = acl;
         this.appSettingRepository = appSettingRepository;
         this.authenticationManager = authenticationManager;
@@ -37,16 +40,24 @@ public class AuthService {
     }
 
     public AuthResponse login(AuthRequest request) {
-        authenticationManager.authenticate(
+        // L'e-mail est unique sur toute la plateforme (D2) : recherche hors filtre d'entreprise.
+        com.grhmobile.tenant.TenantContext.systeme(() -> authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.email(), request.password())
-        );
+        ));
 
-        Utilisateur utilisateur = utilisateurRepository.findByEmailIgnoreCase(request.email())
-            .orElseThrow();
+        Utilisateur utilisateur = com.grhmobile.tenant.TenantContext.systeme(() ->
+            utilisateurRepository.findByEmailIgnoreCase(request.email()).orElseThrow());
+        boolean entrepriseActive = utilisateur.getEntrepriseId() != null && entrepriseRepository
+            .findById(utilisateur.getEntrepriseId()).map(com.grhmobile.entity.Entreprise::estActive).orElse(false);
+        if (!entrepriseActive) {
+            throw new com.grhmobile.tenant.EntrepriseSuspendueException();
+        }
 
         String token = jwtService.generateToken(utilisateur);
-        return new AuthResponse(token, utilisateur.getRole().name(), UserDto.fromEntity(utilisateur),
-            acl.permissionsOf(utilisateur), autoLogoutEnabled());
+        // Réglages lus dans le contexte de l'entreprise de l'utilisateur.
+        return com.grhmobile.tenant.TenantContext.executer(utilisateur.getEntrepriseId(), () ->
+            new AuthResponse(token, utilisateur.getRole().name(), UserDto.fromEntity(utilisateur),
+                acl.permissionsOf(utilisateur), autoLogoutEnabled()));
     }
 
     public java.util.Map<String, Object> currentSession() {
