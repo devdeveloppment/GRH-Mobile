@@ -22,6 +22,25 @@ public class AuthService {
     private final AccessControlService acl;
     private final AppSettingRepository appSettingRepository;
     private final com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
+    private com.grhmobile.security.RevocationJetonService revocationJetonService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setRevocationJetonService(com.grhmobile.security.RevocationJetonService revocationJetonService) {
+        this.revocationJetonService = revocationJetonService;
+    }
+
+    public void logout(String jeton) {
+        io.jsonwebtoken.Claims claims = jwtService.claims(jeton);
+        revocationJetonService.revoquer(claims.getId(), claims.getExpiration().toInstant());
+    }
+
+    @org.springframework.transaction.annotation.Transactional
+    public void logoutAll() {
+        Utilisateur u = acl.currentUser().flatMap(c -> utilisateurRepository.findById(c.getId()))
+            .orElseThrow(() -> new org.springframework.security.authentication.BadCredentialsException("Session invalide."));
+        u.revoquerSessions();
+        utilisateurRepository.save(u);
+    }
 
     public AuthService(
         AuthenticationManager authenticationManager,
@@ -39,7 +58,27 @@ public class AuthService {
         this.jwtService = jwtService;
     }
 
+    private com.grhmobile.security.LimiteurRequetes limiteur;
+
+    @org.springframework.beans.factory.annotation.Value("${app.securite.limitation.active:true}")
+    private boolean limitationActive = true;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    void setLimiteur(com.grhmobile.security.LimiteurRequetes limiteur) {
+        this.limiteur = limiteur;
+    }
+
+    /** 10 tentatives par compte et par quart d'heure, quelle que soit l'adresse IP d'origine. */
+    static final int TENTATIVES_PAR_COMPTE = 10;
+
     public AuthResponse login(AuthRequest request) {
+        if (limitationActive && limiteur != null && request.email() != null) {
+            long attente = limiteur.consommer("compte:" + request.email().trim().toLowerCase(java.util.Locale.ROOT),
+                TENTATIVES_PAR_COMPTE, 900);
+            if (attente > 0) {
+                throw new com.grhmobile.security.TropDeRequetesException(attente);
+            }
+        }
         // L'e-mail est unique sur toute la plateforme (D2) : recherche hors filtre d'entreprise.
         com.grhmobile.tenant.TenantContext.systeme(() -> authenticationManager.authenticate(
             new UsernamePasswordAuthenticationToken(request.email(), request.password())

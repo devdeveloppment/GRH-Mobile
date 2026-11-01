@@ -83,6 +83,13 @@ public class ApiExceptionHandler {
         return build(HttpStatus.FORBIDDEN, exception.getMessage(), null);
     }
 
+    @ExceptionHandler(com.grhmobile.security.TropDeRequetesException.class)
+    public ResponseEntity<Map<String, Object>> tropDeRequetes(com.grhmobile.security.TropDeRequetesException exception) {
+        ResponseEntity<Map<String, Object>> r = build(HttpStatus.TOO_MANY_REQUESTS, exception.getMessage(), null);
+        return ResponseEntity.status(HttpStatus.TOO_MANY_REQUESTS)
+            .header("Retry-After", String.valueOf(exception.getAttenteSecondes())).body(r.getBody());
+    }
+
     @ExceptionHandler(DisabledException.class)
     public ResponseEntity<Map<String, Object>> handleDisabled(DisabledException exception) {
         return build(HttpStatus.UNAUTHORIZED, "Ce compte est désactivé. Contactez votre administrateur.", null);

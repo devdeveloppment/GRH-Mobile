@@ -175,6 +175,18 @@ public class AdminController {
         return UserDto.fromEntity(utilisateurRepository.save(user));
     }
 
+    @Auditable(action = "REVOKE_SESSIONS", entite = "Utilisateur")
+    @PreAuthorize("@acl.can('MANAGE_USERS')")
+    @org.springframework.web.bind.annotation.PostMapping("/users/{id}/revoquer-sessions")
+    @ResponseStatus(HttpStatus.NO_CONTENT)
+    public void revoquerSessions(@PathVariable Long id) {
+        Utilisateur user = utilisateurRepository.findById(id)
+                .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable."));
+        ensureCanManage(user);
+        user.revoquerSessions();
+        utilisateurRepository.save(user);
+    }
+
     @Auditable(action = "DEACTIVATE_USER", entite = "Utilisateur")
     @PreAuthorize("@acl.can('MANAGE_USERS')")
     @DeleteMapping("/users/{id}")

@@ -32,4 +32,18 @@ public class AuthController {
     public AuthResponse login(@Valid @RequestBody AuthRequest request) {
         return authService.login(request);
     }
+
+    /** Déconnexion : le jeton présenté est révoqué immédiatement (toutes instances). */
+    @PostMapping("/logout")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void logout(@org.springframework.web.bind.annotation.RequestHeader("Authorization") String authorization) {
+        authService.logout(authorization.substring(7));
+    }
+
+    /** Déconnecte toutes les sessions de l'utilisateur courant (tous appareils). */
+    @PostMapping("/logout-all")
+    @org.springframework.web.bind.annotation.ResponseStatus(org.springframework.http.HttpStatus.NO_CONTENT)
+    public void logoutAll() {
+        authService.logoutAll();
+    }
 }

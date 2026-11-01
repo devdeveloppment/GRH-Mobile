@@ -56,8 +56,10 @@ public class JwtService {
                 "role", utilisateur.getRole().name(),
                 "userId", utilisateur.getId(),
                 "nom", utilisateur.getNom(),
-                "prenom", utilisateur.getPrenom()
+                "prenom", utilisateur.getPrenom(),
+                "tv", utilisateur.getTokenVersion()
             ))
+            .id(java.util.UUID.randomUUID().toString())
             .issuedAt(Date.from(now))
             .expiration(Date.from(expiration))
             .signWith(getSigningKey())
@@ -65,14 +67,19 @@ public class JwtService {
     }
 
     public boolean isTokenValid(String token, UserPrincipal userDetails) {
-        String username = extractUsername(token);
-        return username.equals(userDetails.getUsername())
+        Claims claims = extractAllClaims(token);
+        Number version = claims.get("tv", Number.class);
+        return claims.getSubject().equals(userDetails.getUsername())
             && userDetails.isEnabled()
-            && !isTokenExpired(token);
+            && claims.getExpiration().after(new Date())
+            // Jeton émis avant un changement de mot de passe, de rôle, une désactivation ou une révocation.
+            && version != null
+            && version.intValue() == userDetails.getUtilisateur().getTokenVersion();
     }
 
-    private boolean isTokenExpired(String token) {
-        return extractClaim(token, Claims::getExpiration).before(new Date());
+    /** Identifiant unique (jti) et date d'expiration, pour la révocation individuelle. */
+    public Claims claims(String token) {
+        return extractAllClaims(token);
     }
 
     private Claims extractAllClaims(String token) {

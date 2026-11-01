@@ -166,6 +166,14 @@ class AuthNotifier extends ChangeNotifier {
 
   Future<void> logout() async {
     _inactivityTimer?.cancel();
+    if (_token != null) {
+      // Révocation côté serveur (au mieux) : le jeton devient inutilisable même s'il a été copié.
+      try {
+        await _apiService.post<void>('/auth/logout').timeout(const Duration(seconds: 5));
+      } catch (_) {
+        // Hors ligne ou jeton déjà invalide : la session locale est effacée quand même.
+      }
+    }
     _token = null;
     _user = null;
     await _storage.delete(key: ApiService.tokenStorageKey);

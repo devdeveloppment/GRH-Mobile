@@ -26,6 +26,8 @@ import org.testcontainers.containers.PostgreSQLContainer;
     "app.upload.dir=target/test-uploads/photos",
     "app.platform-admin.email=" + AbstractIntegrationTest.PLATFORM,
     "app.platform-admin.password=" + AbstractIntegrationTest.ADMIN_PASSWORD,
+    // Désactivée par défaut dans les tests (connexions répétées) ; activée par LimitationRequetesIT.
+    "app.securite.limitation.active=false",
 })
 @AutoConfigureMockMvc
 @ActiveProfiles("demo")

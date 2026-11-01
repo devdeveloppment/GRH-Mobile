@@ -21,9 +21,12 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
     private final JwtService jwtService;
     private final UserPrincipalService userPrincipalService;
     private final EntrepriseRepository entrepriseRepository;
+    private final RevocationJetonService revocationJetonService;
 
     public JwtAuthenticationFilter(JwtService jwtService, UserPrincipalService userPrincipalService,
-                                   EntrepriseRepository entrepriseRepository) {
+                                   EntrepriseRepository entrepriseRepository,
+                                   RevocationJetonService revocationJetonService) {
+        this.revocationJetonService = revocationJetonService;
         this.entrepriseRepository = entrepriseRepository;
         this.jwtService = jwtService;
         this.userPrincipalService = userPrincipalService;
@@ -59,7 +62,14 @@ public class JwtAuthenticationFilter extends OncePerRequestFilter {
                 filterChain.doFilter(request, response);
                 return;
             }
-            if (jwtService.isTokenValid(jwt, userPrincipal)) {
+            boolean valide;
+            try {
+                valide = jwtService.isTokenValid(jwt, userPrincipal)
+                    && !revocationJetonService.estRevoque(jwtService.claims(jwt).getId());
+            } catch (RuntimeException exception) {
+                valide = false;
+            }
+            if (valide) {
                 UsernamePasswordAuthenticationToken authenticationToken =
                     new UsernamePasswordAuthenticationToken(
                         userPrincipal,

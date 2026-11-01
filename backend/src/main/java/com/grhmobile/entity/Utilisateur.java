@@ -53,6 +53,19 @@ public class Utilisateur extends BaseEntity {
     @Column(name = "doit_changer_mot_de_passe", nullable = false)
     private boolean doitChangerMotDePasse = false;
 
+    /** Version de session : tout jeton émis avec une version antérieure est refusé. */
+    @Column(name = "token_version", nullable = false)
+    private int tokenVersion = 0;
+
+    public int getTokenVersion() {
+        return tokenVersion;
+    }
+
+    /** Invalide immédiatement tous les jetons déjà émis pour cet utilisateur. */
+    public void revoquerSessions() {
+        this.tokenVersion++;
+    }
+
     public boolean isDoitChangerMotDePasse() {
         return doitChangerMotDePasse;
     }
@@ -94,6 +107,9 @@ public class Utilisateur extends BaseEntity {
     }
 
     public void setMotDePasse(String motDePasse) {
+        if (this.motDePasse != null && !this.motDePasse.equals(motDePasse)) {
+            revoquerSessions();
+        }
         this.motDePasse = motDePasse;
     }
 
@@ -102,6 +118,9 @@ public class Utilisateur extends BaseEntity {
     }
 
     public void setRole(Role role) {
+        if (this.role != null && this.role != role) {
+            revoquerSessions();
+        }
         this.role = role;
     }
 
@@ -110,6 +129,9 @@ public class Utilisateur extends BaseEntity {
     }
 
     public void setActif(boolean actif) {
+        if (this.actif && !actif) {
+            revoquerSessions();
+        }
         this.actif = actif;
     }
 

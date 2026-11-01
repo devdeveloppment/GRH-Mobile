@@ -53,19 +53,8 @@ public class DocumentService {
     @Auditable(action = "UPLOAD_DOCUMENT", entite = "Document")
     @Transactional
     public DocumentDto upload(String matricule, MultipartFile file, String nom, String type) {
-        if (file == null || file.isEmpty()) {
-            throw new BusinessException("Aucun fichier reçu.");
-        }
-        if (file.getSize() > MAX_BYTES) {
-            throw new BusinessException("Le fichier ne doit pas dépasser 10 Mo.");
-        }
-        String originalName = file.getOriginalFilename() != null ? file.getOriginalFilename() : "document";
-        String extension = originalName.contains(".")
-            ? originalName.substring(originalName.lastIndexOf('.')).toLowerCase(Locale.ROOT)
-            : "";
-        if (!ALLOWED_EXTENSIONS.contains(extension)) {
-            throw new BusinessException("Format non accepté. Formats autorisés : PDF, Word, Excel, JPG, PNG.");
-        }
+        String extension = com.grhmobile.util.FileSignature.verifier(file, ALLOWED_EXTENSIONS, MAX_BYTES);
+        String originalName = com.grhmobile.util.FileSignature.nomAffichable(file, "document" + extension);
 
         Employe employe = employeeService.findByMatricule(matricule);
         String storedName = UUID.randomUUID() + extension;

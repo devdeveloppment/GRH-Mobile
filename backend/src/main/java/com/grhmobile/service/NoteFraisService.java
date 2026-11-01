@@ -193,19 +193,13 @@ public class NoteFraisService {
     }
 
     private void stocker(NoteFrais n, MultipartFile file) {
-        if (file.getSize() > MAX_BYTES) {
-            throw new BusinessException("Le justificatif ne doit pas dépasser 5 Mo.");
-        }
-        String ext = FileSignature.detect(file)
-            .orElseThrow(() -> new BusinessException("Justificatif refusé : seuls les PDF, PNG et JPEG réels sont acceptés."));
+        String ext = FileSignature.verifier(file, java.util.Set.of(".pdf", ".png", ".jpg", ".jpeg"), MAX_BYTES);
         try {
             Files.createDirectories(dir);
             String stored = UUID.randomUUID() + ext;
             Files.copy(file.getInputStream(), dir.resolve(stored), StandardCopyOption.REPLACE_EXISTING);
             n.setJustificatifPath(stored);
-            String original = file.getOriginalFilename();
-            n.setJustificatifNom(original == null || original.isBlank() ? "justificatif" + ext
-                : original.replaceAll("[\\\\/:*?\"<>|]", "_"));
+            n.setJustificatifNom(FileSignature.nomAffichable(file, "justificatif" + ext));
         } catch (IOException e) {
             throw new IllegalStateException("Enregistrement du justificatif impossible.", e);
         }

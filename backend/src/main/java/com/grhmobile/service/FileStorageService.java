@@ -29,34 +29,37 @@ public class FileStorageService {
         }
     }
 
+    private static final java.util.Set<String> CV_EXTENSIONS = java.util.Set.of(".pdf", ".doc", ".docx");
+    private static final long CV_MAX_BYTES = 5L * 1024 * 1024;
+
+    /**
+     * Enregistre un CV déposé publiquement. Le type réel est vérifié par signature binaire ;
+     * le fichier est rangé dans le dossier de l'entreprise sous un nom aléatoire, sans exécution possible.
+     */
     public String[] storeCv(MultipartFile file) {
-        String originalName = file.getOriginalFilename();
-        if (originalName == null || originalName.isBlank()) {
-            throw new BusinessException("Nom de fichier invalide.");
+        String ext = com.grhmobile.util.FileSignature.verifier(file, CV_EXTENSIONS, CV_MAX_BYTES);
+        Long entrepriseId = com.grhmobile.tenant.TenantContext.get();
+        if (entrepriseId == null || entrepriseId <= 0) {
+            throw new BusinessException("Entreprise inconnue pour ce dépôt.");
         }
-        String ext = originalName.contains(".")
-                ? originalName.substring(originalName.lastIndexOf('.'))
-                : "";
-        if (!ext.equalsIgnoreCase(".pdf") && !ext.equalsIgnoreCase(".doc")
-                && !ext.equalsIgnoreCase(".docx")) {
-            throw new BusinessException("Format non accepté. Utilisez PDF, DOC ou DOCX.");
-        }
-        if (file.getSize() > 5 * 1024 * 1024) {
-            throw new BusinessException("Le fichier ne doit pas dépasser 5 Mo.");
-        }
-        String storedName = UUID.randomUUID() + ext;
-        Path target = uploadDir.resolve(storedName);
+        Path dossier = uploadDir.resolve(String.valueOf(entrepriseId));
+        Path target = dossier.resolve(UUID.randomUUID() + ext).normalize();
         try {
+            Files.createDirectories(dossier);
             Files.copy(file.getInputStream(), target, StandardCopyOption.REPLACE_EXISTING);
         } catch (IOException e) {
             throw new RuntimeException("Erreur lors de la sauvegarde du fichier.", e);
         }
-        return new String[]{target.toString(), originalName};
+        return new String[]{target.toString(), com.grhmobile.util.FileSignature.nomAffichable(file, "cv" + ext)};
     }
 
+    /** Ne sert que des fichiers situés sous le répertoire des CV (pas de chemin arbitraire). */
     public Resource loadCv(String filePath) {
         try {
-            Path path = Paths.get(filePath).normalize();
+            Path path = Paths.get(filePath).toAbsolutePath().normalize();
+            if (!path.startsWith(uploadDir)) {
+                throw new BusinessException("Fichier CV introuvable.");
+            }
             Resource resource = new UrlResource(path.toUri());
             if (!resource.exists() || !resource.isReadable()) {
                 throw new BusinessException("Fichier CV introuvable.");

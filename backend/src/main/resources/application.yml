@@ -51,6 +51,10 @@ springdoc:
     path: /swagger-ui.html
 
 app:
+  securite:
+    limitation:
+      # Limitation du nombre de requêtes (compteurs partagés en base). Voir docs/EXPLOITATION.md.
+      active: ${RATE_LIMIT_ENABLED:true}
   jwt:
     secret: ${JWT_SECRET:}
     access-token-expiration-minutes: ${JWT_EXPIRATION_MINUTES:480}

@@ -39,7 +39,9 @@ public class SecurityConfig {
         JwtAuthenticationFilter jwtAuthenticationFilter,
         com.grhmobile.repository.EntrepriseRepository entrepriseRepository,
         AuthenticationProvider authenticationProvider,
-        CorsConfigurationSource corsConfigurationSource
+        CorsConfigurationSource corsConfigurationSource,
+        com.grhmobile.security.LimiteurRequetes limiteurRequetes,
+        @org.springframework.beans.factory.annotation.Value("${app.securite.limitation.active:true}") boolean limitationActive
     ) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -47,6 +49,12 @@ public class SecurityConfig {
             .httpBasic(basic -> basic.disable())
             .formLogin(form -> form.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
+            // Jeton absent, expiré, révoqué ou falsifié : 401 (l'application renvoie alors vers la connexion).
+            .exceptionHandling(e -> e.authenticationEntryPoint((request, response, ex) -> {
+                response.setStatus(401);
+                response.setContentType("application/json;charset=UTF-8");
+                response.getWriter().write("{\"status\":401,\"message\":\"Session expirée ou révoquée. Reconnectez-vous.\"}");
+            }))
             .authenticationProvider(authenticationProvider)
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
@@ -59,6 +67,8 @@ public class SecurityConfig {
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
+            .addFilterAfter(new com.grhmobile.security.LimitationRequetesFilter(limiteurRequetes, limitationActive),
+                JwtAuthenticationFilter.class)
             .addFilterBefore(new com.grhmobile.tenant.TenantRequestFilter(entrepriseRepository), JwtAuthenticationFilter.class);
 
         return http.build();
