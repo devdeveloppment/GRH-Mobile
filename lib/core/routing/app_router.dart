@@ -13,6 +13,7 @@ import 'package:grh_mobile/features/dashboard/admin_console_screen.dart';
 import 'package:grh_mobile/features/dashboard/direction_dashboard.dart';
 import 'package:grh_mobile/features/dashboard/employee_workspace_screen.dart';
 import 'package:grh_mobile/features/dashboard/rh_dashboard_modern.dart';
+import 'package:grh_mobile/features/assistant/assistant_screen.dart';
 import 'package:grh_mobile/features/frais/notes_frais_screen.dart';
 import 'package:grh_mobile/features/parametrage/parametrage_rh_screen.dart';
 import 'package:grh_mobile/features/employees/employee_detail_screen.dart';
@@ -97,6 +98,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   /// Accès par rôle, complété par les permissions accordées depuis l'écran « Rôles ».
   bool isAllowed(String location, Utilisateur user) {
     if (location == AppRoutes.changePassword) return true;
+    // Assistant : ouvert à tous ; les droits sont vérifiés par outil côté serveur.
+    if (location == AppRoutes.assistant) return true;
     if (canAccess(location, user.role)) return true;
     if (user.hasPermission('MANAGE_EMPLOYEES') && location.startsWith(AppRoutes.employees)) return true;
     if (user.hasPermission('MANAGE_PAIE') && location == AppRoutes.paie) return true;
@@ -189,6 +192,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const ParametrageRhScreen()),
       GoRoute(path: AppRoutes.notesFrais,
           builder: (_, __) => const NotesFraisScreen()),
+      GoRoute(path: AppRoutes.assistant,
+          builder: (_, __) => const AssistantScreen()),
 
       // ─── Admin ─────────────────────────────────────────────────────────────
       GoRoute(path: AppRoutes.adminDashboard,

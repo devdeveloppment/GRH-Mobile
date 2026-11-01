@@ -27,6 +27,7 @@ class AppRoutes {
   static const String auditLog           = '/admin/audit';
   static const String parametrageRh      = '/rh/parametrage';
   static const String notesFrais         = '/frais';
+  static const String assistant          = '/assistant';
 
   static const String recrutementCandidatures = '/rh/recrutement/candidatures';
   static const String postuler            = '/apply';
@@ -73,6 +74,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
         NavigationItem(label: 'Paramétrage RH', route: AppRoutes.parametrageRh, icon: Icons.tune_outlined),
         NavigationItem(label: 'Audit',        route: AppRoutes.auditLog,        icon: Icons.history_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
         NavigationItem(label: 'Paramètres',   route: AppRoutes.adminSettings,   icon: Icons.settings_outlined),
       ];
@@ -94,6 +96,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
         NavigationItem(label: 'Paramétrage RH', route: AppRoutes.parametrageRh, icon: Icons.tune_outlined),
         NavigationItem(label: 'Rapports',     route: AppRoutes.rapports,        icon: Icons.bar_chart_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
@@ -103,6 +106,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Contrats',     route: AppRoutes.contrats,        icon: Icons.description_outlined),
         NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
         NavigationItem(label: 'Rapports',     route: AppRoutes.rapports,        icon: Icons.bar_chart_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
@@ -113,18 +117,21 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Congés',       route: AppRoutes.conges,          icon: Icons.event_available_outlined),
         NavigationItem(label: 'Évaluations',  route: AppRoutes.evaluations,     icon: Icons.star_outline),
         NavigationItem(label: 'Formations',   route: AppRoutes.formations,      icon: Icons.school_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
     case UserRole.recruiter:
       return const [
         NavigationItem(label: 'Recrutement',  route: AppRoutes.recrutement,     icon: Icons.person_add_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
     case UserRole.trainer:
       return const [
         NavigationItem(label: 'Formations',   route: AppRoutes.formations,      icon: Icons.school_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
@@ -135,6 +142,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Congés',       route: AppRoutes.employeeHome,    icon: Icons.event_note_outlined),
         NavigationItem(label: 'Bulletin',     route: AppRoutes.employeeHome,    icon: Icons.description_outlined),
         NavigationItem(label: 'Notes de frais', route: AppRoutes.notesFrais,    icon: Icons.receipt_outlined),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications',route: AppRoutes.notifications,   icon: Icons.notifications_outlined),
       ];
 
@@ -143,6 +151,7 @@ List<NavigationItem> navigationItemsForRole(UserRole role) {
         NavigationItem(label: 'Dashboard',     route: AppRoutes.directionDashboard, icon: Icons.query_stats_outlined),
         NavigationItem(label: 'Rapports',      route: AppRoutes.rapports,           icon: Icons.insert_chart_outlined),
         NavigationItem(label: 'Évaluations',   route: AppRoutes.evaluations,        icon: Icons.star_outline),
+        NavigationItem(label: 'Assistant RH', route: AppRoutes.assistant,       icon: Icons.smart_toy_outlined),
         NavigationItem(label: 'Notifications', route: AppRoutes.notifications,      icon: Icons.notifications_outlined),
       ];
   }
