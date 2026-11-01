@@ -7,7 +7,6 @@ import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/recrutement_provider.dart';
 import 'package:grh_mobile/shared/widgets/app_form_field.dart';
-import 'package:grh_mobile/shared/widgets/grh_app_bar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
 import 'package:grh_mobile/shared/widgets/grh_surface_card.dart';
 import 'package:grh_mobile/shared/widgets/status_badge.dart';

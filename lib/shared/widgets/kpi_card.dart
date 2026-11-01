@@ -26,12 +26,8 @@ class KpiCard extends StatelessWidget {
       decoration: BoxDecoration(
         color: AppColors.background,
         borderRadius: BorderRadius.circular(10),
-        border: Border(
-          left:   BorderSide(color: color, width: 3),
-          top:    const BorderSide(color: AppColors.border, width: 0.5),
-          right:  const BorderSide(color: AppColors.border, width: 0.5),
-          bottom: const BorderSide(color: AppColors.border, width: 0.5),
-        ),
+        // Bordure uniforme : Flutter refuse un borderRadius avec des couleurs de bordure différentes.
+        border: Border.all(color: AppColors.border, width: 0.5),
       ),
       padding: const EdgeInsets.all(16),
       child: Column(

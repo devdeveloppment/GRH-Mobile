@@ -3,6 +3,10 @@ import 'dart:async';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:grh_mobile/shared/widgets/temporary_password_dialog.dart';
+import 'package:grh_mobile/shared/models/poste.dart';
+import 'package:grh_mobile/shared/models/departement.dart';
+import 'package:grh_mobile/core/providers/departement_provider.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
@@ -111,7 +115,6 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
         .toList();
 
     final services = employees.employees.map((e) => e.service).toSet().toList()..sort();
-    final postes   = employees.employees.map((e) => e.poste).toSet().toList()..sort();
     const statuts  = ['ACTIF', 'INACTIF', 'EN CONGE'];
 
     return Scaffold(
@@ -184,7 +187,7 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                         ElevatedButton.icon(
                           onPressed: () => _openEmployeeForm(context),
                           icon: const Icon(Icons.add, size: 16),
-                          label: const Text('Ajouter un employé'),
+                          label: const Text('Ajouter'),
                           style: ElevatedButton.styleFrom(
                             backgroundColor: AppColors.accent,
                             foregroundColor: Colors.white,
@@ -1016,48 +1019,6 @@ class _EmployeeMobileCard extends StatelessWidget {
   }
 }
 
-// ── Fond swipe mobile ──────────────────────────────────────────────────────────
-
-class _SwipeActionBackground extends StatelessWidget {
-  const _SwipeActionBackground({
-    required this.color,
-    required this.icon,
-    required this.alignment,
-    required this.label,
-  });
-
-  final Color color;
-  final IconData icon;
-  final Alignment alignment;
-  final String label;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      alignment: alignment,
-      padding: const EdgeInsets.symmetric(horizontal: 24),
-      decoration: BoxDecoration(
-        color: color.withOpacity(0.10),
-        borderRadius: BorderRadius.circular(10),
-      ),
-      child: Row(
-        mainAxisAlignment: alignment == Alignment.centerLeft
-            ? MainAxisAlignment.start
-            : MainAxisAlignment.end,
-        children: [
-          if (alignment == Alignment.centerRight) Text(label),
-          const SizedBox(width: 8),
-          Icon(icon, color: color),
-          if (alignment == Alignment.centerLeft) ...[
-            const SizedBox(width: 8),
-            Text(label),
-          ],
-        ],
-      ),
-    );
-  }
-}
-
 // ── Bandeau statistiques ───────────────────────────────────────────────────────
 
 class _StatsRow extends StatelessWidget {
@@ -1126,38 +1087,41 @@ class _StatCard extends StatelessWidget {
   Widget build(BuildContext context) {
     return Expanded(
       child: GrhSurfaceCard(
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 14),
+        padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 14),
         child: Row(
           children: [
             Container(
-              padding: const EdgeInsets.all(10),
+              padding: const EdgeInsets.all(8),
               decoration: BoxDecoration(
                 color: color.withOpacity(0.10),
                 borderRadius: BorderRadius.circular(10),
               ),
-              child: Icon(icon, color: color, size: 20),
+              child: Icon(icon, color: color, size: 18),
             ),
-            const SizedBox(width: 12),
-            Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(
-                  '$value',
-                  style: TextStyle(
-                    fontSize: 22,
-                    fontWeight: FontWeight.w800,
-                    color: color,
+            const SizedBox(width: 8),
+            Flexible(
+              child: Column(
+                crossAxisAlignment: CrossAxisAlignment.start,
+                children: [
+                  Text(
+                    '$value',
+                    style: TextStyle(
+                      fontSize: 22,
+                      fontWeight: FontWeight.w800,
+                      color: color,
+                    ),
                   ),
-                ),
-                Text(
-                  label,
-                  style: const TextStyle(
-                    fontSize: 12,
-                    color: AppColors.text2,
-                    fontWeight: FontWeight.w500,
+                  Text(
+                    label,
+                    overflow: TextOverflow.ellipsis,
+                    style: const TextStyle(
+                      fontSize: 12,
+                      color: AppColors.text2,
+                      fontWeight: FontWeight.w500,
+                    ),
                   ),
-                ),
-              ],
+                ],
+              ),
             ),
           ],
         ),
@@ -1193,6 +1157,9 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
   late final TextEditingController _salaire;
   String _typeContrat = 'CDI';
   String _statut = 'ACTIF';
+  int? _departementId;
+  int? _posteId;
+  String? _managerMatricule;
 
   static const _stepLabels = ['Identité', 'Poste', 'Contrat'];
 
@@ -1208,8 +1175,11 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
     _service = TextEditingController(text: e?.service ?? '');
     _salaire = TextEditingController(
         text: e?.salaire != null ? e!.salaire!.toStringAsFixed(0) : '');
-    _typeContrat = e?.typeContrat ?? 'CDI';
+    _typeContrat = const ['CDI', 'CDD', 'STAGE'].contains(e?.typeContrat) ? e!.typeContrat : 'CDI';
     _statut = e?.statut ?? 'ACTIF';
+    _departementId = e?.departementId;
+    _posteId = e?.posteId;
+    _managerMatricule = e?.managerMatricule;
   }
 
   @override
@@ -1238,7 +1208,21 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
 
   Future<void> _submit() async {
     setState(() => _loading = true);
+    final existing = widget.employee;
     final payload = {
+      // Champs non éditables ici : renvoyés tels quels pour ne pas les effacer
+      if (existing != null) ...{
+        'dateNaissance': existing.dateNaissance?.toIso8601String().substring(0, 10),
+        'genre': existing.genre,
+        'nationalite': existing.nationalite,
+        'adresse': existing.adresse,
+        'dateEmbauche': existing.dateEmbauche?.toIso8601String().substring(0, 10),
+        'dateFin': existing.dateFinContrat?.toIso8601String().substring(0, 10),
+        'photoUrl': existing.photoUrl,
+      },
+      'posteId': _posteId,
+      'departementId': _departementId,
+      'managerMatricule': _managerMatricule,
       'nom': _nom.text.trim(),
       'prenom': _prenom.text.trim(),
       'email': _email.text.trim(),
@@ -1250,13 +1234,32 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
       'salaire': double.tryParse(_salaire.text.trim().replaceAll(' ', '')) ?? 0,
     };
     try {
+      bool success = false;
       if (widget.employee != null) {
-        await ref.read(employeeNotifierProvider).updateEmployee(
+        success = await ref.read(employeeNotifierProvider).updateEmployee(
               widget.employee!.matricule, payload);
       } else {
-        await ref.read(employeeNotifierProvider).createEmployee(payload);
+        success = await ref.read(employeeNotifierProvider).createEmployee(payload);
       }
-      if (mounted) Navigator.of(context).pop();
+      
+      if (mounted) {
+        if (success) {
+          final tempPassword = ref.read(employeeNotifierProvider).lastTemporaryPassword;
+          final createdEmail = _email.text.trim();
+          final navigator = Navigator.of(context);
+          final rootContext = navigator.context;
+          navigator.pop();
+          if (tempPassword != null && rootContext.mounted) {
+            await showTemporaryPasswordDialog(rootContext, email: createdEmail, password: tempPassword);
+          }
+        } else {
+          final errorMsg = ref.read(employeeNotifierProvider).errorMessage ?? 'Une erreur est survenue';
+          ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+            backgroundColor: AppColors.error,
+            content: Text(errorMsg),
+          ));
+        }
+      }
     } finally {
       if (mounted) setState(() => _loading = false);
     }
@@ -1457,17 +1460,34 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
             subtitle: 'Rôle et rattachement hiérarchique',
             icon: Icons.work_outline_rounded,
             children: [
+              _OrganisationPickers(
+                departementId: _departementId,
+                posteId: _posteId,
+                managerMatricule: _managerMatricule,
+                excludeMatricule: widget.employee?.matricule,
+                onDepartement: (id) => setState(() {
+                  _departementId = id;
+                }),
+                onPoste: (poste) => setState(() {
+                  _posteId = poste?.id;
+                  if (poste != null) _poste.text = poste.intitule;
+                  if (poste?.departementId != null) _departementId = poste!.departementId;
+                }),
+                onManager: (m) => setState(() => _managerMatricule = m),
+              ),
+              const SizedBox(height: 14),
               AppFormField(
                 controller: _poste,
                 label: 'Intitulé du poste *',
                 prefixIcon: Icons.work_outline,
                 textCapitalization: TextCapitalization.words,
+                helperText: 'Rempli automatiquement si un poste du référentiel est choisi',
                 validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
               ),
               const SizedBox(height: 14),
               AppFormField(
                 controller: _service,
-                label: 'Département / Service *',
+                label: 'Service *',
                 prefixIcon: Icons.business_outlined,
                 textCapitalization: TextCapitalization.words,
                 validator: (v) => (v ?? '').trim().isEmpty ? 'Requis' : null,
@@ -1504,7 +1524,6 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
                   DropdownMenuItem(value: 'CDI', child: Text('CDI — Contrat à Durée Indéterminée')),
                   DropdownMenuItem(value: 'CDD', child: Text('CDD — Contrat à Durée Déterminée')),
                   DropdownMenuItem(value: 'STAGE', child: Text('Stage / Alternance')),
-                  DropdownMenuItem(value: 'FREELANCE', child: Text('Prestataire / Freelance')),
                 ],
                 onChanged: (v) => setState(() => _typeContrat = v ?? 'CDI'),
               ),
@@ -1528,3 +1547,90 @@ class _EmployeeFormSheetState extends ConsumerState<_EmployeeFormSheet> {
     }
   }
 }
+
+/// Rattachement au référentiel : département, poste et manager (facultatifs).
+class _OrganisationPickers extends ConsumerWidget {
+  const _OrganisationPickers({
+    required this.departementId,
+    required this.posteId,
+    required this.managerMatricule,
+    required this.excludeMatricule,
+    required this.onDepartement,
+    required this.onPoste,
+    required this.onManager,
+  });
+
+  final int? departementId;
+  final int? posteId;
+  final String? managerMatricule;
+  final String? excludeMatricule;
+  final ValueChanged<int?> onDepartement;
+  final ValueChanged<Poste?> onPoste;
+  final ValueChanged<String?> onManager;
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final departements = ref.watch(departementsProvider).valueOrNull ?? const <Departement>[];
+    final postes = ref.watch(_postesListProvider).valueOrNull ?? const <Poste>[];
+    final managers = ref.watch(_managerCandidatesProvider).valueOrNull ?? const <Employe>[];
+
+    final visiblePostes = departementId == null
+        ? postes
+        : postes.where((p) => p.departementId == null || p.departementId == departementId).toList();
+    final managerOptions = managers.where((m) => m.matricule != excludeMatricule).toList();
+
+    return Column(
+      children: [
+        AppDropdownField<int?>(
+          label: 'Département',
+          value: departements.any((d) => d.id == departementId) ? departementId : null,
+          prefixIcon: Icons.account_tree_outlined,
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('— Aucun —')),
+            for (final d in departements) DropdownMenuItem<int?>(value: d.id, child: Text(d.nom)),
+          ],
+          onChanged: onDepartement,
+        ),
+        const SizedBox(height: 14),
+        AppDropdownField<int?>(
+          label: 'Poste (référentiel)',
+          value: visiblePostes.any((p) => p.id == posteId) ? posteId : null,
+          prefixIcon: Icons.work_history_outlined,
+          items: [
+            const DropdownMenuItem<int?>(value: null, child: Text('— Saisie libre —')),
+            for (final p in visiblePostes) DropdownMenuItem<int?>(value: p.id, child: Text(p.intitule)),
+          ],
+          onChanged: (id) => onPoste(id == null ? null : visiblePostes.firstWhere((p) => p.id == id)),
+        ),
+        const SizedBox(height: 14),
+        AppDropdownField<String?>(
+          label: 'Manager',
+          value: managerOptions.any((m) => m.matricule == managerMatricule) ? managerMatricule : null,
+          prefixIcon: Icons.supervisor_account_outlined,
+          items: [
+            const DropdownMenuItem<String?>(value: null, child: Text('— Aucun —')),
+            for (final m in managerOptions)
+              DropdownMenuItem<String?>(value: m.matricule, child: Text('${m.fullName} (${m.matricule})')),
+          ],
+          onChanged: onManager,
+        ),
+      ],
+    );
+  }
+}
+
+final _postesListProvider = FutureProvider.autoDispose<List<Poste>>((ref) async {
+  final resp = await ref.read(apiServiceProvider).get<Map<String, dynamic>>('/postes');
+  final raw = resp.data?['items'] as List? ?? const [];
+  return raw.whereType<Map<String, dynamic>>().map(Poste.fromJson).toList();
+});
+
+/// Employés actifs pouvant être désignés comme manager.
+final _managerCandidatesProvider = FutureProvider.autoDispose<List<Employe>>((ref) async {
+  final resp = await ref.read(apiServiceProvider).get<Map<String, dynamic>>(
+    '/employees',
+    queryParameters: {'page': 1, 'limit': 200, 'statut': 'ACTIF'},
+  );
+  final raw = resp.data?['items'] as List? ?? const [];
+  return raw.whereType<Map<String, dynamic>>().map(Employe.fromJson).toList();
+});

@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grh_mobile/shared/widgets/temporary_password_dialog.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/admin_provider.dart';
@@ -252,7 +253,7 @@ class _AdminUsersManagementScreenState
                     decoration: const InputDecoration(
                       labelText: 'Mot de passe provisoire',
                       prefixIcon: Icon(Icons.lock_outline),
-                      hintText: 'Laissez vide pour ChangeMe@123',
+                      hintText: 'Laissez vide pour générer un mot de passe sûr',
                     ),
                   ),
                 ],
@@ -273,10 +274,14 @@ class _AdminUsersManagementScreenState
                           email: emailCtrl.text.trim(),
                           fullName: nameCtrl.text.trim(),
                           role: role,
-                          password: passCtrl.text.trim().isEmpty
-                              ? 'ChangeMe@123'
-                              : passCtrl.text.trim(),
+                          password: passCtrl.text.trim(),
                         );
+                final createdEmail = emailCtrl.text.trim();
+                final tempPassword = ref.read(adminNotifierProvider).lastTemporaryPassword;
+                if (ok && tempPassword != null && context.mounted) {
+                  await showTemporaryPasswordDialog(context,
+                      email: createdEmail, password: tempPassword);
+                }
                 if (mounted) {
                   ScaffoldMessenger.of(context).showSnackBar(SnackBar(
                     backgroundColor:

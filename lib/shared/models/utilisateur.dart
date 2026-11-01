@@ -110,6 +110,8 @@ class Utilisateur {
     required this.dateCreation,
     this.avatarUrl,
     this.photoUrl,
+    this.doitChangerMotDePasse = false,
+    this.permissions = const <String>[],
   });
 
   final int id;
@@ -122,7 +124,32 @@ class Utilisateur {
   final String? avatarUrl;
   final String? photoUrl;
 
+  /// Vrai tant que l'utilisateur n'a pas remplacé son mot de passe temporaire.
+  final bool doitChangerMotDePasse;
+
+  /// Permissions fonctionnelles effectives (MANAGE_EMPLOYEES, MANAGE_PAIE…).
+  final List<String> permissions;
+
   String get fullName => '$prenom $nom'.trim();
+
+  bool hasPermission(String code) =>
+      role == UserRole.admin || role == UserRole.superAdmin || permissions.contains(code);
+
+  Utilisateur copyWith({bool? doitChangerMotDePasse, List<String>? permissions, String? photoUrl}) {
+    return Utilisateur(
+      id: id,
+      nom: nom,
+      prenom: prenom,
+      email: email,
+      role: role,
+      actif: actif,
+      dateCreation: dateCreation,
+      avatarUrl: avatarUrl,
+      photoUrl: photoUrl ?? this.photoUrl,
+      doitChangerMotDePasse: doitChangerMotDePasse ?? this.doitChangerMotDePasse,
+      permissions: permissions ?? this.permissions,
+    );
+  }
 
   factory Utilisateur.fromJson(Map<String, dynamic> json) {
     return Utilisateur(
@@ -140,6 +167,10 @@ class Utilisateur {
           DateTime.now(),
       avatarUrl: json['avatarUrl'] as String?,
       photoUrl: json['photoUrl'] as String?,
+      doitChangerMotDePasse: json['doitChangerMotDePasse'] as bool? ?? false,
+      permissions: (json['permissions'] as List<dynamic>? ?? const [])
+          .map((e) => e.toString())
+          .toList(growable: false),
     );
   }
 
@@ -154,6 +185,8 @@ class Utilisateur {
       'dateCreation': dateCreation.toIso8601String(),
       'avatarUrl': avatarUrl,
       'photoUrl': photoUrl,
+      'doitChangerMotDePasse': doitChangerMotDePasse,
+      'permissions': permissions,
     };
   }
 }

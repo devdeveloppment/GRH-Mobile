@@ -229,7 +229,8 @@ class _EvalCard extends StatelessWidget {
               ),
           ],
         ),
-        isThreeLine: true,
+        // Pas de isThreeLine : la hauteur fixe déborde quand le sous-titre fait 3 lignes.
+        isThreeLine: false,
       ),
     );
   }

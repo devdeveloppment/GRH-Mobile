@@ -1,30 +1,43 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/core/providers/dashboard_provider.dart';
 import 'package:grh_mobile/shared/models/utilisateur.dart';
 
 final adminNotifierProvider =
     ChangeNotifierProvider.autoDispose<AdminNotifier>((ref) {
-  final notifier = AdminNotifier(ref.read(apiServiceProvider));
+  final notifier = AdminNotifier(ref, ref.read(apiServiceProvider));
   notifier.loadUsers();
   return notifier;
 });
 
 class AdminNotifier extends ChangeNotifier {
-  AdminNotifier(this._apiService);
+  AdminNotifier(this._ref, this._apiService);
 
+  final Ref _ref;
   final dynamic _apiService;
 
   List<Utilisateur> users = [];
-  List<String> roles = ['ADMIN', 'RH_MANAGER', 'EMPLOYEE', 'DIRECTION'];
+  List<String> roles = [
+    'ADMIN',
+    'HR_ADMIN',
+    'RH_MANAGER',
+    'PAYROLL_OFFICER',
+    'MANAGER',
+    'RECRUITER',
+    'TRAINER',
+    'DIRECTION',
+    'EMPLOYEE',
+  ];
   Map<String, bool> settings = {
-    'SSO': false,
     'NOTIFICATIONS': true,
     'AUTO_LOGOUT': true,
-    'TWO_FACTOR': false,
   };
 
   bool isLoading = false;
+
+  /// Mot de passe temporaire du dernier compte créé (à afficher une seule fois).
+  String? lastTemporaryPassword;
   String? errorMessage;
 
   Future<void> loadUsers() async {
@@ -39,7 +52,7 @@ class AdminNotifier extends ChangeNotifier {
       // Le backend retourne {items: [...], total: N}
       final rawList = data['items'] as List<dynamic>? ??
           data['content'] as List<dynamic>? ??
-          (data is List ? data as List<dynamic> : <dynamic>[]);
+          <dynamic>[];
       users = rawList
           .whereType<Map<String, dynamic>>()
           .map((u) => Utilisateur.fromJson(u))
@@ -56,23 +69,27 @@ class AdminNotifier extends ChangeNotifier {
     required String email,
     required String fullName,
     required String role,
-    String password = 'ChangeMe@123',
+    String? password,
   }) async {
     isLoading = true;
     errorMessage = null;
+    lastTemporaryPassword = null;
     notifyListeners();
 
     try {
-      await _apiService.post<Map<String, dynamic>>(
+      final response = await _apiService.post<Map<String, dynamic>>(
         '/admin/users',
         data: {
           'email': email,
           'fullName': fullName,
           'role': role,
-          'password': password,
+          if (password != null && password.isNotEmpty) 'password': password,
         },
       );
+      lastTemporaryPassword = response.data?['motDePasseTemporaire'] as String?;
       await loadUsers();
+      _ref.read(dashboardNotifierProvider).refreshSilently();
+      _ref.invalidate(enhancedDashboardProvider);
       return true;
     } catch (e) {
       errorMessage = _extractMessage(e, 'Erreur lors de la création de l\'utilisateur.');
@@ -98,11 +115,11 @@ class AdminNotifier extends ChangeNotifier {
       if (fullName != null) data['fullName'] = fullName;
       if (role != null) data['role'] = role;
 
-      await _apiService.put<Map<String, dynamic>>(
-        '/admin/users/$userId',
-        data: data,
-      );
+      await _apiService.put<Map<String, dynamic>>('/admin/users/$userId',
+          data: data);
       await loadUsers();
+      _ref.read(dashboardNotifierProvider).refreshSilently();
+      _ref.invalidate(enhancedDashboardProvider);
       return true;
     } catch (e) {
       errorMessage = _extractMessage(e, 'Erreur lors de la mise à jour.');
@@ -171,6 +188,11 @@ class AdminNotifier extends ChangeNotifier {
         'attendanceRate': 0,
       };
     }
+  }
+
+  void applyLoadedSettings(Map<String, bool> loaded) {
+    settings.addAll(loaded);
+    notifyListeners();
   }
 
   Future<void> updateSettings(Map<String, bool> newSettings) async {

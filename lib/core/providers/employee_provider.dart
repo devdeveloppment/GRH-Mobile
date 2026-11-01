@@ -1,8 +1,10 @@
 import 'dart:async';
 
+import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/core/providers/dashboard_provider.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
 
 final employeeNotifierProvider =
@@ -119,14 +121,21 @@ class EmployeeNotifier extends ChangeNotifier {
     }
   }
 
+  /// Mot de passe temporaire du dernier employé créé (affiché une seule fois au RH).
+  String? lastTemporaryPassword;
+
   Future<bool> createEmployee(Map<String, dynamic> payload) async {
+    lastTemporaryPassword = null;
     try {
       final api = _ref.read(apiServiceProvider);
-      await api.post<Map<String, dynamic>>('/employees', data: payload);
+      final response = await api.post<Map<String, dynamic>>('/employees', data: payload);
+      lastTemporaryPassword = response.data?['motDePasseTemporaire'] as String?;
       await fetchInitial();
+      _ref.read(dashboardNotifierProvider).refreshSilently();
+      _ref.invalidate(enhancedDashboardProvider);
       return true;
     } catch (e) {
-      errorMessage = 'Erreur lors de la création de l\'employé.';
+      errorMessage = _extractMessage(e, 'Erreur lors de la création de l\'employé.');
       notifyListeners();
       return false;
     }
@@ -137,9 +146,11 @@ class EmployeeNotifier extends ChangeNotifier {
       final api = _ref.read(apiServiceProvider);
       await api.put<Map<String, dynamic>>('/employees/$matricule', data: payload);
       await fetchInitial();
+      _ref.read(dashboardNotifierProvider).refreshSilently();
+      _ref.invalidate(enhancedDashboardProvider);
       return true;
     } catch (e) {
-      errorMessage = 'Erreur lors de la modification de l\'employé.';
+      errorMessage = _extractMessage(e, 'Erreur lors de la modification de l\'employé.');
       notifyListeners();
       return false;
     }
@@ -150,13 +161,27 @@ class EmployeeNotifier extends ChangeNotifier {
       final api = _ref.read(apiServiceProvider);
       await api.delete<void>('/employees/$matricule');
       _employees.removeWhere((e) => e.matricule == matricule);
+      _ref.read(dashboardNotifierProvider).refreshSilently();
+      _ref.invalidate(enhancedDashboardProvider);
       notifyListeners();
       return true;
     } catch (e) {
-      errorMessage = 'Erreur lors de l\'archivage de l\'employé.';
+      errorMessage = _extractMessage(e, 'Erreur lors de l\'archivage de l\'employé.');
       notifyListeners();
       return false;
     }
+  }
+
+  String _extractMessage(dynamic e, String fallback) {
+    if (e is DioException) {
+      if (e.response?.data is Map<String, dynamic>) {
+        final message = e.response!.data['message'];
+        if (message != null) {
+          return message.toString();
+        }
+      }
+    }
+    return fallback;
   }
 
   Employe? findByMatricule(String matricule) {

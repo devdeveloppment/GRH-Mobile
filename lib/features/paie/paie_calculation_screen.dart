@@ -580,9 +580,10 @@ class _PayslipDocCard extends StatelessWidget {
                 ),
                 const SizedBox(height: 18),
 
-                // Actions
-                Row(
-                  mainAxisAlignment: MainAxisAlignment.end,
+                // Actions (Wrap : passe à la ligne sur petit écran au lieu de déborder)
+                Wrap(
+                  alignment: WrapAlignment.end,
+                  spacing: 8,
                   children: [
                     SizedBox(
                       height: 38,

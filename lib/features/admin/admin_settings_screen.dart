@@ -68,28 +68,16 @@ class _AdminSettingsScreenState extends ConsumerState<AdminSettingsScreen> {
           ),
           const SizedBox(height: 16),
           _SettingToggleTile(
-            title: 'Authentification SSO',
-            subtitle: 'Active l\'authentification unique',
-            value: tempSettings['SSO'] ?? false,
-            onChanged: (v) => setState(() => tempSettings['SSO'] = v),
-          ),
-          _SettingToggleTile(
-            title: 'Notifications par email',
-            subtitle: 'Envoyer les notifications par email',
-            value: tempSettings['NOTIFICATIONS'] ?? false,
+            title: 'Notifications in-app',
+            subtitle: 'Active ou suspend les notifications (congés, paie, pointage)',
+            value: tempSettings['NOTIFICATIONS'] ?? true,
             onChanged: (v) => setState(() => tempSettings['NOTIFICATIONS'] = v),
           ),
           _SettingToggleTile(
             title: 'Déconnexion automatique',
-            subtitle: 'Déconnecter après inactivité (30 min)',
-            value: tempSettings['AUTO_LOGOUT'] ?? false,
+            subtitle: "Déconnecter après inactivité (appliqué à la prochaine connexion)",
+            value: tempSettings['AUTO_LOGOUT'] ?? true,
             onChanged: (v) => setState(() => tempSettings['AUTO_LOGOUT'] = v),
-          ),
-          _SettingToggleTile(
-            title: 'Authentification 2FA',
-            subtitle: 'Activer la vérification à deux facteurs',
-            value: tempSettings['TWO_FACTOR'] ?? false,
-            onChanged: (v) => setState(() => tempSettings['TWO_FACTOR'] = v),
           ),
           const SizedBox(height: 32),
           const Text(

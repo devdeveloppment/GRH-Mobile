@@ -4,12 +4,16 @@ import 'dart:convert';
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
+import 'package:grh_mobile/core/services/api_service.dart';
 import 'package:grh_mobile/shared/models/qr_code_model.dart';
 
 final qrNotifierProvider =
     ChangeNotifierProvider.autoDispose<QrNotifier>((ref) {
   final notifier = QrNotifier(ref);
   unawaited(notifier.load());
+  // Le QR de pointage est signé et expire après 90 s : on le renouvelle toutes les 60 s.
+  final timer = Timer.periodic(const Duration(seconds: 60), (_) => notifier.refreshSilently());
+  ref.onDispose(timer.cancel);
   return notifier;
 });
 
@@ -36,10 +40,25 @@ class QrNotifier extends ChangeNotifier {
         qrCode = QrCodeModel.fromJson(response.data!);
       }
     } catch (e) {
-      error = e.toString();
+      error = ApiService.messageOf(e, 'Impossible de charger votre QR code.');
     } finally {
       isLoading = false;
       notifyListeners();
+    }
+  }
+
+  /// Renouvelle le QR dynamique sans afficher d'indicateur de chargement.
+  Future<void> refreshSilently() async {
+    try {
+      final api = _ref.read(apiServiceProvider);
+      final response = await api.get<Map<String, dynamic>>('/qrcodes/me');
+      if (response.data != null) {
+        qrCode = QrCodeModel.fromJson(response.data!);
+        error = null;
+        notifyListeners();
+      }
+    } catch (_) {
+      // nouvel essai au prochain cycle
     }
   }
 

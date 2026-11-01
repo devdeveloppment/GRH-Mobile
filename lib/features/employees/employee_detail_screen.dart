@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:open_filex/open_filex.dart';
+import 'package:grh_mobile/features/employees/employee_detail_panels.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
@@ -44,11 +45,9 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
   Future<_EmployeeDetailBundle> _loadBundle() async {
     final api = ref.read(apiServiceProvider);
 
-    final employeeFuture = widget.employee != null
-        ? Future.value(widget.employee)
-        : api.get<Map<String, dynamic>>('/employees/${widget.matricule}').then(
-              (r) => Employe.fromJson(r.data ?? <String, dynamic>{}),
-            );
+    final employeeFuture = api
+        .get<Map<String, dynamic>>('/employees/${widget.matricule}')
+        .then((r) => Employe.fromJson(r.data ?? <String, dynamic>{}));
     final presencesFuture = api
         .get<Map<String, dynamic>>('/employees/${widget.matricule}/presences')
         .then((r) =>
@@ -69,7 +68,8 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
             ((r.data?['items'] as List<dynamic>?) ?? <dynamic>[])
                 .whereType<Map<String, dynamic>>()
                 .map(FichePaie.fromJson)
-                .toList(growable: false));
+                .toList(growable: false))
+        .catchError((Object _) => <FichePaie>[]);
 
     final results = await Future.wait<dynamic>(
         [employeeFuture, presencesFuture, congesFuture, paieFuture]);
@@ -186,16 +186,7 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
                             Tab(text: 'Contrat'),
                             Tab(text: 'Paie'),
                             Tab(text: 'Compétences'),
-                            Tab(
-                              child: Row(
-                                mainAxisSize: MainAxisSize.min,
-                                children: [
-                                  Text('Documents'),
-                                  SizedBox(width: 6),
-                                  _DocBadge(count: 6),
-                                ],
-                              ),
-                            ),
+                            Tab(text: 'Documents'),
                             Tab(text: 'Historique'),
                           ],
                         ),
@@ -208,7 +199,10 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
                         child: TabBarView(
                           children: [
                             _InformationTab(employee: employee),
-                            _ContractTab(employee: employee),
+                            _ContractTab(
+                              employee: employee,
+                              onChanged: () => setState(() => _bundleFuture = _loadBundle()),
+                            ),
                             _PayrollTab(items: bundle.paies),
                             _SkillsTab(employee: employee),
                             _DocumentsTab(employee: employee),
@@ -233,26 +227,6 @@ class _EmployeeDetailScreenState extends ConsumerState<EmployeeDetailScreen> {
 
 // ── Badge doc count ────────────────────────────────────────────────────────────
 
-class _DocBadge extends StatelessWidget {
-  const _DocBadge({required this.count});
-  final int count;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.symmetric(horizontal: 7, vertical: 2),
-      decoration: BoxDecoration(
-        color: AppColors.accent,
-        borderRadius: BorderRadius.circular(99),
-      ),
-      child: Text(
-        '$count',
-        style: const TextStyle(
-            color: Colors.white, fontSize: 11, fontWeight: FontWeight.w700),
-      ),
-    );
-  }
-}
 
 // ── Carte profil ───────────────────────────────────────────────────────────────
 
@@ -334,7 +308,7 @@ class _ProfileCard extends StatelessWidget {
                 _ContactInfo(
                   icon: Icons.location_on_outlined,
                   label: 'Lieu',
-                  value: employee.adresse?.split('\n').first ?? 'Lomé, Togo',
+                  value: employee.adresse?.split('\n').first ?? 'Non renseigné',
                 ),
               ],
             ),
@@ -410,91 +384,61 @@ class _InformationTab extends StatelessWidget {
   const _InformationTab({required this.employee});
   final Employe employee;
 
+  static const _na = 'Non renseigné';
+
   @override
   Widget build(BuildContext context) {
     final isWide = MediaQuery.sizeOf(context).width >= 980;
 
-    final leftCol = Column(
-      children: [
-        // Informations personnelles
-        GrhSurfaceCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              _SectionTitle('Informations personnelles'),
-              const SizedBox(height: 12),
-              _InfoRow(
-                  label: 'Date de naissance',
-                  value: AppFormatters.shortDate(employee.dateNaissance)),
-              _InfoRow(
-                  label: 'Lieu de naissance',
-                  value: employee.adresse?.split(',').last.trim() ?? 'Lomé, Togo'),
-              _InfoRow(
-                  label: 'Nationalité',
-                  value: employee.nationalite ?? 'Togolaise'),
-              _InfoRow(label: 'Genre', value: employee.genre ?? 'Non renseigné'),
-              _InfoRow(
-                  label: 'Situation familiale',
-                  value: 'Célibataire'),
-              _InfoRow(
-                  label: 'Adresse',
-                  value: employee.adresse ?? 'Rue des Palmiers, Lomé, Togo'),
-              _InfoRow(label: 'Numéro CIN', value: 'T123456789'),
-              _InfoRow(label: 'Numéro CNSS', value: '9876543210'),
-            ],
-          ),
-        ),
-        const SizedBox(height: 14),
-        // Contact urgence
-        GrhSurfaceCard(
-          padding: const EdgeInsets.all(20),
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: const [
-              _SectionTitle('Personne à contacter en cas d\'urgence'),
-              SizedBox(height: 12),
-              _InfoRow(label: 'Nom complet', value: 'Akouvi A. Koffi'),
-              _InfoRow(label: 'Lien de parenté', value: 'Épouse'),
-              _InfoRow(label: 'Téléphone', value: '+228 91 98 76 54'),
-            ],
-          ),
-        ),
-      ],
+    final leftCol = GrhSurfaceCard(
+      padding: const EdgeInsets.all(20),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _SectionTitle('Informations personnelles'),
+          const SizedBox(height: 12),
+          _InfoRow(
+              label: 'Date de naissance',
+              value: employee.dateNaissance != null ? AppFormatters.shortDate(employee.dateNaissance) : _na),
+          _InfoRow(label: 'Nationalité', value: employee.nationalite ?? _na),
+          _InfoRow(label: 'Genre', value: employee.genre ?? _na),
+          _InfoRow(label: 'Adresse', value: employee.adresse ?? _na),
+          _InfoRow(label: 'E-mail', value: employee.email),
+          _InfoRow(label: 'Téléphone', value: employee.telephone ?? _na),
+        ],
+      ),
     );
 
     final centerCol = Column(
       children: [
-        // Informations professionnelles
         GrhSurfaceCard(
           padding: const EdgeInsets.all(20),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              _SectionTitle('Informations professionnelles'),
+              const _SectionTitle('Informations professionnelles'),
               const SizedBox(height: 12),
+              _InfoRow(label: 'Matricule', value: employee.matricule),
+              _InfoRow(label: 'Département', value: employee.departement ?? _na),
               _InfoRow(label: 'Service', value: employee.service),
               _InfoRow(label: 'Poste', value: employee.poste),
               _InfoRow(label: 'Type de contrat', value: employee.typeContrat),
               _InfoRow(
                   label: "Date d'embauche",
-                  value: AppFormatters.shortDate(employee.dateEmbauche)),
+                  value: employee.dateEmbauche != null ? AppFormatters.shortDate(employee.dateEmbauche) : _na),
               _InfoRowWithBadge(
                 label: 'Statut',
                 badgeLabel: employee.statut,
-                badgeType:
-                    employee.statut.toUpperCase().contains('ACTIF') ? 'success' : 'warning',
+                badgeType: employee.statut.toUpperCase() == 'ACTIF' ? 'success' : 'warning',
               ),
-              _InfoRow(label: 'Manager', value: 'Mensah A. Abouoie'),
-              _InfoRow(label: 'Lieu de travail', value: 'Lomé, Siège'),
+              _InfoRow(label: 'Manager', value: employee.managerNom ?? _na),
               _InfoRow(
                   label: 'Salaire de base',
-                  value: AppFormatters.currency(employee.salaire ?? 0)),
+                  value: employee.salaire != null ? AppFormatters.currency(employee.salaire!) : 'Confidentiel'),
             ],
           ),
         ),
         const SizedBox(height: 14),
-        // Compétences
         GrhSurfaceCard(
           padding: const EdgeInsets.all(20),
           child: Column(
@@ -502,10 +446,7 @@ class _InformationTab extends StatelessWidget {
             children: [
               const _SectionTitle('Compétences'),
               const SizedBox(height: 16),
-              _SkillBar(label: 'Dart / Flutter', progress: 0.90),
-              _SkillBar(label: 'Java / Spring', progress: 0.80),
-              _SkillBar(label: 'API / REST', progress: 0.75),
-              _SkillBar(label: 'Base de données', progress: 0.60),
+              EmployeeCompetencesPanel(matricule: employee.matricule),
             ],
           ),
         ),
@@ -514,77 +455,21 @@ class _InformationTab extends StatelessWidget {
 
     final rightCol = GrhSurfaceCard(
       padding: const EdgeInsets.all(20),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              const Expanded(child: _SectionTitle('Documents de l\'employé')),
-              ElevatedButton.icon(
-                onPressed: () {},
-                icon: const Icon(Icons.add, size: 14),
-                label: const Text('Ajouter un document'),
-                style: ElevatedButton.styleFrom(
-                  backgroundColor: AppColors.accent,
-                  foregroundColor: Colors.white,
-                  padding:
-                      const EdgeInsets.symmetric(horizontal: 12, vertical: 8),
-                  textStyle: const TextStyle(
-                      fontSize: 12, fontWeight: FontWeight.w600),
-                  shape: RoundedRectangleBorder(
-                      borderRadius: BorderRadius.circular(8)),
-                  minimumSize: Size.zero,
-                ),
-              ),
-            ],
-          ),
-          const SizedBox(height: 16),
-          ...[
-            _DocumentRecord(
-                name: 'CV - ${employee.fullName}.pdf',
-                date: '12/05/2024',
-                size: '1.2 Mo',
-                isImage: false),
-            const _DocumentRecord(
-                name: 'Diplôme Master Informatique.pdf',
-                date: '03/02/2023',
-                size: '1.8 Mo',
-                isImage: false),
-            const _DocumentRecord(
-                name: "Carte d'identité.pdf",
-                date: '12/05/2024',
-                size: '0.8 Mo',
-                isImage: false),
-            const _DocumentRecord(
-                name: 'Contrat de travail.pdf',
-                date: '01/01/2024',
-                size: '2.1 Mo',
-                isImage: false),
-            const _DocumentRecord(
-                name: 'Certificat de travail.pdf',
-                date: '10/03/2023',
-                size: '1.0 Mo',
-                isImage: false),
-            const _DocumentRecord(
-                name: "Photo d'identité.jpg",
-                date: '12/05/2024',
-                size: '0.6 Mo',
-                isImage: true),
-          ].map((doc) => _DocumentRow(record: doc)),
-        ],
-      ),
+      child: EmployeeDocumentsPanel(matricule: employee.matricule, compact: true),
     );
 
     if (isWide) {
-      return Row(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Expanded(flex: 3, child: leftCol),
-          const SizedBox(width: 14),
-          Expanded(flex: 3, child: centerCol),
-          const SizedBox(width: 14),
-          Expanded(flex: 3, child: rightCol),
-        ],
+      return SingleChildScrollView(
+        child: Row(
+          crossAxisAlignment: CrossAxisAlignment.start,
+          children: [
+            Expanded(flex: 3, child: leftCol),
+            const SizedBox(width: 14),
+            Expanded(flex: 3, child: centerCol),
+            const SizedBox(width: 14),
+            Expanded(flex: 3, child: rightCol),
+          ],
+        ),
       );
     }
 
@@ -596,48 +481,6 @@ class _InformationTab extends StatelessWidget {
 
 // ── Barre de compétence ────────────────────────────────────────────────────────
 
-class _SkillBar extends StatelessWidget {
-  const _SkillBar({required this.label, required this.progress});
-  final String label;
-  final double progress;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              Text(label,
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.text1)),
-              Text('${(progress * 100).toInt()}%',
-                  style: const TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.text2)),
-            ],
-          ),
-          const SizedBox(height: 8),
-          ClipRRect(
-            borderRadius: BorderRadius.circular(99),
-            child: LinearProgressIndicator(
-              value: progress,
-              minHeight: 8,
-              backgroundColor: AppColors.surface,
-              color: AppColors.primary,
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ── Titre de section ───────────────────────────────────────────────────────────
 
@@ -720,110 +563,14 @@ class _InfoRowWithBadge extends StatelessWidget {
 
 // ── Ligne document ─────────────────────────────────────────────────────────────
 
-class _DocumentRecord {
-  const _DocumentRecord({
-    required this.name,
-    required this.date,
-    required this.size,
-    required this.isImage,
-  });
-  final String name;
-  final String date;
-  final String size;
-  final bool isImage;
-}
 
-class _DocumentRow extends StatelessWidget {
-  const _DocumentRow({required this.record});
-  final _DocumentRecord record;
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      margin: const EdgeInsets.only(bottom: 10),
-      padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-      decoration: BoxDecoration(
-        color: AppColors.surface,
-        borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Row(
-        children: [
-          // Icône fichier
-          Container(
-            width: 38,
-            height: 38,
-            decoration: BoxDecoration(
-              color: record.isImage
-                  ? AppColors.primarySoft
-                  : AppColors.badgeDangerBg,
-              borderRadius: BorderRadius.circular(8),
-            ),
-            child: Center(
-              child: Text(
-                record.isImage ? 'IMG' : 'PDF',
-                style: TextStyle(
-                  color: record.isImage
-                      ? AppColors.primary
-                      : AppColors.badgeDangerFg,
-                  fontWeight: FontWeight.w800,
-                  fontSize: 10,
-                ),
-              ),
-            ),
-          ),
-          const SizedBox(width: 10),
-          // Nom + taille
-          Expanded(
-            child: Column(
-              crossAxisAlignment: CrossAxisAlignment.start,
-              children: [
-                Text(record.name,
-                    style: const TextStyle(
-                        fontSize: 13,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.text1),
-                    overflow: TextOverflow.ellipsis),
-                const SizedBox(height: 2),
-                Text(
-                    '${record.isImage ? 'JPG' : 'PDF'} • ${record.size}',
-                    style: const TextStyle(
-                        fontSize: 11, color: AppColors.text2)),
-              ],
-            ),
-          ),
-          // Date
-          Text(record.date,
-              style:
-                  const TextStyle(fontSize: 11, color: AppColors.text2)),
-          const SizedBox(width: 8),
-          // Télécharger
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.download_outlined,
-                size: 16, color: AppColors.text2),
-            padding: const EdgeInsets.all(6),
-            constraints: const BoxConstraints(),
-          ),
-          // Menu
-          IconButton(
-            onPressed: () {},
-            icon: const Icon(Icons.more_vert_rounded,
-                size: 16, color: AppColors.text2),
-            padding: const EdgeInsets.all(6),
-            constraints: const BoxConstraints(),
-          ),
-        ],
-      ),
-    );
-  }
-}
 
 // ── Onglet Contrat ─────────────────────────────────────────────────────────────
 
 class _ContractTab extends StatelessWidget {
-  const _ContractTab({required this.employee});
+  const _ContractTab({required this.employee, this.onChanged});
   final Employe employee;
+  final VoidCallback? onChanged;
 
   @override
   Widget build(BuildContext context) {
@@ -838,14 +585,20 @@ class _ContractTab extends StatelessWidget {
                   value: AppFormatters.shortDate(employee.dateEmbauche)),
               _InfoRow(
                   label: 'Date fin',
-                  value: AppFormatters.shortDate(employee.dateFinContrat)),
+                  value: employee.dateFinContrat != null
+                      ? AppFormatters.shortDate(employee.dateFinContrat)
+                      : 'Indéterminée'),
               _InfoRow(label: 'Poste', value: employee.poste),
               _InfoRow(label: 'Service', value: employee.service),
               _InfoRow(
                   label: 'Salaire brut',
-                  value: AppFormatters.currency(employee.salaire ?? 0)),
+                  value: employee.salaire != null ? AppFormatters.currency(employee.salaire!) : 'Confidentiel'),
             ],
           ),
+        ),
+        const SizedBox(height: 14),
+        GrhSurfaceCard(
+          child: EmployeeContratsPanel(matricule: employee.matricule, onChanged: onChanged),
         ),
       ],
     );
@@ -963,10 +716,7 @@ class _SkillsTab extends StatelessWidget {
             children: [
               const _SectionTitle('Compétences & niveaux'),
               const SizedBox(height: 16),
-              _SkillBar(label: 'Dart / Flutter', progress: 0.90),
-              _SkillBar(label: 'Java / Spring', progress: 0.80),
-              _SkillBar(label: 'API / REST', progress: 0.75),
-              _SkillBar(label: 'Base de données', progress: 0.60),
+              EmployeeCompetencesPanel(matricule: employee.matricule),
             ],
           ),
         ),
@@ -983,68 +733,9 @@ class _DocumentsTab extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final documents = [
-      _DocumentRecord(
-          name: 'CV - ${employee.fullName}.pdf',
-          date: '12/05/2024',
-          size: '1.2 Mo',
-          isImage: false),
-      const _DocumentRecord(
-          name: 'Diplôme Master Informatique.pdf',
-          date: '03/02/2023',
-          size: '1.8 Mo',
-          isImage: false),
-      const _DocumentRecord(
-          name: "Carte d'identité.pdf",
-          date: '12/05/2024',
-          size: '0.8 Mo',
-          isImage: false),
-      const _DocumentRecord(
-          name: 'Contrat de travail.pdf',
-          date: '01/01/2024',
-          size: '2.1 Mo',
-          isImage: false),
-      const _DocumentRecord(
-          name: 'Certificat de travail.pdf',
-          date: '10/03/2023',
-          size: '1.0 Mo',
-          isImage: false),
-      const _DocumentRecord(
-          name: "Photo d'identité.jpg",
-          date: '12/05/2024',
-          size: '0.6 Mo',
-          isImage: true),
-    ];
-
     return ListView(
       children: [
-        GrhSurfaceCard(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Row(
-                children: [
-                  const Expanded(child: _SectionTitle("Documents de l'employé")),
-                  ElevatedButton.icon(
-                    onPressed: () {},
-                    icon: const Icon(Icons.add, size: 14),
-                    label: const Text('Ajouter un document'),
-                    style: ElevatedButton.styleFrom(
-                      backgroundColor: AppColors.accent,
-                      foregroundColor: Colors.white,
-                      padding: const EdgeInsets.symmetric(
-                          horizontal: 14, vertical: 10),
-                      shape: RoundedRectangleBorder(
-                          borderRadius: BorderRadius.circular(8)),
-                    ),
-                  ),
-                ],
-              ),
-              const SizedBox(height: 16),
-              ...documents.map((d) => _DocumentRow(record: d)),
-            ],
-          ),
-        ),
+        GrhSurfaceCard(child: EmployeeDocumentsPanel(matricule: employee.matricule)),
       ],
     );
   }

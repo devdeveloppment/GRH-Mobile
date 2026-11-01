@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
+import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:image_picker/image_picker.dart';
 import 'package:grh_mobile/core/providers/profile_provider.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
@@ -153,6 +155,20 @@ class _ProfileScreenState extends ConsumerState<ProfileScreen> {
                   ),
                 ),
                 const SizedBox(height: 32),
+
+                SizedBox(
+                  width: double.infinity,
+                  child: ElevatedButton.icon(
+                    onPressed: () => context.push(AppRoutes.changePassword),
+                    icon: const Icon(Icons.lock_reset),
+                    label: const Text('Changer mon mot de passe'),
+                    style: ElevatedButton.styleFrom(
+                      backgroundColor: AppColors.primary,
+                      foregroundColor: Colors.white,
+                    ),
+                  ),
+                ),
+                const SizedBox(height: 12),
 
                 // Bouton de suppression de photo (si existe)
                 if (profile.photoUrl != null)

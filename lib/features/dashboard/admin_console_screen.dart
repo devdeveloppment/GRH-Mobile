@@ -2,13 +2,15 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:intl/intl.dart';
+import 'package:grh_mobile/shared/widgets/temporary_password_dialog.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
 import 'package:grh_mobile/core/providers/admin_provider.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/dashboard_provider.dart';
 import 'package:grh_mobile/core/providers/notification_provider.dart';
-import 'package:grh_mobile/core/providers/service_provider.dart';
+import 'package:grh_mobile/shared/models/dashboard_models.dart';
 import 'package:grh_mobile/shared/models/utilisateur.dart';
 import 'package:grh_mobile/shared/widgets/employee_avatar.dart';
 import 'package:grh_mobile/shared/widgets/grh_sidebar.dart';
@@ -45,7 +47,7 @@ class _AdminConsoleScreenState extends ConsumerState<AdminConsoleScreen> {
 
     return Scaffold(
       backgroundColor: AppColors.surface,
-      drawer: isWide
+      drawer: isWide || auth.role == null
           ? null
           : Drawer(
               child: GrhSidebar(
@@ -426,275 +428,315 @@ class _KpiCard extends StatelessWidget {
 
 // ── Wide layout ───────────────────────────────────────────────────────────────
 
-class _WideBody extends StatelessWidget {
+class _WideBody extends ConsumerWidget {
   const _WideBody();
 
   @override
-  Widget build(BuildContext context) {
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          flex: 7,
-          child: Column(
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(enhancedDashboardProvider).when(
+          loading: () => const _SectionLoading(),
+          error: (e, _) => _SectionError(onRetry: () => ref.invalidate(enhancedDashboardProvider)),
+          data: (data) => Row(
+            crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const Expanded(flex: 55, child: _PresenceLineChart()),
-                  const SizedBox(width: 14),
-                  const Expanded(flex: 45, child: _DepartmentDonut()),
-                ],
-              ),
-              const SizedBox(height: 16),
-              Row(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: const [
-                  Expanded(child: _PayrollSummary()),
-                  SizedBox(width: 14),
-                  Expanded(child: _QuickStatsSection()),
-                ],
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 16),
-        const SizedBox(width: 280, child: _RightPanel()),
-      ],
-    );
-  }
-}
-
-class _NarrowBody extends StatelessWidget {
-  const _NarrowBody();
-
-  @override
-  Widget build(BuildContext context) {
-    return const Column(
-      children: [
-        _PresenceLineChart(),
-        SizedBox(height: 14),
-        _DepartmentDonut(),
-        SizedBox(height: 14),
-        _RightPanel(),
-        SizedBox(height: 14),
-        _PayrollSummary(),
-        SizedBox(height: 14),
-        _QuickStatsSection(),
-      ],
-    );
-  }
-}
-
-// ── Évolution des présences (line chart) ─────────────────────────────────────
-
-class _PresenceLineChart extends StatelessWidget {
-  const _PresenceLineChart();
-
-  static const _months = [
-    'Jan', 'Fév', 'Mar', 'Avr', 'Mai', 'Juin',
-    'Juil', 'Août', 'Sept', 'Oct', 'Nov', 'Déc'
-  ];
-  static const _values = [
-    30.0, 55.0, 50.0, 55.0, 70.0, 65.0,
-    65.0, 70.0, 70.0, 75.0, 80.0, 90.0
-  ];
-
-  @override
-  Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Évolution des présences',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text1)),
-              Container(
-                padding:
-                    const EdgeInsets.symmetric(horizontal: 10, vertical: 4),
-                decoration: BoxDecoration(
-                  color: AppColors.surface,
-                  borderRadius: BorderRadius.circular(6),
-                  border: Border.all(color: AppColors.border, width: 0.5),
-                ),
-                child: const Row(
+              Expanded(
+                flex: 7,
+                child: Column(
                   children: [
-                    Text('Cette année',
-                        style: TextStyle(
-                            fontSize: 11, color: AppColors.text2)),
-                    Icon(Icons.keyboard_arrow_down_rounded,
-                        size: 14, color: AppColors.text2),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(flex: 55, child: _PresenceLineChart(points: data.attendanceEvolution)),
+                        const SizedBox(width: 14),
+                        Expanded(flex: 45, child: _DepartmentDonut(points: data.departmentBreakdown)),
+                      ],
+                    ),
+                    const SizedBox(height: 16),
+                    Row(
+                      crossAxisAlignment: CrossAxisAlignment.start,
+                      children: [
+                        Expanded(child: _PayrollSummary(points: data.payrollBreakdown)),
+                        const SizedBox(width: 14),
+                        Expanded(child: _QuickStatsSection(stats: data.quickStats)),
+                      ],
+                    ),
                   ],
                 ),
               ),
+              const SizedBox(width: 16),
+              SizedBox(width: 280, child: _RightPanel(data: data)),
             ],
           ),
-          const SizedBox(height: 20),
-          SizedBox(
-            height: 200,
-            child: LineChart(
-              LineChartData(
-                minY: 0,
-                maxY: 100,
-                borderData: FlBorderData(show: false),
-                gridData: FlGridData(
-                  show: true,
-                  drawVerticalLine: false,
-                  horizontalInterval: 25,
-                  getDrawingHorizontalLine: (_) => const FlLine(
-                    color: AppColors.border,
-                    strokeWidth: 0.5,
-                  ),
-                ),
-                titlesData: FlTitlesData(
-                  topTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  rightTitles: const AxisTitles(
-                      sideTitles: SideTitles(showTitles: false)),
-                  leftTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      reservedSize: 38,
-                      interval: 25,
-                      getTitlesWidget: (v, _) => Text(
-                        '${v.toInt()}%',
-                        style: const TextStyle(
-                            fontSize: 10, color: AppColors.text2),
-                      ),
-                    ),
-                  ),
-                  bottomTitles: AxisTitles(
-                    sideTitles: SideTitles(
-                      showTitles: true,
-                      interval: 1,
-                      getTitlesWidget: (v, _) {
-                        final i = v.toInt();
-                        if (i < 0 || i >= _months.length) {
-                          return const SizedBox.shrink();
-                        }
-                        return Padding(
-                          padding: const EdgeInsets.only(top: 6),
-                          child: Text(
-                            _months[i],
-                            style: const TextStyle(
-                                fontSize: 10, color: AppColors.text2),
-                          ),
-                        );
-                      },
-                    ),
-                  ),
-                ),
-                lineBarsData: [
-                  LineChartBarData(
-                    spots: [
-                      for (int i = 0; i < _values.length; i++)
-                        FlSpot(i.toDouble(), _values[i]),
-                    ],
-                    isCurved: true,
-                    curveSmoothness: 0.35,
-                    color: AppColors.accent,
-                    barWidth: 2.5,
-                    dotData: FlDotData(
-                      show: true,
-                      getDotPainter: (spot, _, __, ___) =>
-                          FlDotCirclePainter(
-                        radius: 3.5,
-                        color: AppColors.accent,
-                        strokeWidth: 2,
-                        strokeColor: Colors.white,
-                      ),
-                    ),
-                    belowBarData: BarAreaData(
-                      show: true,
-                      color: AppColors.accent.withOpacity(0.07),
-                    ),
-                  ),
-                ],
-              ),
-            ),
+        );
+  }
+}
+
+class _NarrowBody extends ConsumerWidget {
+  const _NarrowBody();
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return ref.watch(enhancedDashboardProvider).when(
+          loading: () => const _SectionLoading(),
+          error: (e, _) => _SectionError(onRetry: () => ref.invalidate(enhancedDashboardProvider)),
+          data: (data) => Column(
+            children: [
+              _PresenceLineChart(points: data.attendanceEvolution),
+              const SizedBox(height: 14),
+              _DepartmentDonut(points: data.departmentBreakdown),
+              const SizedBox(height: 14),
+              _RightPanel(data: data),
+              const SizedBox(height: 14),
+              _PayrollSummary(points: data.payrollBreakdown),
+              const SizedBox(height: 14),
+              _QuickStatsSection(stats: data.quickStats),
+            ],
           ),
+        );
+  }
+}
+
+class _SectionLoading extends StatelessWidget {
+  const _SectionLoading();
+
+  @override
+  Widget build(BuildContext context) {
+    return const Padding(
+      padding: EdgeInsets.all(40),
+      child: Center(child: CircularProgressIndicator()),
+    );
+  }
+}
+
+class _SectionError extends StatelessWidget {
+  const _SectionError({required this.onRetry});
+
+  final VoidCallback onRetry;
+
+  @override
+  Widget build(BuildContext context) {
+    return _Card(
+      child: Column(
+        children: [
+          const Icon(Icons.cloud_off_outlined, color: AppColors.text2),
+          const SizedBox(height: 8),
+          const Text('Impossible de charger les indicateurs.',
+              style: TextStyle(fontSize: 12, color: AppColors.text2)),
+          TextButton(onPressed: onRetry, child: const Text('Réessayer')),
         ],
       ),
     );
   }
 }
 
-// ── Répartition par département (donut) ───────────────────────────────────────
+/// Carte blanche commune aux sections du tableau de bord.
+class _Card extends StatelessWidget {
+  const _Card({required this.child, this.padding = const EdgeInsets.all(20)});
 
-class _DepartmentDonut extends StatelessWidget {
-  const _DepartmentDonut();
-
-  static const _sections = [
-    (label: 'Informatique', value: 25.0, color: AppColors.primary),
-    (label: 'Finance', value: 20.0, color: Color(0xFF22856A)),
-    (label: 'Commercial', value: 20.0, color: Color(0xFF2D7FF9)),
-    (label: 'Ressources Humaines', value: 15.0, color: AppColors.accent),
-    (label: 'Autres', value: 20.0, color: AppColors.text2),
-  ];
+  final Widget child;
+  final EdgeInsets padding;
 
   @override
   Widget build(BuildContext context) {
     return Container(
-      padding: const EdgeInsets.all(20),
+      width: double.infinity,
+      padding: padding,
       decoration: BoxDecoration(
         color: Colors.white,
         borderRadius: BorderRadius.circular(10),
         border: Border.all(color: AppColors.border, width: 0.5),
       ),
+      child: child,
+    );
+  }
+}
+
+class _CardTitle extends StatelessWidget {
+  const _CardTitle(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Text(text,
+        style: const TextStyle(fontSize: 13, fontWeight: FontWeight.w700, color: AppColors.text1));
+  }
+}
+
+class _EmptyHint extends StatelessWidget {
+  const _EmptyHint(this.text);
+
+  final String text;
+
+  @override
+  Widget build(BuildContext context) {
+    return Padding(
+      padding: const EdgeInsets.symmetric(vertical: 24),
+      child: Center(
+        child: Text(text,
+            textAlign: TextAlign.center,
+            style: const TextStyle(fontSize: 12, color: AppColors.text2)),
+      ),
+    );
+  }
+}
+
+String _fcfa(double value) => '${NumberFormat.decimalPattern('fr').format(value.round())} FCFA';
+
+const _palette = [
+  AppColors.primary,
+  Color(0xFF22856A),
+  Color(0xFF2D7FF9),
+  AppColors.accent,
+  Color(0xFF7C3AED),
+  AppColors.text2,
+];
+
+// ── Évolution des présences (line chart) ─────────────────────────────────────
+
+class _PresenceLineChart extends StatelessWidget {
+  const _PresenceLineChart({required this.points});
+
+  final List<ChartPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final hasData = points.any((p) => p.value > 0);
+    final maxValue = points.fold<double>(0, (m, p) => p.value > m ? p.value : m);
+    final maxY = maxValue <= 0 ? 10.0 : (maxValue * 1.2).ceilToDouble();
+
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Répartition par département',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text1)),
+          const _CardTitle('Pointages « présent » — 6 derniers mois'),
           const SizedBox(height: 20),
-          Row(
-            children: [
-              Expanded(
-                child: SizedBox(
-                  height: 180,
-                  child: PieChart(
-                    PieChartData(
-                      centerSpaceRadius: 44,
-                      sectionsSpace: 2,
-                      sections: [
-                        for (final s in _sections)
-                          PieChartSectionData(
-                            color: s.color,
-                            value: s.value,
-                            title: '${s.value.toInt()}%',
-                            radius: 46,
-                            titleStyle: const TextStyle(
-                              fontSize: 10,
-                              color: Colors.white,
-                              fontWeight: FontWeight.w700,
-                            ),
-                          ),
+          if (!hasData)
+            const _EmptyHint('Aucun pointage enregistré sur la période.')
+          else
+            SizedBox(
+              height: 200,
+              child: LineChart(
+                LineChartData(
+                  minY: 0,
+                  maxY: maxY,
+                  borderData: FlBorderData(show: false),
+                  gridData: FlGridData(
+                    show: true,
+                    drawVerticalLine: false,
+                    getDrawingHorizontalLine: (_) => const FlLine(color: AppColors.border, strokeWidth: 0.5),
+                  ),
+                  titlesData: FlTitlesData(
+                    topTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    rightTitles: const AxisTitles(sideTitles: SideTitles(showTitles: false)),
+                    leftTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        reservedSize: 38,
+                        getTitlesWidget: (v, _) => Text('${v.toInt()}',
+                            style: const TextStyle(fontSize: 10, color: AppColors.text2)),
+                      ),
+                    ),
+                    bottomTitles: AxisTitles(
+                      sideTitles: SideTitles(
+                        showTitles: true,
+                        interval: 1,
+                        getTitlesWidget: (v, _) {
+                          final i = v.toInt();
+                          if (i < 0 || i >= points.length) return const SizedBox.shrink();
+                          return Padding(
+                            padding: const EdgeInsets.only(top: 6),
+                            child: Text(points[i].label,
+                                style: const TextStyle(fontSize: 10, color: AppColors.text2)),
+                          );
+                        },
+                      ),
+                    ),
+                  ),
+                  lineBarsData: [
+                    LineChartBarData(
+                      spots: [
+                        for (int i = 0; i < points.length; i++) FlSpot(i.toDouble(), points[i].value),
                       ],
+                      isCurved: true,
+                      curveSmoothness: 0.35,
+                      color: AppColors.accent,
+                      barWidth: 2.5,
+                      dotData: FlDotData(
+                        show: true,
+                        getDotPainter: (spot, _, __, ___) => FlDotCirclePainter(
+                          radius: 3.5,
+                          color: AppColors.accent,
+                          strokeWidth: 2,
+                          strokeColor: Colors.white,
+                        ),
+                      ),
+                      belowBarData: BarAreaData(
+                        show: true,
+                        color: AppColors.accent.withValues(alpha: 0.07),
+                      ),
+                    ),
+                  ],
+                ),
+              ),
+            ),
+        ],
+      ),
+    );
+  }
+}
+
+// ── Répartition par service (donut) ──────────────────────────────────────────
+
+class _DepartmentDonut extends StatelessWidget {
+  const _DepartmentDonut({required this.points});
+
+  final List<ChartPoint> points;
+
+  @override
+  Widget build(BuildContext context) {
+    final total = points.fold<double>(0, (s, p) => s + p.value);
+
+    return _Card(
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          const _CardTitle('Répartition des effectifs par service'),
+          const SizedBox(height: 20),
+          if (total <= 0)
+            const _EmptyHint('Aucun employé rattaché à un service.')
+          else
+            Row(
+              children: [
+                Expanded(
+                  child: SizedBox(
+                    height: 180,
+                    child: PieChart(
+                      PieChartData(
+                        centerSpaceRadius: 44,
+                        sectionsSpace: 2,
+                        sections: [
+                          for (int i = 0; i < points.length; i++)
+                            PieChartSectionData(
+                              color: _palette[i % _palette.length],
+                              value: points[i].value,
+                              title: '${(points[i].value * 100 / total).round()}%',
+                              radius: 46,
+                              titleStyle: const TextStyle(
+                                  fontSize: 10, color: Colors.white, fontWeight: FontWeight.w700),
+                            ),
+                        ],
+                      ),
                     ),
                   ),
                 ),
-              ),
-              const SizedBox(width: 16),
-              Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                mainAxisAlignment: MainAxisAlignment.center,
-                children: _sections
-                    .map(
-                      (s) => Padding(
+                const SizedBox(width: 16),
+                Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  mainAxisAlignment: MainAxisAlignment.center,
+                  children: [
+                    for (int i = 0; i < points.length; i++)
+                      Padding(
                         padding: const EdgeInsets.only(bottom: 8),
                         child: Row(
                           children: [
@@ -702,186 +744,90 @@ class _DepartmentDonut extends StatelessWidget {
                               width: 10,
                               height: 10,
                               decoration: BoxDecoration(
-                                color: s.color,
-                                shape: BoxShape.circle,
-                              ),
+                                  color: _palette[i % _palette.length], shape: BoxShape.circle),
                             ),
                             const SizedBox(width: 6),
                             SizedBox(
                               width: 120,
-                              child: Text(
-                                s.label,
-                                style: const TextStyle(
-                                    fontSize: 11, color: AppColors.text2),
-                                overflow: TextOverflow.ellipsis,
-                              ),
+                              child: Text(points[i].label,
+                                  style: const TextStyle(fontSize: 11, color: AppColors.text2),
+                                  overflow: TextOverflow.ellipsis),
                             ),
                             const SizedBox(width: 4),
-                            Text(
-                              '${s.value.toInt()}%',
-                              style: const TextStyle(
-                                  fontSize: 11,
-                                  fontWeight: FontWeight.w600,
-                                  color: AppColors.text1),
-                            ),
+                            Text('${points[i].value.toInt()}',
+                                style: const TextStyle(
+                                    fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text1)),
                           ],
                         ),
                       ),
-                    )
-                    .toList(),
-              ),
-            ],
-          ),
+                  ],
+                ),
+              ],
+            ),
         ],
       ),
     );
   }
 }
 
-// ── Résumé de la paie ─────────────────────────────────────────────────────────
+// ── Résumé de la paie (dernière période calculée) ────────────────────────────
 
 class _PayrollSummary extends StatelessWidget {
-  const _PayrollSummary();
+  const _PayrollSummary({required this.points});
 
-  static const _items = [
-    (label: 'Salaire de base', amount: '15 000 000 FCFA', color: AppColors.primary),
-    (label: 'Primes', amount: '5 500 000 FCFA', color: Color(0xFF2D7FF9)),
-    (label: 'Indemnités', amount: '3 200 000 FCFA', color: AppColors.accent),
-    (label: 'Charges sociales', amount: '2 080 000 FCFA', color: AppColors.text2),
-  ];
+  final List<ChartPoint> points;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      padding: const EdgeInsets.all(20),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
+    final net = points.where((p) => p.label == 'Net à payer').fold<double>(0, (s, p) => s + p.value);
+    final parts = points.where((p) => p.label != 'Net à payer').toList();
+
+    return _Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Résumé de la paie (Mai 2024)',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text1)),
+          const _CardTitle('Résumé de la dernière paie calculée'),
           const SizedBox(height: 16),
-          Row(
-            children: [
-              SizedBox(
-                width: 130,
-                height: 130,
-                child: Stack(
-                  alignment: Alignment.center,
+          if (points.isEmpty)
+            const _EmptyHint('Aucune paie calculée pour le moment.\nLancez le calcul depuis le module Paie.')
+          else ...[
+            for (int i = 0; i < parts.length; i++)
+              Padding(
+                padding: const EdgeInsets.only(bottom: 10),
+                child: Row(
                   children: [
-                    PieChart(
-                      PieChartData(
-                        centerSpaceRadius: 40,
-                        sectionsSpace: 2,
-                        sections: [
-                          PieChartSectionData(
-                              color: AppColors.primary,
-                              value: 58,
-                              title: '',
-                              radius: 30),
-                          PieChartSectionData(
-                              color: const Color(0xFF2D7FF9),
-                              value: 21,
-                              title: '',
-                              radius: 30),
-                          PieChartSectionData(
-                              color: AppColors.accent,
-                              value: 12,
-                              title: '',
-                              radius: 30),
-                          PieChartSectionData(
-                              color: AppColors.text2,
-                              value: 9,
-                              title: '',
-                              radius: 30),
-                        ],
-                      ),
+                    Container(
+                      width: 10,
+                      height: 10,
+                      decoration: BoxDecoration(color: _palette[i % _palette.length], shape: BoxShape.circle),
                     ),
-                    const Column(
-                      mainAxisSize: MainAxisSize.min,
-                      children: [
-                        Text('25 780 000',
-                            style: TextStyle(
-                                fontSize: 10,
-                                fontWeight: FontWeight.w700,
-                                color: AppColors.text1)),
-                        Text('FCFA',
-                            style: TextStyle(
-                                fontSize: 9, color: AppColors.text2)),
-                      ],
+                    const SizedBox(width: 8),
+                    Expanded(
+                      child: Text(parts[i].label, style: const TextStyle(fontSize: 11, color: AppColors.text2)),
                     ),
+                    Text(_fcfa(parts[i].value),
+                        style: const TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: AppColors.text1)),
                   ],
                 ),
               ),
-              const SizedBox(width: 16),
-              Expanded(
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: _items
-                      .map(
-                        (item) => Padding(
-                          padding: const EdgeInsets.only(bottom: 10),
-                          child: Row(
-                            children: [
-                              Container(
-                                width: 10,
-                                height: 10,
-                                decoration: BoxDecoration(
-                                  color: item.color,
-                                  shape: BoxShape.circle,
-                                ),
-                              ),
-                              const SizedBox(width: 8),
-                              Expanded(
-                                child: Text(item.label,
-                                    style: const TextStyle(
-                                        fontSize: 11,
-                                        color: AppColors.text2)),
-                              ),
-                              Text(item.amount,
-                                  style: const TextStyle(
-                                      fontSize: 11,
-                                      fontWeight: FontWeight.w600,
-                                      color: AppColors.text1)),
-                            ],
-                          ),
-                        ),
-                      )
-                      .toList(),
-                ),
+            const SizedBox(height: 4),
+            Container(
+              padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
+              decoration: BoxDecoration(
+                color: AppColors.primary.withValues(alpha: 0.06),
+                borderRadius: BorderRadius.circular(8),
               ),
-            ],
-          ),
-          const SizedBox(height: 12),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 14, vertical: 10),
-            decoration: BoxDecoration(
-              color: AppColors.primary.withOpacity(0.06),
-              borderRadius: BorderRadius.circular(8),
+              child: Row(
+                mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                children: [
+                  const Text('Net à payer',
+                      style: TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.primary)),
+                  Text(_fcfa(net),
+                      style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w700, color: AppColors.primary)),
+                ],
+              ),
             ),
-            child: const Row(
-              mainAxisAlignment: MainAxisAlignment.spaceBetween,
-              children: [
-                Text('Net à payer',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w600,
-                        color: AppColors.primary)),
-                Text('25 780 000 FCFA',
-                    style: TextStyle(
-                        fontSize: 12,
-                        fontWeight: FontWeight.w700,
-                        color: AppColors.primary)),
-              ],
-            ),
-          ),
+          ],
         ],
       ),
     );
@@ -891,27 +837,23 @@ class _PayrollSummary extends StatelessWidget {
 // ── Statistiques rapides + contrats ──────────────────────────────────────────
 
 class _QuickStatsSection extends StatelessWidget {
-  const _QuickStatsSection();
+  const _QuickStatsSection({required this.stats});
+
+  final QuickStats stats;
 
   @override
   Widget build(BuildContext context) {
+    final totalContracts = stats.cdiCount + stats.cddCount + stats.internshipCount;
+    double share(int n) => totalContracts == 0 ? 0 : n / totalContracts;
+
     return Column(
       children: [
-        Container(
+        _Card(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.border, width: 0.5),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Statistiques rapides',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text1)),
+              const _CardTitle('Statistiques rapides'),
               const SizedBox(height: 14),
               GridView.count(
                 crossAxisCount: 2,
@@ -920,30 +862,30 @@ class _QuickStatsSection extends StatelessWidget {
                 mainAxisSpacing: 10,
                 crossAxisSpacing: 10,
                 childAspectRatio: 2.4,
-                children: const [
+                children: [
                   _MiniStatCard(
-                    label: 'Contrats actifs',
-                    value: '210',
+                    label: 'Employés actifs',
+                    value: '${stats.activeContracts}',
                     icon: Icons.assignment_outlined,
-                    color: Color(0xFF2D7FF9),
+                    color: const Color(0xFF2D7FF9),
                   ),
                   _MiniStatCard(
-                    label: 'Départs ce mois',
-                    value: '3',
+                    label: 'Employés archivés',
+                    value: '${stats.departures}',
                     icon: Icons.person_remove_outlined,
                     color: AppColors.error,
                   ),
                   _MiniStatCard(
-                    label: "Période d'essai",
-                    value: '14',
+                    label: 'Embauchés < 3 mois',
+                    value: '${stats.probationaryPeriod}',
                     icon: Icons.hourglass_empty_outlined,
                     color: AppColors.warning,
                   ),
                   _MiniStatCard(
                     label: 'Formations en cours',
-                    value: '8',
+                    value: '${stats.trainingInProgress}',
                     icon: Icons.school_outlined,
-                    color: Color(0xFF22856A),
+                    color: const Color(0xFF22856A),
                   ),
                 ],
               ),
@@ -951,30 +893,25 @@ class _QuickStatsSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 14),
-        Container(
+        _Card(
           padding: const EdgeInsets.all(16),
-          decoration: BoxDecoration(
-            color: Colors.white,
-            borderRadius: BorderRadius.circular(10),
-            border: Border.all(color: AppColors.border, width: 0.5),
-          ),
           child: Column(
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              const Text('Répartition par type de contrat',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text1)),
+              const _CardTitle('Répartition par type de contrat'),
               const SizedBox(height: 14),
-              _ContractBar(label: 'CDI', percent: 0.60, color: AppColors.primary),
-              const SizedBox(height: 10),
-              _ContractBar(label: 'CDD', percent: 0.30, color: AppColors.accent),
-              const SizedBox(height: 10),
-              _ContractBar(
-                  label: 'Stage',
-                  percent: 0.10,
-                  color: const Color(0xFF2D7FF9)),
+              if (totalContracts == 0)
+                const _EmptyHint('Aucun contrat CDI, CDD ou stage enregistré.')
+              else ...[
+                _ContractBar(label: 'CDI (${stats.cdiCount})', percent: share(stats.cdiCount), color: AppColors.primary),
+                const SizedBox(height: 10),
+                _ContractBar(label: 'CDD (${stats.cddCount})', percent: share(stats.cddCount), color: AppColors.accent),
+                const SizedBox(height: 10),
+                _ContractBar(
+                    label: 'Stage (${stats.internshipCount})',
+                    percent: share(stats.internshipCount),
+                    color: const Color(0xFF2D7FF9)),
+              ],
             ],
           ),
         ),
@@ -1001,9 +938,9 @@ class _MiniStatCard extends StatelessWidget {
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 8),
       decoration: BoxDecoration(
-        color: color.withOpacity(0.06),
+        color: color.withValues(alpha: 0.06),
         borderRadius: BorderRadius.circular(8),
-        border: Border.all(color: color.withOpacity(0.15), width: 0.5),
+        border: Border.all(color: color.withValues(alpha: 0.15), width: 0.5),
       ),
       child: Row(
         children: [
@@ -1014,14 +951,9 @@ class _MiniStatCard extends StatelessWidget {
               crossAxisAlignment: CrossAxisAlignment.start,
               mainAxisAlignment: MainAxisAlignment.center,
               children: [
-                Text(value,
-                    style: TextStyle(
-                        fontSize: 16,
-                        fontWeight: FontWeight.w700,
-                        color: color)),
+                Text(value, style: TextStyle(fontSize: 16, fontWeight: FontWeight.w700, color: color)),
                 Text(label,
-                    style: const TextStyle(
-                        fontSize: 10, color: AppColors.text2),
+                    style: const TextStyle(fontSize: 10, color: AppColors.text2),
                     maxLines: 1,
                     overflow: TextOverflow.ellipsis),
               ],
@@ -1051,14 +983,8 @@ class _ContractBar extends StatelessWidget {
         Row(
           mainAxisAlignment: MainAxisAlignment.spaceBetween,
           children: [
-            Text(label,
-                style: const TextStyle(
-                    fontSize: 12,
-                    fontWeight: FontWeight.w500,
-                    color: AppColors.text1)),
-            Text('${(percent * 100).toInt()}%',
-                style:
-                    const TextStyle(fontSize: 12, color: AppColors.text2)),
+            Text(label, style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w500, color: AppColors.text1)),
+            Text('${(percent * 100).round()}%', style: const TextStyle(fontSize: 12, color: AppColors.text2)),
           ],
         ),
         const SizedBox(height: 6),
@@ -1079,17 +1005,19 @@ class _ContractBar extends StatelessWidget {
 // ── Right panel ───────────────────────────────────────────────────────────────
 
 class _RightPanel extends StatelessWidget {
-  const _RightPanel();
+  const _RightPanel({required this.data});
+
+  final EnhancedDashboard data;
 
   @override
   Widget build(BuildContext context) {
     return Column(
       children: [
-        _QuickActionsSection(),
+        const _QuickActionsSection(),
         const SizedBox(height: 16),
-        _RecentLeavesSection(),
+        _RecentLeavesSection(leaves: data.recentLeaveRequests),
         const SizedBox(height: 16),
-        _BirthdaysSection(),
+        _BirthdaysSection(birthdays: data.upcomingBirthdays),
       ],
     );
   }
@@ -1100,21 +1028,12 @@ class _QuickActionsSection extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    return _Card(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          const Text('Actions rapides',
-              style: TextStyle(
-                  fontSize: 13,
-                  fontWeight: FontWeight.w700,
-                  color: AppColors.text1)),
+          const _CardTitle('Actions rapides'),
           const SizedBox(height: 14),
           GridView.count(
             crossAxisCount: 2,
@@ -1131,14 +1050,14 @@ class _QuickActionsSection extends StatelessWidget {
                 onTap: () => context.go(AppRoutes.employees),
               ),
               _QuickActionCard(
-                icon: Icons.person_add_alt_outlined,
-                label: 'Nouvelle demande de congé',
+                icon: Icons.event_available_outlined,
+                label: 'Traiter les congés',
                 bg: const Color(0xFF22856A),
                 onTap: () => context.go(AppRoutes.conges),
               ),
               _QuickActionCard(
                 icon: Icons.receipt_long_outlined,
-                label: 'Générer bulletin de paie',
+                label: 'Calculer la paie',
                 bg: const Color(0xFF2D7FF9),
                 onTap: () => context.go(AppRoutes.paie),
               ),
@@ -1172,7 +1091,7 @@ class _QuickActionCard extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Material(
-      color: bg.withOpacity(0.10),
+      color: bg.withValues(alpha: 0.10),
       borderRadius: BorderRadius.circular(8),
       child: InkWell(
         onTap: onTap,
@@ -1185,19 +1104,13 @@ class _QuickActionCard extends StatelessWidget {
               Container(
                 width: 36,
                 height: 36,
-                decoration: BoxDecoration(
-                  color: bg,
-                  borderRadius: BorderRadius.circular(8),
-                ),
+                decoration: BoxDecoration(color: bg, borderRadius: BorderRadius.circular(8)),
                 child: Icon(icon, color: Colors.white, size: 18),
               ),
               const SizedBox(height: 6),
               Text(
                 label,
-                style: TextStyle(
-                    fontSize: 10,
-                    fontWeight: FontWeight.w500,
-                    color: bg),
+                style: TextStyle(fontSize: 10, fontWeight: FontWeight.w500, color: bg),
                 textAlign: TextAlign.center,
                 maxLines: 2,
                 overflow: TextOverflow.ellipsis,
@@ -1213,102 +1126,69 @@ class _QuickActionCard extends StatelessWidget {
 // ── Demandes de congé récentes ────────────────────────────────────────────────
 
 class _RecentLeavesSection extends StatelessWidget {
-  const _RecentLeavesSection();
+  const _RecentLeavesSection({required this.leaves});
 
-  static const _leaves = [
-    (
-      name: 'Aba Atsan',
-      type: 'Congé annuel',
-      dates: '15/06/2024 → 20/06/2024',
-      status: 'En attente',
-      badgeType: 'pending',
-    ),
-    (
-      name: 'Mensah Aboouie',
-      type: 'Congé exceptionnel',
-      dates: '10/06/2024 → 11/06/2024',
-      status: 'Approuvé',
-      badgeType: 'active',
-    ),
-    (
-      name: 'Djibounou M. Alové',
-      type: 'Congé annuel',
-      dates: '20/06/2024 → 27/06/2024',
-      status: 'En attente',
-      badgeType: 'pending',
-    ),
-    (
-      name: 'Tchalla Esso',
-      type: 'Congé annuel',
-      dates: '01/07/2024 → 05/07/2024',
-      status: 'Approuvé',
-      badgeType: 'active',
-    ),
-  ];
+  final List<LeaveRequest> leaves;
+
+  static String _label(String status) => switch (status) {
+        'EN_ATTENTE' => 'En attente',
+        'APPROUVE' => 'Approuvé',
+        'REFUSE' => 'Refusé',
+        _ => status,
+      };
+
+  static String _badge(String status) => switch (status) {
+        'EN_ATTENTE' => 'pending',
+        'APPROUVE' => 'active',
+        _ => 'rejected',
+      };
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final fmt = DateFormat('dd/MM/yyyy');
+    return _Card(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
           Row(
             mainAxisAlignment: MainAxisAlignment.spaceBetween,
             children: [
-              const Text('Demandes de congé récentes',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text1)),
+              const _CardTitle('Demandes de congé récentes'),
               TextButton(
                 onPressed: () => context.go(AppRoutes.conges),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                ),
+                style: TextButton.styleFrom(padding: EdgeInsets.zero, minimumSize: Size.zero),
                 child: const Text('Voir tout',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500)),
+                    style: TextStyle(fontSize: 11, color: AppColors.primary, fontWeight: FontWeight.w500)),
               ),
             ],
           ),
           const SizedBox(height: 12),
-          ..._leaves.map(
+          if (leaves.isEmpty) const _EmptyHint('Aucune demande de congé récente.'),
+          ...leaves.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 children: [
-                  EmployeeAvatar(name: item.name, size: 36),
+                  EmployeeAvatar(name: item.employeeName, imageUrl: item.avatarUrl, size: 36),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.name,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.text1),
+                        Text(item.employeeName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text1),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
-                        Text('${item.type} • ${item.dates}',
-                            style: const TextStyle(
-                                fontSize: 10, color: AppColors.text2),
+                        Text('${fmt.format(item.startDate)} → ${fmt.format(item.endDate)}',
+                            style: const TextStyle(fontSize: 10, color: AppColors.text2),
                             maxLines: 1,
                             overflow: TextOverflow.ellipsis),
                       ],
                     ),
                   ),
                   const SizedBox(width: 6),
-                  StatusBadge(label: item.status, type: item.badgeType),
+                  StatusBadge(label: _label(item.status), type: _badge(item.status)),
                 ],
               ),
             ),
@@ -1319,71 +1199,42 @@ class _RecentLeavesSection extends StatelessWidget {
   }
 }
 
-// ── Anniversaires du mois ─────────────────────────────────────────────────────
+// ── Anniversaires à venir (30 jours) ─────────────────────────────────────────
 
 class _BirthdaysSection extends StatelessWidget {
-  const _BirthdaysSection();
+  const _BirthdaysSection({required this.birthdays});
 
-  static const _birthdays = [
-    (name: 'Koffi A. Jean', date: '12 Juin'),
-    (name: 'Aba Atsan', date: '18 Juin'),
-    (name: 'Mensah Aboouie', date: '25 Juin'),
-  ];
+  final List<Birthday> birthdays;
 
   @override
   Widget build(BuildContext context) {
-    return Container(
+    final fmt = DateFormat('d MMMM', 'fr');
+    return _Card(
       padding: const EdgeInsets.all(16),
-      decoration: BoxDecoration(
-        color: Colors.white,
-        borderRadius: BorderRadius.circular(10),
-        border: Border.all(color: AppColors.border, width: 0.5),
-      ),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          Row(
-            mainAxisAlignment: MainAxisAlignment.spaceBetween,
-            children: [
-              const Text('Anniversaires du mois',
-                  style: TextStyle(
-                      fontSize: 13,
-                      fontWeight: FontWeight.w700,
-                      color: AppColors.text1)),
-              TextButton(
-                onPressed: () => context.go(AppRoutes.employees),
-                style: TextButton.styleFrom(
-                  padding: EdgeInsets.zero,
-                  minimumSize: Size.zero,
-                ),
-                child: const Text('Voir tout',
-                    style: TextStyle(
-                        fontSize: 11,
-                        color: AppColors.primary,
-                        fontWeight: FontWeight.w500)),
-              ),
-            ],
-          ),
+          const _CardTitle('Anniversaires (30 prochains jours)'),
           const SizedBox(height: 12),
-          ..._birthdays.map(
+          if (birthdays.isEmpty) const _EmptyHint('Aucun anniversaire dans les 30 prochains jours.'),
+          ...birthdays.map(
             (item) => Padding(
               padding: const EdgeInsets.only(bottom: 12),
               child: Row(
                 children: [
-                  EmployeeAvatar(name: item.name, size: 36),
+                  EmployeeAvatar(name: item.employeeName, imageUrl: item.avatarUrl, size: 36),
                   const SizedBox(width: 10),
                   Expanded(
                     child: Column(
                       crossAxisAlignment: CrossAxisAlignment.start,
                       children: [
-                        Text(item.name,
-                            style: const TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w600,
-                                color: AppColors.text1)),
-                        Text(item.date,
-                            style: const TextStyle(
-                                fontSize: 11, color: AppColors.text2)),
+                        Text(item.employeeName,
+                            style: const TextStyle(fontSize: 12, fontWeight: FontWeight.w600, color: AppColors.text1)),
+                        Text(
+                            item.daysUntilBirthday == 0
+                                ? "Aujourd'hui"
+                                : '${fmt.format(item.birthDate)} • dans ${item.daysUntilBirthday} j',
+                            style: const TextStyle(fontSize: 11, color: AppColors.text2)),
                       ],
                     ),
                   ),
@@ -1391,11 +1242,10 @@ class _BirthdaysSection extends StatelessWidget {
                     width: 30,
                     height: 30,
                     decoration: BoxDecoration(
-                      color: AppColors.accent.withOpacity(0.10),
+                      color: AppColors.accent.withValues(alpha: 0.10),
                       borderRadius: BorderRadius.circular(8),
                     ),
-                    child: const Icon(Icons.card_giftcard_outlined,
-                        color: AppColors.accent, size: 16),
+                    child: const Icon(Icons.card_giftcard_outlined, color: AppColors.accent, size: 16),
                   ),
                 ],
               ),
@@ -1494,7 +1344,13 @@ class _UsersSectionState extends ConsumerState<_UsersSection> {
                       role: selectedRole,
                     );
                 if (ok && ctx.mounted) {
+                  final createdEmail = emailCtrl.text.trim();
                   Navigator.pop(ctx);
+                  final tempPassword = ref.read(adminNotifierProvider).lastTemporaryPassword;
+                  if (tempPassword != null && mounted) {
+                    await showTemporaryPasswordDialog(context,
+                        email: createdEmail, password: tempPassword);
+                  }
                 } else {
                   setS(() =>
                       error = ref.read(adminNotifierProvider).errorMessage ??
@@ -1873,8 +1729,23 @@ class _IconBtn extends StatelessWidget {
 // SECTION : Rôles & permissions
 // ══════════════════════════════════════════════════════════════════════════════
 
-class _RolesSection extends StatelessWidget {
+/// Nombre réel d'utilisateurs actifs par rôle.
+final _roleStatsProvider = FutureProvider.autoDispose<Map<String, int>>((ref) async {
+  final resp = await ref.read(apiServiceProvider).get<Map<String, dynamic>>('/admin/roles/stats');
+  return (resp.data ?? const <String, dynamic>{})
+      .map((k, v) => MapEntry(k, (v as num?)?.toInt() ?? 0));
+});
+
+class _RolesSection extends ConsumerWidget {
   const _RolesSection();
+
+  /// Rôles techniques regroupés sous chaque carte.
+  static const _roleKeys = {
+    'Administrateur': ['SUPER_ADMIN', 'ADMIN'],
+    'RH Manager': ['HR_ADMIN', 'RH_MANAGER'],
+    'Direction': ['DIRECTION'],
+    'Employé': ['EMPLOYEE'],
+  };
 
   static const _roles = [
     (
@@ -1883,7 +1754,7 @@ class _RolesSection extends StatelessWidget {
       color: AppColors.primary,
       description: 'Accès total à toutes les fonctionnalités de la plateforme.',
       permissions: ['Gestion des utilisateurs', 'Configuration système', 'Tous les modules RH', 'Rapports exécutifs', 'Données sensibles'],
-      count: 1,
+      count: 0,
     ),
     (
       role: 'RH Manager',
@@ -1891,7 +1762,7 @@ class _RolesSection extends StatelessWidget {
       color: Color(0xFF22856A),
       description: 'Gestion complète des employés, congés, présences et paie.',
       permissions: ['Liste & dossiers employés', 'Validation des congés', 'Suivi des présences', 'Calcul et bulletins de paie', 'Rapports RH'],
-      count: 2,
+      count: 0,
     ),
     (
       role: 'Direction',
@@ -1899,7 +1770,7 @@ class _RolesSection extends StatelessWidget {
       color: Color(0xFF2D7FF9),
       description: 'Lecture seule sur les indicateurs stratégiques et rapports.',
       permissions: ['Dashboard exécutif', 'Rapports et exports', 'KPI globaux', 'Masse salariale'],
-      count: 3,
+      count: 0,
     ),
     (
       role: 'Employé',
@@ -1907,16 +1778,30 @@ class _RolesSection extends StatelessWidget {
       color: AppColors.text2,
       description: 'Accès à son propre espace : profil, congés et bulletins.',
       permissions: ['Profil personnel', 'Demande de congé', 'Suivi présences', 'Bulletins de paie'],
-      count: 42,
+      count: 0,
     ),
   ];
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
+    final stats = ref.watch(_roleStatsProvider).valueOrNull ?? const <String, int>{};
+    int countFor(String role) =>
+        (_roleKeys[role] ?? const <String>[]).fold(0, (sum, key) => sum + (stats[key] ?? 0));
     return Wrap(
       spacing: 14,
       runSpacing: 14,
-      children: _roles.map((r) => _RoleCard(r: r)).toList(),
+      children: _roles
+          .map((r) => _RoleCard(
+                r: (
+                  role: r.role,
+                  icon: r.icon,
+                  color: r.color,
+                  description: r.description,
+                  permissions: r.permissions,
+                  count: countFor(r.role),
+                ),
+              ))
+          .toList(),
     );
   }
 }
@@ -2032,9 +1917,7 @@ class _SettingsSectionState extends ConsumerState<_SettingsSection> {
         final resp = await api.get<Map<String, dynamic>>('/admin/settings');
         final data = resp.data?['settings'] as Map<String, dynamic>? ?? {};
         final bools = data.map((k, v) => MapEntry(k, v == true || v == 'true'));
-        prov.settings.addAll(bools);
-        // ignore: invalid_use_of_protected_member
-        prov.notifyListeners();
+        prov.applyLoadedSettings(bools);
       } catch (_) {}
     });
   }
@@ -2057,17 +1940,17 @@ class _SettingsSectionState extends ConsumerState<_SettingsSection> {
           title: 'Sécurité & authentification',
           children: [
             _SettingRow(
-              icon: Icons.verified_user_outlined,
-              title: 'Authentification SSO / Azure AD',
-              subtitle: "Renforce le contrôle d'accès pour les comptes d'entreprise.",
-              value: s['SSO'] ?? false,
-              onChanged: (v) => _toggle('SSO', v),
+              icon: Icons.timer_outlined,
+              title: 'Déconnexion automatique',
+              subtitle: "Ferme la session après une période d'inactivité (appliqué à la prochaine connexion).",
+              value: s['AUTO_LOGOUT'] ?? true,
+              onChanged: (v) => _toggle('AUTO_LOGOUT', v),
             ),
             const Divider(height: 1, thickness: 0.5, color: AppColors.border),
             _SettingRow(
               icon: Icons.notifications_outlined,
-              title: 'Notifications administrateur',
-              subtitle: 'Alertes sur les incidents, exports et erreurs critiques.',
+              title: 'Notifications in-app',
+              subtitle: 'Active ou suspend l’envoi des notifications (congés, paie, pointage).',
               value: s['NOTIFICATIONS'] ?? true,
               onChanged: (v) => _toggle('NOTIFICATIONS', v),
             ),
@@ -2078,32 +1961,12 @@ class _SettingsSectionState extends ConsumerState<_SettingsSection> {
           title: 'Infrastructure',
           children: [
             _InfoRow(
-              icon: Icons.cloud_outlined,
+              icon: Icons.monitor_heart_outlined,
               iconColor: const Color(0xFF2D7FF9),
-              title: 'Hébergement AWS',
-              lines: ['Région : eu-west-3 (Paris)', 'Services : ECS Fargate · RDS PostgreSQL · CloudFront · WAF'],
+              title: 'État du serveur',
+              lines: ['Vérifie en direct la disponibilité de l’API et de la base de données.'],
               action: _HealthCheckButton(),
             ),
-            const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-            _InfoRow(
-              icon: Icons.storage_outlined,
-              iconColor: AppColors.success,
-              title: 'Base de données PostgreSQL',
-              lines: ['Connexions actives : 4 / 10', 'Dernier backup : aujourd\'hui à 03:00'],
-            ),
-          ],
-        ),
-        const SizedBox(height: 16),
-        _SettingsCard(
-          title: 'Identifiants de démonstration',
-          children: [
-            _DemoAccount(role: 'Administrateur', email: 'admin@grh-mobile.com', password: 'Admin@12345', color: AppColors.primary),
-            const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-            _DemoAccount(role: 'RH Manager', email: 'rh@grh-mobile.com', password: 'ChangeMe@123', color: const Color(0xFF22856A)),
-            const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-            _DemoAccount(role: 'Direction', email: 'direction@grh-mobile.com', password: 'ChangeMe@123', color: const Color(0xFF2D7FF9)),
-            const Divider(height: 1, thickness: 0.5, color: AppColors.border),
-            _DemoAccount(role: 'Employé', email: 'employee@grh-mobile.com', password: 'ChangeMe@123', color: AppColors.text2),
           ],
         ),
       ],
@@ -2266,34 +2129,4 @@ class _InfoRow extends StatelessWidget {
   }
 }
 
-class _DemoAccount extends StatelessWidget {
-  const _DemoAccount({required this.role, required this.email, required this.password, required this.color});
-  final String role;
-  final String email;
-  final String password;
-  final Color color;
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 12),
-      child: Row(
-        children: [
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: color.withOpacity(0.10), borderRadius: BorderRadius.circular(6)),
-            child: Text(role, style: TextStyle(fontSize: 11, fontWeight: FontWeight.w600, color: color)),
-          ),
-          const SizedBox(width: 12),
-          Expanded(child: Text(email, style: const TextStyle(fontSize: 12, color: AppColors.text2))),
-          Container(
-            padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 3),
-            decoration: BoxDecoration(color: AppColors.surface, borderRadius: BorderRadius.circular(6), border: Border.all(color: AppColors.border, width: 0.5)),
-            child: Text(password, style: const TextStyle(fontSize: 11, fontFamily: 'monospace', color: AppColors.text1)),
-          ),
-        ],
-      ),
-    );
-  }
-}
 

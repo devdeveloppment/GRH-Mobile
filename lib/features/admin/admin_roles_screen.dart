@@ -16,20 +16,6 @@ class AdminRolesScreen extends ConsumerStatefulWidget {
 }
 
 class _AdminRolesScreenState extends ConsumerState<AdminRolesScreen> {
-  static const _allRoles = ['ADMIN', 'RH_MANAGER', 'EMPLOYEE', 'DIRECTION'];
-  static const _roleLabels = {
-    'ADMIN': 'Admin',
-    'RH_MANAGER': 'RH',
-    'EMPLOYEE': 'Employé',
-    'DIRECTION': 'Direction',
-  };
-  static const _roleColors = {
-    'ADMIN': Color(0xFF6366F1),
-    'RH_MANAGER': AppColors.primary,
-    'EMPLOYEE': AppColors.accent,
-    'DIRECTION': Color(0xFF10B981),
-  };
-
   // pendingRoles[permCode] = Set of currently-checked roles
   final Map<String, Set<String>> _pending = {};
   // tracks which permissions are currently saving

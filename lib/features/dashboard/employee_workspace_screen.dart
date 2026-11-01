@@ -8,12 +8,12 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/core/providers/conge_provider.dart';
-import 'package:grh_mobile/core/providers/employee_provider.dart';
 import 'package:grh_mobile/core/providers/notification_provider.dart';
 import 'package:grh_mobile/core/providers/paie_provider.dart';
 import 'package:grh_mobile/core/providers/presence_provider.dart';
 import 'package:grh_mobile/core/providers/profile_provider.dart';
 import 'package:grh_mobile/core/providers/qr_provider.dart';
+import 'package:grh_mobile/core/services/api_service.dart';
 import 'package:grh_mobile/core/utils/formatters.dart';
 import 'package:grh_mobile/shared/models/conge.dart';
 import 'package:grh_mobile/shared/models/employe.dart';
@@ -111,7 +111,7 @@ class _EmployeeWorkspaceScreenState
   Widget build(BuildContext context) {
     final auth         = ref.watch(authNotifierProvider);
     final conge        = ref.watch(congeNotifierProvider);
-    final paie         = ref.watch(paieNotifierProvider);
+    final paie         = ref.watch(myPaieNotifierProvider);
     final presence     = ref.watch(presenceNotifierProvider);
     final notifNotif   = ref.watch(notificationNotifierProvider);
     final profileAsync = ref.watch(profileProvider);
@@ -647,6 +647,17 @@ class _PresencesTab extends StatefulWidget {
   State<_PresencesTab> createState() => _PresencesTabState();
 }
 
+/// Jours du lundi au vendredi du mois (jours fériés non déduits).
+int _workingDays(DateTime month) {
+  final days = DateTime(month.year, month.month + 1, 0).day;
+  var count = 0;
+  for (var d = 1; d <= days; d++) {
+    final weekday = DateTime(month.year, month.month, d).weekday;
+    if (weekday != DateTime.saturday && weekday != DateTime.sunday) count++;
+  }
+  return count;
+}
+
 class _PresencesTabState extends State<_PresencesTab> {
   DateTime? _selectedAbsenceDate;
   String _absenceMotif = '';
@@ -938,6 +949,64 @@ class _PresencesTabState extends State<_PresencesTab> {
         children: [
           // ── QR Code de pointage ───────────────────────────────────────
           const _QrPointageCard(),
+          const SizedBox(height: 16),
+
+          // ── Actions de pointage et d'absence ─────────────────────────
+          Container(
+            padding: const EdgeInsets.all(16),
+            decoration: _card(),
+            child: Column(
+              crossAxisAlignment: CrossAxisAlignment.stretch,
+              children: [
+                const Text('Pointage du jour',
+                    style: TextStyle(fontSize: 14, fontWeight: FontWeight.w700, color: AppColors.text1)),
+                const SizedBox(height: 12),
+                Row(
+                  children: [
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: presence.isPointerLoading ? null : () => _effectuerPointage('ENTREE'),
+                        icon: const Icon(Icons.login_rounded, size: 18),
+                        label: const Text('Arrivée'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.success, foregroundColor: Colors.white),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: ElevatedButton.icon(
+                        onPressed: presence.isPointerLoading ? null : () => _effectuerPointage('SORTIE'),
+                        icon: const Icon(Icons.logout_rounded, size: 18),
+                        label: const Text('Départ'),
+                        style: ElevatedButton.styleFrom(
+                            backgroundColor: AppColors.primary, foregroundColor: Colors.white),
+                      ),
+                    ),
+                  ],
+                ),
+                const SizedBox(height: 10),
+                Row(
+                  children: [
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _showReportAbsenceDialog,
+                        icon: const Icon(Icons.event_busy_outlined, size: 18),
+                        label: const Text('Signaler une absence'),
+                      ),
+                    ),
+                    const SizedBox(width: 10),
+                    Expanded(
+                      child: OutlinedButton.icon(
+                        onPressed: _showJustifyAbsenceDialog,
+                        icon: const Icon(Icons.fact_check_outlined, size: 18),
+                        label: const Text('Justifier'),
+                      ),
+                    ),
+                  ],
+                ),
+              ],
+            ),
+          ),
           const SizedBox(height: 20),
 
           // ── Month navigator ───────────────────────────────────────────
@@ -986,7 +1055,7 @@ class _PresencesTabState extends State<_PresencesTab> {
           else ...[
             Row(
               children: [
-                _StatChip(label: 'Ouvrables', value: '22'),
+                _StatChip(label: 'Ouvrables', value: '${_workingDays(presence.currentMonth)}'),
                 const SizedBox(width: 8),
                 _StatChip(
                     label: 'Présents',
@@ -1226,16 +1295,17 @@ class _CongesTabState extends State<_CongesTab> {
               const SizedBox(height: 8),
               _Dropdown(
                 value: _type,
+                // Valeurs alignées sur TypeConge côté serveur
                 items: const [
                   'Annuel',
                   'Maladie',
-                  'Exceptionnel',
+                  'Maternite',
                   'Sans Solde',
                 ],
                 labels: const [
                   'Congé annuel',
                   'Congé maladie',
-                  'Congé exceptionnel',
+                  'Congé maternité',
                   'Sans solde',
                 ],
                 onChanged: (v) => setState(() => _type = v),
@@ -1389,7 +1459,7 @@ class _CongesTabState extends State<_CongesTab> {
       );
       return;
     }
-    await widget.ref.read(congeNotifierProvider).submitRequest(
+    final ok = await widget.ref.read(congeNotifierProvider).submitRequest(
           typeConge: _type,
           dateDebut: _range!.start,
           dateFin: _range!.end,
@@ -1397,14 +1467,10 @@ class _CongesTabState extends State<_CongesTab> {
               ? null
               : _motifCtrl.text.trim(),
         );
-    if (mounted) {
+    if (ok && mounted) {
       _motifCtrl.clear();
       setState(() => _range = null);
       widget.onShowForm(false);
-      ScaffoldMessenger.of(context).showSnackBar(
-        const SnackBar(
-            content: Text('Demande soumise avec succès !')),
-      );
     }
   }
 }
@@ -1439,7 +1505,7 @@ class _PayslipList extends StatelessWidget {
     return RefreshIndicator(
       color: AppColors.accent,
       onRefresh: () => ref
-          .read(paieNotifierProvider)
+          .read(myPaieNotifierProvider)
           .loadForPeriod(DateTime.now()),
       child: ListView.separated(
         padding: const EdgeInsets.fromLTRB(20, 20, 20, 24),
@@ -1501,7 +1567,7 @@ class _PayslipList extends StatelessWidget {
 
   Future<void> _download(
       BuildContext ctx, WidgetRef r, FichePaie p) async {
-    final path = await r.read(paieNotifierProvider).downloadPayslip(
+    final path = await r.read(myPaieNotifierProvider).downloadPayslip(
           p.id,
           p.nomEmploye ?? 'employe',
         );
@@ -1630,7 +1696,7 @@ class _PayslipDetail extends StatelessWidget {
   }
 
   Future<void> _download(BuildContext ctx) async {
-    final path = await ref.read(paieNotifierProvider).downloadPayslip(
+    final path = await ref.read(myPaieNotifierProvider).downloadPayslip(
           payslip.id,
           payslip.nomEmploye ?? 'employe',
         );
@@ -2830,13 +2896,11 @@ class _SheetScaffold extends StatelessWidget {
   const _SheetScaffold({
     required this.title,
     required this.child,
-    this.action,
     this.initialSize = 0.75,
   });
 
   final String title;
   final Widget child;
-  final Widget? action;
   final double initialSize;
 
   @override
@@ -2873,7 +2937,6 @@ class _SheetScaffold extends StatelessWidget {
                           color: AppColors.text1,
                         )),
                   ),
-                  if (action != null) action!,
                 ],
               ),
             ),
@@ -2921,7 +2984,7 @@ class _DocumentsSheet extends ConsumerWidget {
   }
 }
 
-class _DocumentTile extends StatelessWidget {
+class _DocumentTile extends ConsumerWidget {
   const _DocumentTile({required this.doc});
   final Map<String, dynamic> doc;
 
@@ -2936,7 +2999,7 @@ class _DocumentTile extends StatelessWidget {
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context, WidgetRef ref) {
     final nom = doc['nom'] as String? ?? 'Document';
     final type = doc['type'] as String? ?? '';
     final tailleKo = doc['tailleKo'] as int? ?? 0;
@@ -2978,9 +3041,13 @@ class _DocumentTile extends StatelessWidget {
                   color: AppColors.primary, size: 20),
               tooltip: 'Télécharger',
               onPressed: () async {
-                final uri = Uri.tryParse(url);
-                if (uri != null && await canLaunchUrl(uri)) {
-                  await launchUrl(uri, mode: LaunchMode.externalApplication);
+                final messenger = ScaffoldMessenger.of(context);
+                try {
+                  await ref.read(apiServiceProvider).downloadFile(url, nom);
+                  messenger.showSnackBar(const SnackBar(content: Text('Document téléchargé.')));
+                } catch (e) {
+                  messenger.showSnackBar(SnackBar(
+                      content: Text(ApiService.messageOf(e, 'Téléchargement impossible.'))));
                 }
               },
             ),
@@ -3183,6 +3250,12 @@ class _AnnuaireSheet extends ConsumerStatefulWidget {
   ConsumerState<_AnnuaireSheet> createState() => _AnnuaireSheetState();
 }
 
+final _annuaireProvider = FutureProvider.autoDispose<List<Employe>>((ref) async {
+  final resp = await ref.read(apiServiceProvider).get<Map<String, dynamic>>('/employees/annuaire');
+  final raw = resp.data?['items'] as List? ?? const [];
+  return raw.whereType<Map<String, dynamic>>().map(Employe.fromJson).toList();
+});
+
 class _AnnuaireSheetState extends ConsumerState<_AnnuaireSheet> {
   final _search = TextEditingController();
   String _query = '';
@@ -3195,8 +3268,8 @@ class _AnnuaireSheetState extends ConsumerState<_AnnuaireSheet> {
 
   @override
   Widget build(BuildContext context) {
-    final prov = ref.watch(employeeNotifierProvider);
-    final employees = prov.employees.where((e) {
+    final all = ref.watch(_annuaireProvider).valueOrNull ?? const <Employe>[];
+    final employees = all.where((e) {
       if (_query.isEmpty) return true;
       final q = _query.toLowerCase();
       return e.fullName.toLowerCase().contains(q) ||
@@ -3241,7 +3314,7 @@ class _AnnuaireSheetState extends ConsumerState<_AnnuaireSheet> {
             ),
           ),
           Expanded(
-            child: prov.isLoading && employees.isEmpty
+            child: ref.watch(_annuaireProvider).isLoading && employees.isEmpty
                 ? const Center(
                     child: CircularProgressIndicator(color: AppColors.accent))
                 : employees.isEmpty
@@ -3426,9 +3499,9 @@ class _ParametresSheetState extends ConsumerState<_ParametresSheet> {
                   setS(() => error = 'Les mots de passe ne correspondent pas.');
                   return;
                 }
-                if (newCtrl.text.length < 6) {
+                if (newCtrl.text.length < 8) {
                   setS(() => error =
-                      'Le mot de passe doit comporter au moins 6 caractères.');
+                      'Le mot de passe doit comporter au moins 8 caractères.');
                   return;
                 }
                 try {
@@ -3440,6 +3513,7 @@ class _ParametresSheetState extends ConsumerState<_ParametresSheet> {
                       'newPassword': newCtrl.text,
                     },
                   );
+                  await ref.read(authNotifierProvider).markPasswordChanged();
                   if (ctx.mounted) Navigator.pop(ctx);
                   if (mounted) {
                     ScaffoldMessenger.of(context).showSnackBar(
@@ -3449,8 +3523,8 @@ class _ParametresSheetState extends ConsumerState<_ParametresSheet> {
                     );
                   }
                 } catch (e) {
-                  setS(() => error =
-                      'Mot de passe actuel incorrect ou erreur serveur.');
+                  setS(() => error = ApiService.messageOf(
+                      e, 'Mot de passe actuel incorrect ou erreur serveur.'));
                 }
               },
               child: const Text('Confirmer'),

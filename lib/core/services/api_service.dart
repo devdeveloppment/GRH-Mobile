@@ -1,5 +1,6 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/foundation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:grh_mobile/core/constants/app_globals.dart';
@@ -16,7 +17,7 @@ class ApiService {
   })  : _secureStorage = secureStorage,
         _dio = Dio(
           BaseOptions(
-            baseUrl: dotenv.env['API_BASE_URL'] ?? 'https://api.grh-mobile.com/api',
+            baseUrl: _resolveBaseUrl(),
             connectTimeout: const Duration(seconds: 15),
             receiveTimeout: const Duration(seconds: 30),
             contentType: Headers.jsonContentType,
@@ -36,11 +37,17 @@ class ApiService {
         },
         onError: (error, handler) async {
           final statusCode = error.response?.statusCode;
-          if (statusCode == 401) {
+          final isLogin = error.requestOptions.path.endsWith('/auth/login');
+          if (statusCode == 401 && !isLogin) {
             await _secureStorage.delete(key: tokenStorageKey);
             await _secureStorage.delete(key: userStorageKey);
             onUnauthorized?.call();
             _showSnackBar('Votre session a expiré. Veuillez vous reconnecter.', isError: true);
+          } else if (statusCode == 403) {
+            _showSnackBar(
+              "Vous n'avez pas les droits nécessaires pour cette action.",
+              isError: true,
+            );
           } else if (statusCode != null && statusCode >= 500) {
             _showSnackBar(
               error.response?.data?['message']?.toString() ??
@@ -56,6 +63,15 @@ class ApiService {
 
   static const String tokenStorageKey = 'grh_mobile.jwt';
   static const String userStorageKey = 'grh_mobile.user';
+
+  static String _resolveBaseUrl() {
+    String url = dotenv.env['API_BASE_URL'] ?? 'https://api.grh-mobile.com/api';
+    if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
+      if (url.contains('localhost')) url = url.replaceAll('localhost', '10.0.2.2');
+      if (url.contains('127.0.0.1')) url = url.replaceAll('127.0.0.1', '10.0.2.2');
+    }
+    return url;
+  }
 
   final Dio _dio;
   final FlutterSecureStorage _secureStorage;
@@ -136,6 +152,29 @@ class ApiService {
     final bytes = response.data;
     if (bytes == null || bytes.isEmpty) return null;
     return saveFileBytes(bytes, filename);
+  }
+
+  /// Message lisible pour l'utilisateur à partir d'une erreur d'appel API.
+  static String messageOf(Object error, [String fallback = 'Une erreur est survenue.']) {
+    if (error is DioException) {
+      final data = error.response?.data;
+      if (data is Map) {
+        final message = data['message']?.toString();
+        final details = data['details']?.toString();
+        if (message != null && message.isNotEmpty) {
+          return details != null && details.isNotEmpty && details != 'null'
+              ? '$message $details'
+              : message;
+        }
+        final legacy = data['error']?.toString();
+        if (legacy != null && legacy.isNotEmpty) return legacy;
+      }
+      if (error.type == DioExceptionType.connectionError ||
+          error.type == DioExceptionType.connectionTimeout) {
+        return 'Serveur injoignable. Vérifiez votre connexion.';
+      }
+    }
+    return fallback;
   }
 
   static List<String> _readCertificatePins() {

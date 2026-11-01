@@ -120,7 +120,20 @@ class _LoginScreenState extends ConsumerState<LoginScreen> {
           Align(
             alignment: Alignment.centerRight,
             child: GestureDetector(
-              onTap: () {},
+              onTap: () => showDialog<void>(
+                context: context,
+                builder: (ctx) => AlertDialog(
+                  title: const Text('Mot de passe oublié'),
+                  content: const Text(
+                    'Pour des raisons de sécurité, la réinitialisation est effectuée par votre '
+                    'service RH ou votre administrateur. Il vous remettra un mot de passe '
+                    'temporaire que vous devrez changer à la connexion suivante.',
+                  ),
+                  actions: [
+                    TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Compris')),
+                  ],
+                ),
+              ),
               child: const Text(
                 'Mot de passe oublié ?',
                 style: TextStyle(

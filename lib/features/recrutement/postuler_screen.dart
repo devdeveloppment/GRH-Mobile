@@ -1,4 +1,3 @@
-import 'dart:io';
 
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
@@ -48,6 +47,7 @@ class _PostulerScreenState extends ConsumerState<PostulerScreen> {
     final result = await FilePicker.platform.pickFiles(
       type: FileType.custom,
       allowedExtensions: ['pdf', 'doc', 'docx'],
+      withData: true,
     );
     if (result != null && result.files.isNotEmpty) {
       setState(() {
@@ -71,8 +71,8 @@ class _PostulerScreenState extends ConsumerState<PostulerScreen> {
         'email': _email.text.trim(),
         'telephone': _telephone.text.trim(),
         'lettreMotivation': _lettre.text.trim(),
-        'cv': await MultipartFile.fromFile(
-          _cvFile!.path!,
+        'cv': MultipartFile.fromBytes(
+          _cvFile!.bytes!,
           filename: _cvFile!.name,
         ),
       });
@@ -84,7 +84,10 @@ class _PostulerScreenState extends ConsumerState<PostulerScreen> {
     } catch (e) {
       if (mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          SnackBar(content: Text('Erreur: $e'), backgroundColor: Colors.red),
+          SnackBar(
+            content: Text(ApiService.messageOf(e, "L'envoi de la candidature a échoué.")),
+            backgroundColor: Colors.red,
+          ),
         );
       }
     } finally {

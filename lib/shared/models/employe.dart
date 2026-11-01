@@ -19,6 +19,11 @@ class Employe {
     this.photoUrl,
     this.presentAujourdHui,
     this.salaire,
+    this.posteId,
+    this.departementId,
+    this.departement,
+    this.managerMatricule,
+    this.managerNom,
   });
 
   final int? id;
@@ -40,6 +45,11 @@ class Employe {
   final String? photoUrl;
   final bool? presentAujourdHui;
   final double? salaire;
+  final int? posteId;
+  final int? departementId;
+  final String? departement;
+  final String? managerMatricule;
+  final String? managerNom;
 
   String get fullName => '$prenom $nom'.trim();
 
@@ -66,6 +76,11 @@ class Employe {
       photoUrl: json['photoUrl'] as String?,
       presentAujourdHui: json['presentAujourdHui'] as bool?,
       salaire: (json['salaire'] as num?)?.toDouble(),
+      posteId: (json['posteId'] as num?)?.toInt(),
+      departementId: (json['departementId'] as num?)?.toInt(),
+      departement: json['departement'] as String?,
+      managerMatricule: json['managerMatricule'] as String?,
+      managerNom: json['managerNom'] as String?,
     );
   }
 
@@ -90,6 +105,11 @@ class Employe {
       'photoUrl': photoUrl,
       'presentAujourdHui': presentAujourdHui,
       'salaire': salaire,
+      'posteId': posteId,
+      'departementId': departementId,
+      'departement': departement,
+      'managerMatricule': managerMatricule,
+      'managerNom': managerNom,
     };
   }
 }

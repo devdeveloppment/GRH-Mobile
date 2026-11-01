@@ -298,7 +298,7 @@ class _CongeRequestScreenState extends ConsumerState<CongeRequestScreen> {
                                   );
                                   return;
                                 }
-                                await ref
+                                final ok = await ref
                                     .read(congeNotifierProvider)
                                     .submitRequest(
                                       typeConge: _typeConge,
@@ -308,6 +308,7 @@ class _CongeRequestScreenState extends ConsumerState<CongeRequestScreen> {
                                           ? null
                                           : _motifController.text.trim(),
                                     );
+                                if (!ok || !mounted) return;
                                 _motifController.clear();
                                 setState(() => _dateRange = null);
                               },

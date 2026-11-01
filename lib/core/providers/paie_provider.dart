@@ -5,16 +5,25 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/shared/models/fiche_paie.dart';
 
+/// Paie de l'entreprise (RH / gestionnaire de paie).
 final paieNotifierProvider = ChangeNotifierProvider.autoDispose<PaieNotifier>((ref) {
   final notifier = PaieNotifier(ref);
   unawaited(notifier.loadForPeriod(DateTime.now()));
   return notifier;
 });
 
+/// Bulletins de l'employé connecté uniquement (espace employé).
+final myPaieNotifierProvider = ChangeNotifierProvider.autoDispose<PaieNotifier>((ref) {
+  final notifier = PaieNotifier(ref, mineOnly: true);
+  unawaited(notifier.loadForPeriod(DateTime.now()));
+  return notifier;
+});
+
 class PaieNotifier extends ChangeNotifier {
-  PaieNotifier(this._ref);
+  PaieNotifier(this._ref, {this.mineOnly = false});
 
   final Ref _ref;
+  final bool mineOnly;
   List<FichePaie> bulletins = <FichePaie>[];
   bool isLoading = false;
   String? errorMessage;
@@ -22,15 +31,17 @@ class PaieNotifier extends ChangeNotifier {
   Map<String, dynamic> monthlySummary = {};
 
   // Computed properties
-  double get totalGrossMass => bulletins.fold(0.0, (sum, b) => sum + (b.salaireBrut ?? 0));
-  double get totalDeductions => bulletins.fold(0.0, (sum, b) => sum + ((b.cotisations ?? 0) + (b.impots ?? 0)));
-  double get totalNetMass => bulletins.fold(0.0, (sum, b) => sum + (b.salaireNet ?? 0));
+  double get totalGrossMass => bulletins.fold(0.0, (sum, b) => sum + b.salaireBrut);
+  double get totalDeductions => bulletins.fold(0.0, (sum, b) => sum + (b.cotisations + b.impots));
+  double get totalNetMass => bulletins.fold(0.0, (sum, b) => sum + b.salaireNet);
 
   Future<void> loadForPeriod(DateTime period) async {
     selectedPeriod = DateTime(period.year, period.month);
     isLoading = true;
     errorMessage = null;
-    final cacheKey = 'paie-${selectedPeriod.year}-${selectedPeriod.month}';
+    final cacheKey = mineOnly
+        ? 'paie-me'
+        : 'paie-${selectedPeriod.year}-${selectedPeriod.month}';
     
     // Charger du cache d'abord
     final cached = await _ref.read(cacheServiceProvider).readList(cacheKey);
@@ -41,13 +52,15 @@ class PaieNotifier extends ChangeNotifier {
 
     try {
       final api = _ref.read(apiServiceProvider);
-      final response = await api.get<Map<String, dynamic>>(
-        '/paie',
-        queryParameters: {
-          'month': selectedPeriod.month,
-          'year': selectedPeriod.year,
-        },
-      );
+      final response = mineOnly
+          ? await api.get<Map<String, dynamic>>('/paie/me')
+          : await api.get<Map<String, dynamic>>(
+              '/paie',
+              queryParameters: {
+                'month': selectedPeriod.month,
+                'year': selectedPeriod.year,
+              },
+            );
       final payload = response.data ?? <String, dynamic>{};
       final rawItems = payload['items'] as List<dynamic>? ??
           payload['data'] as List<dynamic>? ??

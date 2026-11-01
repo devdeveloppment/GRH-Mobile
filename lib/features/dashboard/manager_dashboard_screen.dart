@@ -250,7 +250,7 @@ class _TeamMemberCard extends StatelessWidget {
     final nom = member['nom'] as String? ?? '';
     final prenom = member['prenom'] as String? ?? '';
     final poste = member['poste'] as String? ?? member['posteIntitule'] as String? ?? '';
-    final dept = member['departementNom'] as String?;
+    final dept = member['departement'] as String? ?? member['service'] as String?;
     final initials = '${prenom.isNotEmpty ? prenom[0] : ''}${nom.isNotEmpty ? nom[0] : ''}'
         .toUpperCase();
 
@@ -293,7 +293,7 @@ class _CongeCard extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final employeNom = conge['employeNom'] as String? ?? '';
+    final employeNom = conge['nomEmploye'] as String? ?? conge['employeNom'] as String? ?? '';
     final type = conge['typeConge'] as String? ?? '';
     final debut = conge['dateDebut'] as String? ?? '';
     final fin = conge['dateFin'] as String? ?? '';
@@ -332,17 +332,17 @@ class _CongeCard extends StatelessWidget {
   Future<void> _approve(BuildContext context, int id) async {
     try {
       final api = ref.read(apiServiceProvider);
-      await api.put<dynamic>('/conges/$id/approuver');
+      await api.post<dynamic>('/conges/$id/approve');
       ref.invalidate(_pendingCongesProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Congé approuvé.')),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors de l\'approbation.')),
+          SnackBar(content: Text(ApiService.messageOf(e, "Erreur lors de l'approbation."))),
         );
       }
     }
@@ -350,20 +350,47 @@ class _CongeCard extends StatelessWidget {
 
   Future<void> _reject(BuildContext context, int id) async {
     try {
+      final commentaire = await _askRejectReason(context);
+      if (commentaire == null) return;
       final api = ref.read(apiServiceProvider);
-      await api.put<dynamic>('/conges/$id/refuser');
+      await api.post<dynamic>('/conges/$id/reject', data: {'commentaire': commentaire});
       ref.invalidate(_pendingCongesProvider);
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
           const SnackBar(content: Text('Congé refusé.')),
         );
       }
-    } catch (_) {
+    } catch (e) {
       if (context.mounted) {
         ScaffoldMessenger.of(context).showSnackBar(
-          const SnackBar(content: Text('Erreur lors du refus.')),
+          SnackBar(content: Text(ApiService.messageOf(e, 'Erreur lors du refus.'))),
         );
       }
     }
+  }
+
+  /// Motif du refus, transmis à l'employé. Renvoie null si l'utilisateur annule.
+  Future<String?> _askRejectReason(BuildContext context) async {
+    final ctrl = TextEditingController();
+    final result = await showDialog<String>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: const Text('Refuser la demande'),
+        content: TextField(
+          controller: ctrl,
+          maxLines: 3,
+          decoration: const InputDecoration(labelText: 'Motif du refus (facultatif)'),
+        ),
+        actions: [
+          TextButton(onPressed: () => Navigator.pop(ctx), child: const Text('Annuler')),
+          ElevatedButton(
+            onPressed: () => Navigator.pop(ctx, ctrl.text.trim()),
+            child: const Text('Refuser'),
+          ),
+        ],
+      ),
+    );
+    ctrl.dispose();
+    return result;
   }
 }

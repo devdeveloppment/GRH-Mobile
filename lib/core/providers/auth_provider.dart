@@ -45,11 +45,13 @@ class AuthNotifier extends ChangeNotifier {
   bool _isInitialized = false;
   String? _errorMessage;
   Timer? _inactivityTimer;
+  bool _autoLogout = true;
 
   Utilisateur? get user => _user;
   String? get token => _token;
   UserRole? get role => _user?.role;
   bool get isAuthenticated => _token != null && _user != null;
+  bool get mustChangePassword => _user?.doitChangerMotDePasse ?? false;
   bool get isLoading => _isLoading;
   bool get isInitialized => _isInitialized;
   String? get errorMessage => _errorMessage;
@@ -65,6 +67,48 @@ class AuthNotifier extends ChangeNotifier {
     }
 
     _isInitialized = true;
+    notifyListeners();
+
+    if (isAuthenticated) {
+      unawaited(refreshSession());
+    }
+  }
+
+  /// Recharge profil, permissions et règles de session depuis le serveur.
+  Future<void> refreshSession() async {
+    try {
+      final response = await _apiService.get<Map<String, dynamic>>('/auth/me');
+      final data = response.data ?? <String, dynamic>{};
+      await _applySession(data);
+    } catch (_) {
+      // Hors ligne : on conserve la session locale ; un 401 est traité par l'intercepteur.
+    }
+  }
+
+  Future<void> _applySession(Map<String, dynamic> data) async {
+    final userJson = Map<String, dynamic>.from(
+      data['user'] as Map<String, dynamic>? ?? <String, dynamic>{'role': data['role']},
+    );
+    userJson['permissions'] = data['permissions'] ?? const <String>[];
+    _user = Utilisateur.fromJson(userJson);
+    _autoLogout = data['autoLogout'] as bool? ?? true;
+    await _storage.write(
+      key: ApiService.userStorageKey,
+      value: jsonEncode(_user!.toJson()),
+    );
+    _startInactivityTimer();
+    notifyListeners();
+  }
+
+  /// Appelé après un changement de mot de passe réussi.
+  Future<void> markPasswordChanged() async {
+    final current = _user;
+    if (current == null) return;
+    _user = current.copyWith(doitChangerMotDePasse: false);
+    await _storage.write(
+      key: ApiService.userStorageKey,
+      value: jsonEncode(_user!.toJson()),
+    );
     notifyListeners();
   }
 
@@ -86,25 +130,14 @@ class AuthNotifier extends ChangeNotifier {
 
       final data = response.data ?? <String, dynamic>{};
       final token = data['token'] as String?;
-      final user = Utilisateur.fromJson(data['user'] as Map<String, dynamic>? ?? <String, dynamic>{
-        'role': data['role'],
-        'email': email,
-      });
 
       if (token == null || token.isEmpty) {
         throw const FormatException('Le token JWT est absent de la réponse.');
       }
 
       _token = token;
-      _user = user;
-
       await _storage.write(key: ApiService.tokenStorageKey, value: token);
-      await _storage.write(
-        key: ApiService.userStorageKey,
-        value: jsonEncode(user.toJson()),
-      );
-
-      _startInactivityTimer();
+      await _applySession(data);
       _setLoading(false);
       notifyListeners();
       return true;
@@ -158,6 +191,7 @@ class AuthNotifier extends ChangeNotifier {
 
   void _startInactivityTimer() {
     _inactivityTimer?.cancel();
+    if (!_autoLogout) return;
     _inactivityTimer = Timer(_idleDuration, () {
       unawaited(logout());
     });

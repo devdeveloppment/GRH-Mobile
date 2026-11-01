@@ -34,6 +34,7 @@ class AppRoutes {
   static const String adminSettings      = '/admin/settings';
   static const String notifications      = '/notifications';
   static const String profile            = '/profile';
+  static const String changePassword     = '/change-password';
   static const String qrScanner         = '/qr/scanner';
   static const String employeeQr        = '/employee/qr';
 }

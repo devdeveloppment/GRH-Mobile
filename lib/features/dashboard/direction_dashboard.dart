@@ -272,16 +272,16 @@ class _PayrollAreaChart extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    final values = points.isEmpty
-        ? const [
-            DashboardPoint(label: 'Nov', value: 6200000),
-            DashboardPoint(label: 'Déc', value: 6800000),
-            DashboardPoint(label: 'Jan', value: 7000000),
-            DashboardPoint(label: 'Fév', value: 7250000),
-            DashboardPoint(label: 'Mar', value: 7600000),
-            DashboardPoint(label: 'Avr', value: 7900000),
-          ]
-        : points;
+    // Aucune valeur inventée : sans paie calculée, on affiche un état vide explicite.
+    if (points.every((p) => p.value <= 0)) {
+      return const Center(
+        child: Text(
+          'Aucune paie calculée sur les 6 derniers mois.',
+          style: TextStyle(fontSize: 12, color: AppColors.text2),
+        ),
+      );
+    }
+    final values = points;
 
     return LineChart(
       LineChartData(

@@ -14,8 +14,6 @@ class QrScannerScreen extends ConsumerStatefulWidget {
 class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
   final MobileScannerController _controller = MobileScannerController();
   bool _isProcessing = false;
-  String? _lastResult;
-  String? _lastError;
 
   @override
   void dispose() {
@@ -30,8 +28,6 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
 
     setState(() {
       _isProcessing = true;
-      _lastResult = null;
-      _lastError = null;
     });
 
     await _controller.stop();
@@ -44,11 +40,9 @@ class _QrScannerScreenState extends ConsumerState<QrScannerScreen> {
     if (result != null && result['statut'] == 'OK') {
       final type = result['type'] as String? ?? '';
       final nom = result['nomComplet'] as String? ?? '';
-      setState(() => _lastResult = '$nom — $type enregistré');
       _showResultDialog(nom, type, success: true);
     } else {
       final err = ref.read(qrNotifierProvider).scanError ?? 'Erreur inconnue';
-      setState(() => _lastError = err);
       _showResultDialog('', '', success: false, error: err);
     }
 

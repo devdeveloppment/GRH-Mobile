@@ -2,6 +2,7 @@ import 'dart:async';
 
 import 'package:flutter/foundation.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:grh_mobile/core/services/api_service.dart';
 import 'package:grh_mobile/core/providers/auth_provider.dart';
 import 'package:grh_mobile/shared/models/presence.dart';
 
@@ -136,7 +137,7 @@ class PresenceNotifier extends ChangeNotifier {
       await load();
       return response.data;
     } catch (e) {
-      pointerError = e.toString();
+      pointerError = ApiService.messageOf(e, 'Pointage impossible.');
       notifyListeners();
       return null;
     } finally {
@@ -168,7 +169,7 @@ class PresenceNotifier extends ChangeNotifier {
       await loadAbsencesEnAttente();
       return response.data;
     } catch (e) {
-      absenceError = e.toString();
+      absenceError = ApiService.messageOf(e, 'Opération impossible.');
       notifyListeners();
       return null;
     } finally {
@@ -191,7 +192,7 @@ class PresenceNotifier extends ChangeNotifier {
           .toList();
       notifyListeners();
     } catch (e) {
-      absenceError = e.toString();
+      absenceError = ApiService.messageOf(e, 'Opération impossible.');
       notifyListeners();
     }
   }
@@ -220,7 +221,7 @@ class PresenceNotifier extends ChangeNotifier {
       await loadAbsencesEnAttente();
       return response.data;
     } catch (e) {
-      absenceError = e.toString();
+      absenceError = ApiService.messageOf(e, 'Opération impossible.');
       notifyListeners();
       return null;
     } finally {

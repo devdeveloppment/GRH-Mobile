@@ -110,7 +110,7 @@ class RecrutementNotifier extends StateNotifier<bool> {
 
   Future<void> downloadCv(int candidatureId) async {
     final resp = await _api.client.get<List<int>>(
-      '/api/candidatures/$candidatureId/cv',
+      '/candidatures/$candidatureId/cv',
       options: Options(responseType: ResponseType.bytes),
     );
     final bytes = resp.data;

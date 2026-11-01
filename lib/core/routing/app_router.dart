@@ -1,3 +1,4 @@
+import 'package:grh_mobile/features/profile/change_password_screen.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:grh_mobile/core/constants/app_globals.dart';
@@ -56,6 +57,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             location == AppRoutes.profile;
       case UserRole.manager:
         return location.startsWith('/manager') ||
+            location.startsWith('${AppRoutes.employees}/') ||
+            location == AppRoutes.qrScanner ||
             location == AppRoutes.presences ||
             location == AppRoutes.conges ||
             location == AppRoutes.evaluations ||
@@ -63,7 +66,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             location == AppRoutes.notifications ||
             location == AppRoutes.profile;
       case UserRole.recruiter:
-        return location == AppRoutes.recrutement ||
+        return location.startsWith(AppRoutes.recrutement) ||
             location == AppRoutes.notifications ||
             location == AppRoutes.profile;
       case UserRole.trainer:
@@ -86,6 +89,18 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     }
   }
 
+  /// Accès par rôle, complété par les permissions accordées depuis l'écran « Rôles ».
+  bool isAllowed(String location, Utilisateur user) {
+    if (location == AppRoutes.changePassword) return true;
+    if (canAccess(location, user.role)) return true;
+    if (user.hasPermission('MANAGE_EMPLOYEES') && location.startsWith(AppRoutes.employees)) return true;
+    if (user.hasPermission('MANAGE_PAIE') && location == AppRoutes.paie) return true;
+    if (user.hasPermission('VIEW_REPORTS') && location == AppRoutes.rapports) return true;
+    if (user.hasPermission('MANAGE_LEAVES') && location == AppRoutes.conges) return true;
+    if (user.hasPermission('MANAGE_USERS') && location == AppRoutes.adminUsers) return true;
+    return false;
+  }
+
   return GoRouter(
     navigatorKey: rootNavigatorKey,
     initialLocation: AppRoutes.login,
@@ -98,9 +113,13 @@ final appRouterProvider = Provider<GoRouter>((ref) {
       if (!auth.isAuthenticated) return loggingIn ? null : AppRoutes.login;
 
       final role = auth.role!;
+      // Mot de passe temporaire : changement obligatoire avant toute autre action
+      if (auth.mustChangePassword) {
+        return state.uri.path == AppRoutes.changePassword ? null : AppRoutes.changePassword;
+      }
       final home = defaultRouteForRole(role);
       if (loggingIn) return home;
-      if (!canAccess(state.uri.path, role)) return home;
+      if (!isAllowed(state.uri.path, auth.user!)) return home;
       return null;
     },
     routes: [
@@ -193,6 +212,8 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const NotificationsScreen()),
       GoRoute(path: AppRoutes.profile,
           builder: (_, __) => const ProfileScreen()),
+      GoRoute(path: AppRoutes.changePassword,
+          builder: (_, __) => const ChangePasswordScreen()),
       GoRoute(path: AppRoutes.qrScanner,
           builder: (_, __) => const QrScannerScreen()),
     ],
