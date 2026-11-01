@@ -20,14 +20,10 @@ import com.grhmobile.service.AlertesAutomatiquesService;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.http.MediaType;
-import org.springframework.jdbc.core.JdbcTemplate;
 import org.springframework.mock.web.MockMultipartFile;
 
 /** Fonctionnalités du lot 1, vérifiées sur l'API réelle. */
 class Lot1FonctionnalitesIT extends AbstractIntegrationTest {
-
-    @Autowired
-    JdbcTemplate jdbc;
 
     @Autowired
     AlertesAutomatiquesService alertes;
@@ -105,7 +101,7 @@ class Lot1FonctionnalitesIT extends AbstractIntegrationTest {
             JsonNode g = getJson("/api/paie?month=5&year=2026", admin).get("items").get(0);
             assertThat(g.get("conformeReglementation").asBoolean()).isTrue();
         } finally {
-            jdbc.update("UPDATE rubriques_paie SET actif = false WHERE code = 'TEST_RETENUE'");
+            updateEntreprise(1, "UPDATE rubriques_paie SET actif = false WHERE code = 'TEST_RETENUE'");
         }
     }
 
@@ -186,9 +182,9 @@ class Lot1FonctionnalitesIT extends AbstractIntegrationTest {
     void heuresSupplementairesSelonDureeNormale() throws Exception {
         String admin = bearer(ADMIN);
         LocalDate jour = LocalDate.of(2025, 6, 10);
-        Long employeId = jdbc.queryForObject("SELECT id FROM employes WHERE matricule = 'GRH-KM-240421-002'", Long.class);
-        jdbc.update("INSERT INTO presences (employe_id, date, heure_arrivee, heure_depart, statut, created_at) "
-            + "VALUES (?, ?, ?, ?, 'PRESENT', now())", employeId, jour,
+        Long employeId = longEntreprise(1, "SELECT id FROM employes WHERE matricule = 'GRH-KM-240421-002'");
+        updateEntreprise(1, "INSERT INTO presences (employe_id, date, heure_arrivee, heure_depart, statut, created_at, entreprise_id) "
+            + "VALUES (?, ?, ?, ?, 'PRESENT', now(), 1)", employeId, jour,
             LocalDateTime.of(jour, java.time.LocalTime.of(8, 0)), LocalDateTime.of(jour, java.time.LocalTime.of(18, 30)));
 
         JsonNode off = getJson("/api/presences/heures-supplementaires?debut=" + jour + "&fin=" + jour, admin);
@@ -278,8 +274,9 @@ class Lot1FonctionnalitesIT extends AbstractIntegrationTest {
 
     @Test
     void alerteContratEnvoyeeUneSeuleFois() throws Exception {
-        Map<String, Object> first = alertes.alerterContratsExpirant(LocalDate.now());
-        Map<String, Object> second = alertes.alerterContratsExpirant(LocalDate.now());
+        // Les traitements hors requête s'exécutent dans le contexte explicite d'une entreprise.
+        Map<String, Object> first = com.grhmobile.tenant.TenantContext.executer(1L, () -> alertes.alerterContratsExpirant(LocalDate.now()));
+        Map<String, Object> second = com.grhmobile.tenant.TenantContext.executer(1L, () -> alertes.alerterContratsExpirant(LocalDate.now()));
         assertThat((Integer) first.get("contratsConcernes")).isGreaterThan(0);
         assertThat((Integer) second.get("nouvellesAlertes")).isZero();
     }

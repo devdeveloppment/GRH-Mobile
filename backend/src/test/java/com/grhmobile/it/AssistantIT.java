@@ -65,9 +65,11 @@ class AssistantIT extends AbstractIntegrationTest {
         assertThat(contrats.get("resultat").get("nombre").asInt()).isGreaterThan(0);
         String resultat = contrats.get("resultat").toString();
         // Le résultat (envoyé au modèle) ne contient ni nom ni salaire individuel...
-        assertThat(resultat).doesNotContain("Mensah", "Tossou", "salaire");
+        assertThat(resultat).doesNotContain("salaire");
         // ... les noms ne sont résolus que pour l'affichage, à part.
-        assertThat(contrats.get("noms").toString()).contains("Mensah");
+        JsonNode noms = contrats.get("noms");
+        assertThat(noms.size()).isGreaterThan(0);
+        noms.fields().forEachRemaining(n -> assertThat(resultat).doesNotContain(n.getValue().asText()));
 
         JsonNode masse = outil(DIRECTION, "masse_salariale", Map.of()).get("resultat");
         assertThat(masse.has("totalBrut")).isTrue();
