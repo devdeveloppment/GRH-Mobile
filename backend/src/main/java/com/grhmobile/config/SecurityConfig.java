@@ -9,10 +9,13 @@ import org.springframework.boot.context.properties.EnableConfigurationProperties
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
+import org.springframework.security.access.expression.method.DefaultMethodSecurityExpressionHandler;
+import org.springframework.security.access.expression.method.MethodSecurityExpressionHandler;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchy;
+import org.springframework.security.access.hierarchicalroles.RoleHierarchyImpl;
 import org.springframework.security.authentication.AuthenticationManager;
 import org.springframework.security.authentication.AuthenticationProvider;
 import org.springframework.security.authentication.dao.DaoAuthenticationProvider;
-import org.springframework.security.config.Customizer;
 import org.springframework.security.config.annotation.authentication.configuration.AuthenticationConfiguration;
 import org.springframework.security.config.annotation.method.configuration.EnableMethodSecurity;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
@@ -40,7 +43,8 @@ public class SecurityConfig {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
             .csrf(csrf -> csrf.disable())
-            .httpBasic(Customizer.withDefaults())
+            .httpBasic(basic -> basic.disable())
+            .formLogin(form -> form.disable())
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authenticationProvider(authenticationProvider)
             .authorizeHttpRequests(auth -> auth
@@ -48,6 +52,9 @@ public class SecurityConfig {
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
                 .requestMatchers("/uploads/photos/**").permitAll()
+                // Candidature externe : consultation des offres publiées et dépôt de dossier
+                .requestMatchers(HttpMethod.GET, "/api/public/offres", "/api/public/offres/*").permitAll()
+                .requestMatchers(HttpMethod.POST, "/api/offres/*/candidatures", "/api/offres/*/candidatures/upload").permitAll()
                 .anyRequest().authenticated()
             )
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class);
@@ -69,6 +76,26 @@ public class SecurityConfig {
     @Bean
     AuthenticationManager authenticationManager(AuthenticationConfiguration configuration) throws Exception {
         return configuration.getAuthenticationManager();
+    }
+
+    /**
+     * Hiérarchie des rôles : un rôle supérieur hérite des droits des rôles inférieurs.
+     * SUPER_ADMIN > ADMIN > HR_ADMIN > RH_MANAGER.
+     */
+    @Bean
+    static RoleHierarchy roleHierarchy() {
+        return RoleHierarchyImpl.fromHierarchy("""
+            ROLE_SUPER_ADMIN > ROLE_ADMIN
+            ROLE_ADMIN > ROLE_HR_ADMIN
+            ROLE_HR_ADMIN > ROLE_RH_MANAGER
+            """);
+    }
+
+    @Bean
+    static MethodSecurityExpressionHandler methodSecurityExpressionHandler(RoleHierarchy roleHierarchy) {
+        DefaultMethodSecurityExpressionHandler handler = new DefaultMethodSecurityExpressionHandler();
+        handler.setRoleHierarchy(roleHierarchy);
+        return handler;
     }
 
     @Bean

@@ -50,6 +50,17 @@ public class Utilisateur extends BaseEntity {
     @Column(name = "photo_url", length = 500)
     private String photoUrl;
 
+    @Column(name = "doit_changer_mot_de_passe", nullable = false)
+    private boolean doitChangerMotDePasse = false;
+
+    public boolean isDoitChangerMotDePasse() {
+        return doitChangerMotDePasse;
+    }
+
+    public void setDoitChangerMotDePasse(boolean doitChangerMotDePasse) {
+        this.doitChangerMotDePasse = doitChangerMotDePasse;
+    }
+
     public Long getId() {
         return id;
     }

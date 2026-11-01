@@ -30,7 +30,7 @@ public class AppProperties {
     }
 
     public static class Jwt {
-        private String secret = "change-me-change-me-change-me-change-me";
+        private String secret = "";
         private long accessTokenExpirationMinutes = 480;
         private long inactivityTimeoutMinutes = 30;
 
@@ -124,8 +124,8 @@ public class AppProperties {
         private String nom = "Super";
         private String prenom = "Admin";
         private String email = "admin@grh-mobile.com";
-        private String password = "Admin@12345";
-        private boolean resetPasswordOnStartup = true;
+        private String password = "";
+        private boolean resetPasswordOnStartup = false;
 
         public boolean isEnabled() {
             return enabled;

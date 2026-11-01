@@ -10,7 +10,8 @@ public record UserDto(
     String role,
     boolean actif,
     String dateCreation,
-    String photoUrl
+    String photoUrl,
+    boolean doitChangerMotDePasse
 ) {
 
     public static UserDto fromEntity(Utilisateur utilisateur) {
@@ -22,7 +23,8 @@ public record UserDto(
             utilisateur.getRole().name(),
             utilisateur.isActif(),
             utilisateur.getDateCreation() != null ? utilisateur.getDateCreation().toString() : null,
-            utilisateur.getPhotoUrl()
+            utilisateur.getPhotoUrl(),
+            utilisateur.isDoitChangerMotDePasse()
         );
     }
 }

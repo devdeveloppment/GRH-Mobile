@@ -1,5 +1,7 @@
 package com.grhmobile.controller;
 
+import org.springframework.web.bind.annotation.GetMapping;
+import java.util.Map;
 import com.grhmobile.dto.auth.AuthRequest;
 import com.grhmobile.dto.auth.AuthResponse;
 import com.grhmobile.service.AuthService;
@@ -18,6 +20,12 @@ public class AuthController {
 
     public AuthController(AuthService authService) {
         this.authService = authService;
+    }
+
+    /** Session courante : profil, permissions effectives et règles de session. */
+    @GetMapping("/me")
+    public Map<String, Object> me() {
+        return authService.currentSession();
     }
 
     @PostMapping("/login")

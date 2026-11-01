@@ -1,6 +1,7 @@
 package com.grhmobile.security;
 
 import java.nio.charset.StandardCharsets;
+import java.security.SecureRandom;
 import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.Date;
@@ -15,15 +16,22 @@ import io.jsonwebtoken.Jwts;
 import io.jsonwebtoken.io.Decoders;
 import io.jsonwebtoken.security.Keys;
 import javax.crypto.SecretKey;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
 import org.springframework.stereotype.Service;
 
 @Service
 public class JwtService {
 
+    private static final Logger log = LoggerFactory.getLogger(JwtService.class);
+    private static final String LEGACY_DEFAULT_PREFIX = "change-me";
+
     private final AppProperties properties;
+    private final SecretKey signingKey;
 
     public JwtService(AppProperties properties) {
         this.properties = properties;
+        this.signingKey = buildSigningKey(properties.getJwt().getSecret());
     }
 
     public String extractUsername(String token) {
@@ -58,7 +66,9 @@ public class JwtService {
 
     public boolean isTokenValid(String token, UserPrincipal userDetails) {
         String username = extractUsername(token);
-        return username.equals(userDetails.getUsername()) && !isTokenExpired(token);
+        return username.equals(userDetails.getUsername())
+            && userDetails.isEnabled()
+            && !isTokenExpired(token);
     }
 
     private boolean isTokenExpired(String token) {
@@ -74,7 +84,21 @@ public class JwtService {
     }
 
     private SecretKey getSigningKey() {
-        String rawSecret = properties.getJwt().getSecret();
+        return signingKey;
+    }
+
+    /**
+     * Refuse les secrets absents, trop courts ou laissés à leur valeur d'exemple :
+     * dans ce cas une clé aléatoire est générée (les jetons sont invalidés au redémarrage).
+     */
+    private static SecretKey buildSigningKey(String rawSecret) {
+        if (rawSecret == null || rawSecret.isBlank() || rawSecret.startsWith(LEGACY_DEFAULT_PREFIX) || rawSecret.length() < 32) {
+            log.warn("JWT_SECRET absent ou trop faible : une clé aléatoire est utilisée. "
+                + "Définissez JWT_SECRET (>= 32 caractères) pour conserver les sessions entre redémarrages.");
+            byte[] random = new byte[64];
+            new SecureRandom().nextBytes(random);
+            return Keys.hmacShaKeyFor(random);
+        }
         byte[] keyBytes;
         if (rawSecret.matches("^[A-Za-z0-9+/=]+$") && rawSecret.length() >= 44) {
             keyBytes = Decoders.BASE64.decode(rawSecret);
