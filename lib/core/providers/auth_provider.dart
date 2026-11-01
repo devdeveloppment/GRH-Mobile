@@ -3,7 +3,7 @@ import 'dart:convert';
 
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:grh_mobile/core/config/app_config.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:grh_mobile/core/services/api_service.dart';
@@ -31,7 +31,7 @@ class AuthNotifier extends ChangeNotifier {
   })  : _storage = storage,
         _apiService = ApiService(secureStorage: storage) {
     _idleDuration = Duration(
-      minutes: int.tryParse(dotenv.env['AUTO_LOGOUT_MINUTES'] ?? '30') ?? 30,
+      minutes: AppConfig.autoLogoutMinutes,
     );
   }
 

@@ -1,7 +1,7 @@
 import 'package:dio/dio.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/foundation.dart';
-import 'package:flutter_dotenv/flutter_dotenv.dart';
+import 'package:grh_mobile/core/config/app_config.dart';
 import 'package:flutter_secure_storage/flutter_secure_storage.dart';
 import 'package:grh_mobile/core/constants/app_globals.dart';
 
@@ -65,7 +65,7 @@ class ApiService {
   static const String userStorageKey = 'grh_mobile.user';
 
   static String _resolveBaseUrl() {
-    String url = dotenv.env['API_BASE_URL'] ?? 'https://api.grh-mobile.com/api';
+    String url = AppConfig.apiBaseUrl;
     if (!kIsWeb && defaultTargetPlatform == TargetPlatform.android) {
       if (url.contains('localhost')) url = url.replaceAll('localhost', '10.0.2.2');
       if (url.contains('127.0.0.1')) url = url.replaceAll('127.0.0.1', '10.0.2.2');
@@ -178,7 +178,7 @@ class ApiService {
   }
 
   static List<String> _readCertificatePins() {
-    return (dotenv.env['CERT_SHA256_PINS'] ?? '')
+    return AppConfig.certSha256Pins
         .split(',')
         .map((item) => item.trim())
         .where((item) => item.isNotEmpty)

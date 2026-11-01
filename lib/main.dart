@@ -13,11 +13,8 @@ import 'package:grh_mobile/core/theme/app_theme.dart';
 Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
   await initializeDateFormatting('fr_TG');
-  try {
-    await dotenv.load(fileName: '.env');
-  } catch (_) {
-    await dotenv.load(fileName: '.env.example');
-  }
+  // Valeurs par défaut versionnées ; surcharge locale via --dart-define-from-file=.env
+  await dotenv.load(fileName: '.env.example');
   await Hive.initFlutter();
   runApp(const ProviderScope(child: GrhMobileApp()));
 }
