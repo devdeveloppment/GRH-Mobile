@@ -27,9 +27,10 @@ spring:
       max-request-size: 10MB
   web:
     resources:
+      # uploads/ n'est PAS servi en statique : CV, documents et justificatifs passent par des
+      # endpoints controles (droits + entreprise). Les photos ont leur propre gestionnaire (WebConfig).
       static-locations:
         - classpath:/static/
-        - file:uploads/
 
 server:
   port: ${SERVER_PORT:8080}
@@ -56,6 +57,10 @@ app:
   upload:
     dir: ${UPLOAD_DIR:uploads/photos}
     inactivity-timeout-minutes: ${AUTO_LOGOUT_MINUTES:30}
+  platform-admin:
+    # Super-administrateur de la plateforme SaaS (gestion des entreprises). Vide = non cree.
+    email: ${PLATFORM_ADMIN_EMAIL:}
+    password: ${PLATFORM_ADMIN_PASSWORD:}
   ai:
     # Assistant RH : desactive par defaut. Activation = AI_ENABLED=true + ANTHROPIC_API_KEY (jamais dans Git).
     enabled: ${AI_ENABLED:false}

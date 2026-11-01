@@ -31,9 +31,15 @@ public class AlertesAutomatiquesService {
     private final UtilisateurRepository utilisateurRepository;
     private final NotificationService notificationService;
     private final JdbcTemplate jdbcTemplate;
+    private final com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
+    private final org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 
     public AlertesAutomatiquesService(ContratRepository contratRepository, UtilisateurRepository utilisateurRepository,
-                                      NotificationService notificationService, JdbcTemplate jdbcTemplate) {
+                                      NotificationService notificationService, JdbcTemplate jdbcTemplate,
+                                      com.grhmobile.repository.EntrepriseRepository entrepriseRepository,
+                                      org.springframework.transaction.support.TransactionTemplate transactionTemplate) {
+        this.entrepriseRepository = entrepriseRepository;
+        this.transactionTemplate = transactionTemplate;
         this.contratRepository = contratRepository;
         this.utilisateurRepository = utilisateurRepository;
         this.notificationService = notificationService;
@@ -43,7 +49,11 @@ public class AlertesAutomatiquesService {
     /** Chaque jour à 07:00. */
     @Scheduled(cron = "0 0 7 * * *")
     public void executionQuotidienne() {
-        log.info("Alertes contrats : {}", alerterContratsExpirant(LocalDate.now()));
+        for (Long id : entrepriseRepository.findByStatutOrderByIdAsc("ACTIVE").stream().map(e -> e.getId()).toList()) {
+            Map<String, Object> r = com.grhmobile.tenant.TenantContext.executer(id,
+                () -> transactionTemplate.execute(s -> alerterContratsExpirant(LocalDate.now())));
+            log.info("Alertes contrats (entreprise {}) : {}", id, r);
+        }
     }
 
     @Transactional

@@ -155,9 +155,43 @@ public class DemoDataSeeder implements CommandLineRunner {
         this.objectifRepository = objectifRepository;
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.grhmobile.service.EntrepriseService entrepriseService;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
+
+    /** Seconde entreprise FICTIVE, utilisée pour démontrer et tester l'isolation multi-entreprise. */
+    static final String SLUG_DEMO_B = "demo-b";
+
     @Override
-    @Transactional
     public void run(String... args) {
+        // Le contexte d'entreprise doit être fixé AVANT l'ouverture de la transaction.
+        com.grhmobile.tenant.TenantContext.executer(1L, () -> transactionTemplate.executeWithoutResult(st -> seedEntreprisePrincipale()));
+        seedEntrepriseB();
+    }
+
+    private void seedEntrepriseB() {
+        if (entrepriseRepository.findBySlug(SLUG_DEMO_B).isPresent()) {
+            return;
+        }
+        Map<String, Object> created = entrepriseService.creer("Démo B (fictive)", SLUG_DEMO_B, "ESSAI",
+            "admin@demo-b.example", "Admin", "Démo B", demoPassword == null || demoPassword.isBlank() ? null : demoPassword);
+        if (created.get("motDePasseTemporaire") != null) {
+            log.warn("Entreprise demo-b : mot de passe temporaire de admin@demo-b.example = {}", created.get("motDePasseTemporaire"));
+        }
+        long id = ((Number) created.get("id")).longValue();
+        com.grhmobile.tenant.TenantContext.executer(id, () -> transactionTemplate.executeWithoutResult(st -> {
+            ServiceEntity ventes = saveService("Ventes", "Équipe commerciale", "Responsable fictif");
+            saveEmployee(null, "DEMOB-001", "Agbeko", "Kafui", "kafui.agbeko@demo-b.example", "Commercial", ventes, 300000, Genre.FEMME);
+            saveEmployee(null, "DEMOB-002", "Dossou", "Elom", "elom.dossou@demo-b.example", "Commercial", ventes, 320000, Genre.HOMME);
+        }));
+    }
+
+    private void seedEntreprisePrincipale() {
         log.warn("Profil « demo » actif : données FICTIVES de démonstration (profils actifs : {}).",
             String.join(",", environment.getActiveProfiles()));
 

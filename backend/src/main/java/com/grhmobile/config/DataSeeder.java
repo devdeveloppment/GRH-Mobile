@@ -9,7 +9,9 @@ import com.grhmobile.util.PasswordGenerator;
 
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Value;
 import org.springframework.boot.CommandLineRunner;
+import com.grhmobile.tenant.TenantContext;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.core.annotation.Order;
@@ -29,9 +31,41 @@ public class DataSeeder {
     CommandLineRunner bootstrapAdmin(
         UtilisateurRepository utilisateurRepository,
         PasswordEncoder passwordEncoder,
-        AppProperties appProperties
+        AppProperties appProperties,
+        @Value("${app.platform-admin.email:}") String platformEmail,
+        @Value("${app.platform-admin.password:}") String platformPassword
     ) {
-        return args -> ensureBootstrapAdmin(utilisateurRepository, passwordEncoder, appProperties.getBootstrapAdmin());
+        // Comptes créés dans l'entreprise n° 1 (entreprise de l'éditeur de la plateforme).
+        return args -> TenantContext.executer(1L, () -> {
+            ensureBootstrapAdmin(utilisateurRepository, passwordEncoder, appProperties.getBootstrapAdmin());
+            ensurePlatformAdmin(utilisateurRepository, passwordEncoder, platformEmail, platformPassword);
+        });
+    }
+
+    /** Super-administrateur de la plateforme SaaS (gestion des entreprises), si configuré. */
+    private void ensurePlatformAdmin(UtilisateurRepository repository, PasswordEncoder encoder, String email, String password) {
+        if (email == null || email.isBlank()) {
+            return;
+        }
+        boolean existe = TenantContext.systeme(() -> repository.findByEmailIgnoreCase(email).isPresent());
+        if (existe) {
+            return;
+        }
+        Utilisateur u = new Utilisateur();
+        u.setEmail(email.trim().toLowerCase());
+        u.setNom("Plateforme");
+        u.setPrenom("Super");
+        u.setRole(Role.SUPER_ADMIN);
+        u.setActif(true);
+        u.setDateCreation(OffsetDateTime.now());
+        String p = password;
+        if (p == null || p.isBlank()) {
+            p = PasswordGenerator.temporaryPassword();
+            u.setDoitChangerMotDePasse(true);
+            log.warn("Super-administrateur {} créé avec le mot de passe temporaire : {}", email, p);
+        }
+        u.setMotDePasse(encoder.encode(p));
+        repository.save(u);
     }
 
     private Utilisateur ensureBootstrapAdmin(

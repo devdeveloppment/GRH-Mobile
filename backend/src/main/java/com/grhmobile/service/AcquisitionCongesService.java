@@ -31,10 +31,13 @@ public class AcquisitionCongesService {
     private final EmployeRepository employeRepository;
     private final AcquisitionCongeRepository acquisitionRepository;
     private final ParametresRhService parametresRhService;
+    private final com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
 
     public AcquisitionCongesService(EmployeRepository employeRepository,
                                     AcquisitionCongeRepository acquisitionRepository,
-                                    ParametresRhService parametresRhService) {
+                                    ParametresRhService parametresRhService,
+                                    com.grhmobile.repository.EntrepriseRepository entrepriseRepository) {
+        this.entrepriseRepository = entrepriseRepository;
         this.employeRepository = employeRepository;
         this.acquisitionRepository = acquisitionRepository;
         this.parametresRhService = parametresRhService;
@@ -43,8 +46,10 @@ public class AcquisitionCongesService {
     /** Le 1er de chaque mois à 01:00 : acquisition au titre du mois écoulé. */
     @Scheduled(cron = "0 0 1 1 * *")
     public void acquisitionMensuelleAutomatique() {
-        Map<String, Object> r = acquerir(YearMonth.now().minusMonths(1));
-        log.info("Acquisition mensuelle des congés : {}", r);
+        for (Long id : entrepriseRepository.findByStatutOrderByIdAsc("ACTIVE").stream().map(e -> e.getId()).toList()) {
+            Map<String, Object> r = com.grhmobile.tenant.TenantContext.executer(id, () -> acquerir(YearMonth.now().minusMonths(1)));
+            log.info("Acquisition mensuelle des congés (entreprise {}) : {}", id, r);
+        }
     }
 
     @Transactional

@@ -88,9 +88,18 @@ public class NotificationService {
 
     /** Purge automatique : supprime les notifications lues depuis plus de 90 jours. */
     @Scheduled(cron = "0 0 3 * * *")
-    @Transactional
     public void purgeOldNotifications() {
         OffsetDateTime cutoff = OffsetDateTime.now().minusDays(90);
-        notificationRepository.deleteOldRead(cutoff);
+        // Une purge par entreprise : le contexte doit être fixé avant l'ouverture de la transaction.
+        for (Long id : entrepriseRepository.findAllByOrderByIdAsc().stream().map(e -> e.getId()).toList()) {
+            com.grhmobile.tenant.TenantContext.executer(id,
+                () -> transactionTemplate.executeWithoutResult(st -> notificationRepository.deleteOldRead(cutoff)));
+        }
     }
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private com.grhmobile.repository.EntrepriseRepository entrepriseRepository;
+
+    @org.springframework.beans.factory.annotation.Autowired
+    private org.springframework.transaction.support.TransactionTemplate transactionTemplate;
 }
