@@ -10,6 +10,7 @@ import org.springframework.data.domain.Page;
 import org.springframework.data.domain.PageRequest;
 import org.springframework.data.domain.Sort;
 import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Propagation;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.time.OffsetDateTime;
@@ -27,7 +28,11 @@ public class AuditLogService {
         this.utilisateurRepository = utilisateurRepository;
     }
 
-    @Transactional
+    /**
+     * Transaction indépendante : un échec d'écriture du journal ne doit jamais
+     * marquer la transaction métier « rollback-only » (cause d'erreurs 500).
+     */
+    @Transactional(propagation = Propagation.REQUIRES_NEW)
     public void log(Long acteurId, String action, String entite, Long entiteId,
             String avant, String apres, String ip) {
         AuditLog log = new AuditLog();

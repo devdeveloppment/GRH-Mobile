@@ -1,5 +1,7 @@
 package com.grhmobile.entity;
 
+import org.hibernate.annotations.JdbcTypeCode;
+import org.hibernate.type.SqlTypes;
 import java.time.OffsetDateTime;
 
 import jakarta.persistence.Column;
@@ -33,9 +35,11 @@ public class AuditLog {
     @Column(name = "entite_id")
     private Long entiteId;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSONB")
     private String avant;
 
+    @JdbcTypeCode(SqlTypes.JSON)
     @Column(columnDefinition = "JSONB")
     private String apres;
 
