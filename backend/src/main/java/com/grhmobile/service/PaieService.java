@@ -15,6 +15,8 @@ import com.grhmobile.dto.paie.FichePaieResponse;
 import com.grhmobile.dto.paie.PayrollPeriodRequest;
 import com.grhmobile.entity.Employe;
 import com.grhmobile.entity.FichePaie;
+import com.grhmobile.entity.LigneBulletin;
+import com.grhmobile.repository.LigneBulletinRepository;
 import com.grhmobile.exception.ResourceNotFoundException;
 import com.grhmobile.repository.EmployeRepository;
 import com.grhmobile.repository.FichePaieRepository;
@@ -35,10 +37,15 @@ public class PaieService {
     private final EmployeRepository employeRepository;
     private final NotificationService notificationService;
     private final AccessControlService acl;
+    private final PaieMoteurService paieMoteurService;
+    private final LigneBulletinRepository ligneBulletinRepository;
 
     public PaieService(FichePaieRepository fichePaieRepository, EmployeRepository employeRepository,
-                       NotificationService notificationService, AccessControlService acl) {
+                       NotificationService notificationService, AccessControlService acl,
+                       PaieMoteurService paieMoteurService, LigneBulletinRepository ligneBulletinRepository) {
         this.acl = acl;
+        this.paieMoteurService = paieMoteurService;
+        this.ligneBulletinRepository = ligneBulletinRepository;
         this.fichePaieRepository = fichePaieRepository;
         this.employeRepository = employeRepository;
         this.notificationService = notificationService;
@@ -71,22 +78,35 @@ public class PaieService {
             }
             boolean nouvelle = fichePaie.getId() == null;
 
-            BigDecimal gross = employee.getSalaireBrutBase();
-            BigDecimal cnss = percent(gross, 4);
-            BigDecimal taxes = percent(gross, 8);
-            BigDecimal indemnities = percent(gross, 5);
-            BigDecimal net = gross.subtract(cnss).subtract(taxes).add(indemnities);
+            // Moteur paramétrable : aucun taux codé en dur (voir PaieMoteurService).
+            PaieMoteurService.Calcul calcul = paieMoteurService.calculer(employee, period);
 
             fichePaie.setEmploye(employee);
             fichePaie.setPeriode(key);
-            fichePaie.setSalaireBrut(gross);
-            fichePaie.setCotisations(cnss);
-            fichePaie.setImpots(taxes);
-            fichePaie.setIndemnites(indemnities);
-            fichePaie.setSalaireNet(net);
+            fichePaie.setSalaireBrut(calcul.brut());
+            fichePaie.setCotisations(calcul.cotisations());
+            fichePaie.setImpots(calcul.impots());
+            fichePaie.setIndemnites(calcul.indemnites());
+            fichePaie.setAutresRetenues(calcul.autresRetenues());
+            fichePaie.setSalaireNet(calcul.net());
+            fichePaie.setConformeReglementation(calcul.conforme());
+            fichePaie.setAvertissement(calcul.avertissement());
             fichePaie.setCalculee(true);
 
             fichePaieRepository.save(fichePaie);
+            ligneBulletinRepository.deleteByFichePaieId(fichePaie.getId());
+            for (PaieMoteurService.Ligne l : calcul.lignes()) {
+                LigneBulletin ligne = new LigneBulletin();
+                ligne.setFichePaie(fichePaie);
+                ligne.setRubriqueCode(l.code());
+                ligne.setLibelle(l.libelle());
+                ligne.setType(l.type());
+                ligne.setOrdre(l.ordre());
+                ligne.setMontant(l.montant());
+                ligne.setFormule(l.formule());
+                ligne.setParametresUtilises(l.parametresUtilises());
+                ligneBulletinRepository.save(ligne);
+            }
 
             // Notifier l'employé lors de la première mise à disposition du bulletin
             if (nouvelle && employee.getUtilisateur() != null) {
@@ -134,11 +154,20 @@ public class PaieService {
             document.add(new Paragraph("Bulletin de paie - " + fichePaie.getPeriode()));
             document.add(new Paragraph("Employé: " + fichePaie.getEmploye().getPrenom() + " " + fichePaie.getEmploye().getNom()));
             document.add(new Paragraph("Poste: " + fichePaie.getEmploye().getPoste()));
+            if (!fichePaie.isConformeReglementation()) {
+                String warning = fichePaie.getAvertissement() != null ? fichePaie.getAvertissement()
+                    : PaieMoteurService.AVERTISSEMENT_NON_VALIDE;
+                document.add(new Paragraph(warning, FontFactory.getFont(FontFactory.HELVETICA_BOLD, 11)));
+            }
+            document.add(new Paragraph(" "));
+            for (LigneBulletin ligne : ligneBulletinRepository.findByFichePaieIdOrderByOrdreAsc(fichePaie.getId())) {
+                document.add(new Paragraph(ligne.getLibelle() + " (" + ligne.getType() + "): " + ligne.getMontant()));
+            }
             document.add(new Paragraph(" "));
             document.add(new Paragraph("Salaire brut: " + fichePaie.getSalaireBrut()));
-            document.add(new Paragraph("Cotisations CNSS: " + fichePaie.getCotisations()));
+            document.add(new Paragraph("Cotisations salariales: " + fichePaie.getCotisations()));
             document.add(new Paragraph("Impôts: " + fichePaie.getImpots()));
-            document.add(new Paragraph("Indemnités: " + fichePaie.getIndemnites()));
+            document.add(new Paragraph("Autres retenues: " + fichePaie.getAutresRetenues()));
             document.add(new Paragraph("Salaire net: " + fichePaie.getSalaireNet(), FontFactory.getFont(FontFactory.HELVETICA_BOLD, 14)));
             document.close();
             return outputStream.toByteArray();

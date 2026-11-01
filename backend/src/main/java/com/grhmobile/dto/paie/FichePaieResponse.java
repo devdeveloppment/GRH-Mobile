@@ -13,7 +13,10 @@ public record FichePaieResponse(
     Double salaireNet,
     String nomEmploye,
     boolean calculee,
-    boolean validee
+    boolean validee,
+    Double autresRetenues,
+    boolean conformeReglementation,
+    String avertissement
 ) {
 
     public static FichePaieResponse fromEntity(FichePaie fichePaie) {
@@ -28,7 +31,10 @@ public record FichePaieResponse(
             fichePaie.getSalaireNet().doubleValue(),
             fichePaie.getEmploye().getPrenom() + " " + fichePaie.getEmploye().getNom(),
             fichePaie.isCalculee(),
-            fichePaie.isValidee()
+            fichePaie.isValidee(),
+            fichePaie.getAutresRetenues().doubleValue(),
+            fichePaie.isConformeReglementation(),
+            fichePaie.getAvertissement()
         );
     }
 }

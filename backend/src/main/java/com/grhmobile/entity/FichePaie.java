@@ -49,6 +49,23 @@ public class FichePaie extends BaseEntity {
     @Column(nullable = false)
     private boolean validee = false;
 
+    @Column(name = "autres_retenues", nullable = false, precision = 18, scale = 2)
+    private BigDecimal autresRetenues = BigDecimal.ZERO;
+
+    /** Vrai seulement si toutes les règles utilisées sont validées (voir PaieMoteurService). */
+    @Column(name = "conforme_reglementation", nullable = false)
+    private boolean conformeReglementation = false;
+
+    @Column(name = "avertissement", columnDefinition = "TEXT")
+    private String avertissement;
+
+    public BigDecimal getAutresRetenues() { return autresRetenues; }
+    public void setAutresRetenues(BigDecimal autresRetenues) { this.autresRetenues = autresRetenues; }
+    public boolean isConformeReglementation() { return conformeReglementation; }
+    public void setConformeReglementation(boolean conformeReglementation) { this.conformeReglementation = conformeReglementation; }
+    public String getAvertissement() { return avertissement; }
+    public void setAvertissement(String avertissement) { this.avertissement = avertissement; }
+
     public static String formatPeriode(YearMonth period) {
         return "%d-%02d".formatted(period.getYear(), period.getMonthValue());
     }
