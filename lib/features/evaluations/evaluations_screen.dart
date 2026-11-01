@@ -224,6 +224,13 @@ class _EvalCard extends StatelessWidget {
             if (canValidate && eval['statut'] == 'SOUMISE')
               TextButton(
                 onPressed: onValidate,
+                // Compact : le badge + un bouton de 48 px débordaient de la tuile (16 px).
+                style: TextButton.styleFrom(
+                  minimumSize: Size.zero,
+                  padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 4),
+                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                  visualDensity: VisualDensity.compact,
+                ),
                 child: const Text('Valider',
                     style: TextStyle(fontSize: 12, color: AppColors.primary)),
               ),

@@ -189,6 +189,9 @@ class _EmployeeListScreenState extends ConsumerState<EmployeeListScreen> {
                           icon: const Icon(Icons.add, size: 16),
                           label: const Text('Ajouter'),
                           style: ElevatedButton.styleFrom(
+                            // Le thème impose minimumSize = Size.fromHeight (largeur infinie) :
+                            // dans une Row, il faut une largeur minimale finie.
+                            minimumSize: const Size(0, 44),
                             backgroundColor: AppColors.accent,
                             foregroundColor: Colors.white,
                             padding: const EdgeInsets.symmetric(
