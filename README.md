@@ -1,48 +1,95 @@
-# grh_mobile
+# GRH-Mobile
 
-A new Flutter project.
+Plateforme de gestion des ressources humaines pour les PME (Togo, puis Afrique de l'Ouest).
+Backend **Spring Boot 3 / PostgreSQL / Flyway**, application **Flutter** (Web et Android).
 
-## Getting Started
+> État du produit : en développement, **non prêt pour la production**.
+> Voir `RAPPORT_FINAL_REPRISE_ET_FINALISATION_GRH_MOBILE.md` pour l'état détaillé.
 
-This project is a starting point for a Flutter application.
+## Fonctionnalités principales
 
-A few resources to get you started if this is your first Flutter project:
+- Authentification JWT, 10 rôles, permissions modifiables, journal d'audit
+- Employés, départements, postes, contrats (alertes d'expiration), documents
+- Présences (pointage par QR code), congés (demande et validation), heures de travail
+- Paie : calcul et bulletins PDF. **Les règles légales togolaises (CNSS, IRPP) ne sont pas encore
+  configurées : elles attendent une validation par un expert-comptable.** Ne pas utiliser pour une paie réelle.
+- Recrutement (offres publiques, candidatures avec CV, entretiens, embauche), formations, évaluations
+- Espace employé (web et mobile), notifications, tableaux de bord, rapports
 
-- [Lab: Write your first Flutter app](https://docs.flutter.dev/get-started/codelab)
-- [Cookbook: Useful Flutter samples](https://docs.flutter.dev/cookbook)
+## Prérequis
 
-For help getting started with Flutter development, view the
-[online documentation](https://docs.flutter.dev/), which offers tutorials,
-samples, guidance on mobile development, and a full API reference.
+| Outil | Version testée |
+|---|---|
+| Java (JDK) | 17 |
+| Maven | 3.9 |
+| PostgreSQL | 15 à 17 (ou Docker) |
+| Flutter | 3.38 (Dart 3.10) |
+| Docker | Desktop récent (uniquement pour les tests d'intégration backend) |
 
-# 🌟 Aperçu des Fonctionnalités de GRH-Mobile
+## Installation depuis un clone neuf
 
-GRH-Mobile est un SIRH (Système d'Information Ressources Humaines) de pointe, conçu pour une gestion fluide, centralisée, et en temps-réel du cycle de vie des collaborateurs. L'architecture est totalement dynamique (Spring Boot + Flutter).
+### 1. Base de données
 
-## 🛡️ 1. Cœur d'Administration & Sécurité
+```bash
+docker compose up -d postgres        # PostgreSQL sur localhost:5432 (base grh_mobile, utilisateur grh)
+```
 
-- **Authentification & Session :** Système sécurisé avec péremption automatique.
-- **Droits d'accès Granulaires (RBAC) :** 10 rôles dynamiques _(du Super Admin à l'Employé)_ avec interfaces intelligentes adaptées au niveau de permission.
-- **Audit Logging :** Traçabilité à 100%. Toute création, mise à jour ou suppression est enregistrée avec des horodatages précis par utilisateur.
+### 2. Backend
 
-## 📊 2. Pilotage & Décisionnel
+```bash
+cd backend
+cp .env.example .env                 # puis renseigner JWT_SECRET (au moins 32 caractères aléatoires)
+```
 
-- **Tableaux de bords Temp-Réel :** Les métriques globales _(Masse salariale active, absences, départs imminents)_ s'auto-synchronisent à travers tout le système après la moindre modification dans la base de données.
-- **Rapports & Exports :** Génération de statistiques (PDF/Excel) permettant à la direction de visualiser l'évolution des effectifs.
+Variables principales (voir `backend/.env.example`) : `DB_URL`, `DB_USERNAME`, `DB_PASSWORD`,
+`JWT_SECRET`, `SERVER_PORT`, `BOOTSTRAP_ADMIN_EMAIL`, `BOOTSTRAP_ADMIN_PASSWORD`.
 
-## 👥 3. Gestion Administrative (Core HR)
+Exporter ces variables dans votre shell (Spring Boot ne lit pas `.env` tout seul), puis :
 
-- **Base Employés à 360° :** Suivi centralisé (Infos, Départements, Rôles, Documents).
-- **Organisation :** Structuration en arbre par _Départements_ et par _Postes_ permettant des liaisons hiérarchiques (Manager → Employé).
-- **Contrats & Carrières :** Création de CDD/CDI avec alertes préventives (J-30) générées sur le Dashboard à l'approche de la péremption d'un contrat.
+```bash
+mvn spring-boot:run                                          # base vide : seul le compte admin est créé
+mvn spring-boot:run -Dspring-boot.run.profiles=demo          # + données FICTIVES de démonstration
+```
 
-## ⏰ 4. Workflow : Présences, Congés & Paie
+- Les migrations Flyway (V1 à V6, puis V10 à V27 ; V7 à V9 n'ont jamais existé) s'appliquent automatiquement.
+- Compte administrateur initial : `BOOTSTRAP_ADMIN_EMAIL`. Sans `BOOTSTRAP_ADMIN_PASSWORD`, un mot de passe
+  temporaire est affiché dans les logs et doit être changé à la première connexion.
+- Profil `demo` : comptes de démonstration fictifs, mot de passe défini par `DEMO_PASSWORD` (sinon mot de
+  passe temporaire affiché dans les logs). **Le profil `demo` refuse de démarrer avec le profil `prod`.**
 
-- **Pointage par QR Code Intégré :** Fluidifie l'arrivée des employés grâce aux scans mobiles depuis l'application.
-- **Validation des Congés (Circuit d'approbation) :** Employé demande ➔ Manager reçoit l'alerte ➔ Validation ou Refus instantanés.
-- **Génération des Paies :** Calcul automatique complexe (Charges, Déductions CNSS, Impôts) et mise à disposition mensuelle dématérialisée de la fiche de paie en format PDF pour le collaborateur.
+### 3. Application Flutter
 
-## 🚀 5. Gestion des Talents (ATS)
+```bash
+flutter pub get
+cp .env.example .env                 # adapter API_BASE_URL (ex. http://localhost:8080/api)
+flutter run -d chrome --dart-define-from-file=.env
+flutter run -d <id-android>  --dart-define-from-file=.env
+```
 
-- **Recrutement :** Diffusion d'offres d'emploi, pipeline de suivi des CVs (En attente, Entretien, Décision).
-- **Formation & Évaluation :** Création de sessions de coaching avec invitations automatiques; évaluations semestrielles avec feedbacks pour suivre la performance d'équipe.
+- `.env.example` (versionné) fournit les valeurs par défaut ; `--dart-define-from-file=.env` les surcharge.
+- Le vrai `.env` n'est **jamais** versionné ni embarqué dans l'application.
+- Sur l'émulateur Android, `localhost` est automatiquement remplacé par `10.0.2.2`.
+
+## Tests
+
+```bash
+# Backend : tests unitaires
+cd backend && mvn test
+# Backend : tests unitaires + intégration (PostgreSQL via Testcontainers, Docker requis)
+cd backend && mvn verify
+
+# Flutter : analyse et tests unitaires
+flutter analyze
+flutter test
+
+# Flutter : parcours par rôle sur un appareil (comptes de DÉMO uniquement)
+cp integration_test/test_accounts.env.example integration_test/test_accounts.env   # à remplir, ignoré par Git
+flutter test integration_test/role_pages_audit_test.dart -d <appareil> \
+  --dart-define-from-file=integration_test/test_accounts.env
+```
+
+## Sécurité
+
+- Ne jamais versionner : `.env`, `backend/.env`, `android/local.properties`, keystores, `key.properties`,
+  `integration_test/test_accounts.env`, le dossier `uploads/`.
+- Ne jamais utiliser de données personnelles réelles dans les tests ou les démonstrations.

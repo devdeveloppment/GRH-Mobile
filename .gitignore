@@ -20,3 +20,10 @@ build/
 # Autres
 .codex
 
+
+# Identifiants de tests d integration (locaux)
+integration_test/test_accounts.env
+
+# Fichiers deposes (CV, documents RH) : donnees personnelles, jamais versionnees
+uploads/
+backend/uploads/
