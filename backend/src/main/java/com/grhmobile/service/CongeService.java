@@ -41,6 +41,7 @@ public class CongeService {
     private final AccessControlService acl;
     private final EmployeRepository employeRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final CalendrierService calendrierService;
 
     public CongeService(
         CongeRepository congeRepository,
@@ -49,8 +50,10 @@ public class CongeService {
         NotificationService notificationService,
         AccessControlService acl,
         EmployeRepository employeRepository,
-        UtilisateurRepository utilisateurRepository
+        UtilisateurRepository utilisateurRepository,
+        CalendrierService calendrierService
     ) {
+        this.calendrierService = calendrierService;
         this.acl = acl;
         this.employeRepository = employeRepository;
         this.utilisateurRepository = utilisateurRepository;
@@ -102,7 +105,11 @@ public class CongeService {
         if (request.dateDebut().isBefore(LocalDate.now())) {
             throw new BusinessException("La date de début ne peut pas être dans le passé.");
         }
-        long numberOfDays = ChronoUnit.DAYS.between(request.dateDebut(), request.dateFin()) + 1;
+        // Décompte selon le paramètre CONGES_MODE_DECOMPTE (calendaires, ouvrables ou ouvrés, hors fériés).
+        long numberOfDays = calendrierService.compterJoursConge(request.dateDebut(), request.dateFin());
+        if (numberOfDays <= 0) {
+            throw new BusinessException("La période choisie ne contient aucun jour décompté (week-end ou jours fériés).");
+        }
         if (!congeRepository.findOverlapping(employe.getId(), request.dateDebut(), request.dateFin(),
                 List.of(StatutConge.EN_ATTENTE, StatutConge.APPROUVE)).isEmpty()) {
             throw new BusinessException("Une demande de congé existe déjà sur cette période.");
