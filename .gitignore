@@ -7,7 +7,7 @@ backend/target/
 *.log
 
 # Flutter
-.build/
+build/
 .dart_tool/
 
 # OS
