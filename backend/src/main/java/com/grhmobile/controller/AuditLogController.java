@@ -23,14 +23,15 @@ public class AuditLogController {
 
     @GetMapping
     public PagedResponse<AuditLogResponse> search(
-        @RequestParam(required = false) String entite,
-        @RequestParam(required = false) String action,
-        @RequestParam(required = false) Long acteurId,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime debut,
-        @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime fin,
-        @RequestParam(defaultValue = "1")  int page,
-        @RequestParam(defaultValue = "20") int limit
-    ) {
-        return auditLogService.search(entite, action, acteurId, debut, fin, page, limit);
+            @RequestParam(required = false) String entite,
+            @RequestParam(required = false) String action,
+            // Le frontend envoie l'email de l'acteur comme filtre de recherche (paramètre
+            // "acteur")
+            @RequestParam(name = "acteur", required = false) String acteurEmail,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime debut,
+            @RequestParam(required = false) @DateTimeFormat(iso = DateTimeFormat.ISO.DATE_TIME) OffsetDateTime fin,
+            @RequestParam(defaultValue = "1") int page,
+            @RequestParam(defaultValue = "20") int limit) {
+        return auditLogService.search(entite, action, acteurEmail, debut, fin, page, limit);
     }
 }

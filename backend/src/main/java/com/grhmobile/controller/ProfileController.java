@@ -63,21 +63,27 @@ public class ProfileController {
                         .body(Map.of("error", "Fichier vide"));
             }
 
-            // Valider le type MIME
-            String contentType = photo.getContentType();
-            if (contentType == null || !contentType.startsWith("image/")) {
+            // Valider le contenu réel (signature JPEG / PNG / WebP), pas seulement l'en-tête
+            byte[] bytes = photo.getBytes();
+            String extension = detectImageExtension(bytes);
+            if (extension == null) {
                 return ResponseEntity.badRequest()
-                        .body(Map.of("error", "Le fichier doit être une image"));
+                        .body(Map.of("error", "Le fichier doit être une image JPEG, PNG ou WebP"));
+            }
+            if (bytes.length > 5 * 1024 * 1024) {
+                return ResponseEntity.badRequest()
+                        .body(Map.of("error", "L'image ne doit pas dépasser 5 Mo"));
             }
 
             // Créer le répertoire s'il n'existe pas
             Path uploadPath = Paths.get(uploadDir);
             Files.createDirectories(uploadPath);
 
-            // Sauvegarder le fichier : {uploadDir}/{userId}.jpg
-            String filename = user.getId() + ".jpg";
+            // Nom imprévisible pour éviter l'énumération des photos ; suppression de l'ancienne
+            deleteStoredPhoto(uploadPath, user.getPhotoUrl());
+            String filename = java.util.UUID.randomUUID() + extension;
             Path filePath = uploadPath.resolve(filename);
-            Files.write(filePath, photo.getBytes());
+            Files.write(filePath, bytes);
 
             // Mettre à jour photoUrl de l'utilisateur
             String photoUrl = "/uploads/photos/" + filename;
@@ -91,10 +97,36 @@ public class ProfileController {
 
         } catch (IOException e) {
             return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", "Erreur lors de l'upload: " + e.getMessage()));
-        } catch (Exception e) {
-            return ResponseEntity.status(HttpStatus.INTERNAL_SERVER_ERROR)
-                    .body(Map.of("error", e.getMessage()));
+                    .body(Map.of("error", "Erreur lors de l'enregistrement de la photo."));
+        }
+    }
+
+    private static String detectImageExtension(byte[] b) {
+        if (b.length >= 3 && (b[0] & 0xFF) == 0xFF && (b[1] & 0xFF) == 0xD8 && (b[2] & 0xFF) == 0xFF) {
+            return ".jpg";
+        }
+        if (b.length >= 8 && (b[0] & 0xFF) == 0x89 && b[1] == 'P' && b[2] == 'N' && b[3] == 'G') {
+            return ".png";
+        }
+        if (b.length >= 12 && b[0] == 'R' && b[1] == 'I' && b[2] == 'F' && b[3] == 'F'
+                && b[8] == 'W' && b[9] == 'E' && b[10] == 'B' && b[11] == 'P') {
+            return ".webp";
+        }
+        return null;
+    }
+
+    private static void deleteStoredPhoto(Path uploadPath, String photoUrl) {
+        if (photoUrl == null || !photoUrl.startsWith("/uploads/photos/")) {
+            return;
+        }
+        String name = photoUrl.substring("/uploads/photos/".length());
+        if (name.isBlank() || name.contains("/") || name.contains("\\") || name.contains("..")) {
+            return;
+        }
+        try {
+            Files.deleteIfExists(uploadPath.resolve(name));
+        } catch (IOException ignored) {
+            // non bloquant
         }
     }
 
@@ -112,9 +144,9 @@ public class ProfileController {
         }
         String currentPassword = body.get("currentPassword");
         String newPassword = body.get("newPassword");
-        if (currentPassword == null || newPassword == null || newPassword.length() < 6) {
+        if (currentPassword == null || newPassword == null || newPassword.length() < 8) {
             return ResponseEntity.badRequest()
-                    .body(Map.of("error", "Paramètres invalides"));
+                    .body(Map.of("error", "Le nouveau mot de passe doit contenir au moins 8 caractères."));
         }
         Utilisateur user = utilisateurRepository.findByEmailIgnoreCase(authentication.getName())
                 .orElseThrow(() -> new RuntimeException("Utilisateur introuvable"));
@@ -122,7 +154,12 @@ public class ProfileController {
             return ResponseEntity.status(HttpStatus.UNPROCESSABLE_ENTITY)
                     .body(Map.of("error", "Mot de passe actuel incorrect"));
         }
+        if (passwordEncoder.matches(newPassword, user.getMotDePasse())) {
+            return ResponseEntity.badRequest()
+                    .body(Map.of("error", "Le nouveau mot de passe doit être différent de l'actuel."));
+        }
         user.setMotDePasse(passwordEncoder.encode(newPassword));
+        user.setDoitChangerMotDePasse(false);
         utilisateurRepository.save(user);
         return ResponseEntity.ok(Map.of("message", "Mot de passe modifié avec succès"));
     }

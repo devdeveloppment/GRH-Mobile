@@ -29,7 +29,13 @@ public class PaieController {
         this.paieService = paieService;
     }
 
+    @GetMapping("/me")
+    public Map<String, Object> listMine() {
+        return paieService.listMine();
+    }
+
     @GetMapping
+    @PreAuthorize("@acl.can('MANAGE_PAIE')")
     public Map<String, Object> list(
         @RequestParam int month,
         @RequestParam int year
@@ -38,12 +44,14 @@ public class PaieController {
     }
 
     @PostMapping("/calculate")
+    @PreAuthorize("@acl.can('MANAGE_PAIE')")
     public ResponseEntity<Void> calculateAll(@Valid @RequestBody PayrollPeriodRequest request) {
         paieService.calculateAll(request);
         return ResponseEntity.noContent().build();
     }
 
     @GetMapping("/{id}/bulletin/pdf")
+    @PreAuthorize("@acl.canViewFichePaie(#id)")
     public ResponseEntity<byte[]> payslipPdf(@PathVariable Long id) {
         byte[] content = paieService.generatePayslipPdf(id);
         return ResponseEntity.ok()
@@ -52,13 +60,13 @@ public class PaieController {
             .body(content);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
+    @PreAuthorize("@acl.can('MANAGE_PAIE')")
     @PostMapping("/validate")
     public Map<String, Object> validatePayroll(@Valid @RequestBody PayrollPeriodRequest request) {
         return paieService.validateForPeriod(request);
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
+    @PreAuthorize("@acl.can('MANAGE_PAIE')")
     @GetMapping("/export/csv")
     public ResponseEntity<byte[]> exportCsv(
             @RequestParam int month,

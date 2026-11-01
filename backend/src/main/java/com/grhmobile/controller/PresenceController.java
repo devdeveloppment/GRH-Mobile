@@ -13,12 +13,14 @@ import com.grhmobile.dto.qrcode.QrScanResponse;
 import com.grhmobile.service.PresenceService;
 
 import jakarta.validation.Valid;
+import org.springframework.security.access.prepost.PreAuthorize;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
 import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.PutMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestMapping;
+import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
 
 @RestController
@@ -32,8 +34,13 @@ public class PresenceController {
     }
 
     @GetMapping
-    public Map<String, Object> list() {
-        return presenceService.listAll();
+    @PreAuthorize("hasAnyRole('RH_MANAGER','MANAGER','DIRECTION')")
+    public Map<String, Object> list(
+        @RequestParam(required = false) java.time.LocalDate debut,
+        @RequestParam(required = false) java.time.LocalDate fin,
+        @RequestParam(required = false) String statut
+    ) {
+        return presenceService.listAll(debut, fin, statut);
     }
 
     @GetMapping("/me")
@@ -47,6 +54,7 @@ public class PresenceController {
     }
 
     @PostMapping("/scan")
+    @PreAuthorize("hasAnyRole('RH_MANAGER','MANAGER')")
     public QrScanResponse scan(@Valid @RequestBody QrScanRequest request) {
         return presenceService.scanPointage(request);
     }
@@ -62,6 +70,7 @@ public class PresenceController {
     }
 
     @PutMapping("/{id}/justify")
+    @PreAuthorize("@acl.canJustifyPresence(#id)")
     public JustifyAbsenceResponse justifyAbsence(
         @PathVariable Long id,
         @Valid @RequestBody JustifyAbsenceRequest request

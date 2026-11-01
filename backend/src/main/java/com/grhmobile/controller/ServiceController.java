@@ -39,6 +39,7 @@ public class ServiceController {
     }
 
     @GetMapping("/{id}/employes")
+    @PreAuthorize("hasAnyRole('RH_MANAGER','DIRECTION','MANAGER')")
     public Map<String, Object> listEmployes(@PathVariable Long id) {
         ServiceEntity service = find(id);
         List<EmployeeResponse> items = employeRepository.findAll().stream()

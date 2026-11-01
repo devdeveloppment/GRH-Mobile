@@ -1,5 +1,7 @@
 package com.grhmobile.service;
 
+import com.grhmobile.audit.Auditable;
+import com.grhmobile.security.AccessControlService;
 import java.io.ByteArrayOutputStream;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
@@ -32,9 +34,11 @@ public class PaieService {
     private final FichePaieRepository fichePaieRepository;
     private final EmployeRepository employeRepository;
     private final NotificationService notificationService;
+    private final AccessControlService acl;
 
     public PaieService(FichePaieRepository fichePaieRepository, EmployeRepository employeRepository,
-                       NotificationService notificationService) {
+                       NotificationService notificationService, AccessControlService acl) {
+        this.acl = acl;
         this.fichePaieRepository = fichePaieRepository;
         this.employeRepository = employeRepository;
         this.notificationService = notificationService;
@@ -51,6 +55,7 @@ public class PaieService {
         return Map.of("items", items);
     }
 
+    @Auditable(action = "CALCULATE_PAYROLL", entite = "FichePaie")
     @Transactional
     public void calculateAll(PayrollPeriodRequest request) {
         YearMonth period = YearMonth.of(request.year(), request.month());
@@ -60,6 +65,11 @@ public class PaieService {
         for (Employe employee : employees) {
             FichePaie fichePaie = fichePaieRepository.findByEmployeIdAndPeriode(employee.getId(), key)
                 .orElseGet(FichePaie::new);
+            if (fichePaie.isValidee()) {
+                // Une fiche validée est verrouillée : aucun recalcul possible
+                continue;
+            }
+            boolean nouvelle = fichePaie.getId() == null;
 
             BigDecimal gross = employee.getSalaireBrutBase();
             BigDecimal cnss = percent(gross, 4);
@@ -78,8 +88,8 @@ public class PaieService {
 
             fichePaieRepository.save(fichePaie);
 
-            // Notifier l'employé que son bulletin est disponible
-            if (employee.getUtilisateur() != null) {
+            // Notifier l'employé lors de la première mise à disposition du bulletin
+            if (nouvelle && employee.getUtilisateur() != null) {
                 notificationService.create(
                     employee.getUtilisateur().getId(),
                     "Bulletin de paie disponible",
@@ -89,6 +99,15 @@ public class PaieService {
                 );
             }
         }
+    }
+
+    /** Bulletins de l'employé connecté. */
+    @Transactional(readOnly = true)
+    public Map<String, Object> listMine() {
+        Employe employe = acl.currentEmploye()
+            .orElseThrow(() -> new ResourceNotFoundException("Employé associé introuvable."));
+        return Map.of("items", fichePaieRepository.findByEmployeIdOrderByPeriodeDesc(employe.getId())
+            .stream().map(FichePaieResponse::fromEntity).toList());
     }
 
     @Transactional(readOnly = true)
@@ -128,6 +147,7 @@ public class PaieService {
         }
     }
 
+    @Auditable(action = "VALIDATE_PAYROLL", entite = "FichePaie")
     @Transactional
     public Map<String, Object> validateForPeriod(PayrollPeriodRequest request) {
         YearMonth period = YearMonth.of(request.year(), request.month());

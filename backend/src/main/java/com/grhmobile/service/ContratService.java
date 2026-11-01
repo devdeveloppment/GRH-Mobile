@@ -1,5 +1,8 @@
 package com.grhmobile.service;
 
+import com.grhmobile.exception.BusinessException;
+import com.grhmobile.enums.TypeContrat;
+import com.grhmobile.audit.Auditable;
 import com.grhmobile.dto.contrat.ContratRequest;
 import com.grhmobile.dto.contrat.ContratResponse;
 import com.grhmobile.entity.Contrat;
@@ -55,14 +58,52 @@ public class ContratService {
         return Map.of("items", items, "total", items.size());
     }
 
+    @Auditable(action = "CREATE_CONTRAT", entite = "Contrat")
     @Transactional
     public ContratResponse create(String matricule, ContratRequest request) {
         Employe employe = employeeService.findByMatricule(matricule);
+        String type = request.typeContrat() == null ? "" : request.typeContrat().trim().toUpperCase();
+        TypeContrat typeContrat;
+        try {
+            typeContrat = TypeContrat.valueOf(type);
+        } catch (IllegalArgumentException exception) {
+            throw new BusinessException("Type de contrat inconnu : " + request.typeContrat() + " (CDI, CDD ou STAGE).");
+        }
+        if (request.dateFin() != null && request.dateFin().isBefore(request.dateDebut())) {
+            throw new BusinessException("La date de fin doit être postérieure à la date de début.");
+        }
+        if (typeContrat != TypeContrat.CDI && request.dateFin() == null) {
+            throw new BusinessException("Une date de fin est obligatoire pour un contrat " + type + ".");
+        }
+        if (request.salaireBrut().signum() < 0) {
+            throw new BusinessException("Le salaire ne peut pas être négatif.");
+        }
+
+        // Le nouveau contrat remplace le contrat actif précédent
+        contratRepository.findByEmployeIdOrderByDateDebutDesc(employe.getId()).stream()
+            .filter(c -> "ACTIF".equals(c.getStatut()))
+            .forEach(c -> {
+                c.setStatut("TERMINE");
+                contratRepository.save(c);
+            });
 
         Contrat contrat = new Contrat();
         contrat.setEmploye(employe);
         applyRequest(contrat, request);
+        contrat.setStatut("ACTIF");
         contratRepository.save(contrat);
+
+        // La fiche employé reflète le contrat en vigueur
+        employe.setTypeContrat(typeContrat);
+        employe.setSalaireBrutBase(request.salaireBrut());
+        employe.setDateFinContrat(request.dateFin());
+        if (contrat.getPoste() != null) {
+            employe.setPosteRef(contrat.getPoste());
+            employe.setPoste(contrat.getPoste().getIntitule());
+        }
+        if (contrat.getDepartement() != null) {
+            employe.setDepartement(contrat.getDepartement());
+        }
 
         // Notifier l'employé
         if (employe.getUtilisateur() != null) {
@@ -78,10 +119,15 @@ public class ContratService {
         return ContratResponse.fromEntity(contrat);
     }
 
+    @Auditable(action = "UPDATE_CONTRAT_STATUT", entite = "Contrat")
     @Transactional
     public ContratResponse updateStatut(Long id, String statut) {
         Contrat contrat = findById(id);
-        contrat.setStatut(statut.trim().toUpperCase());
+        String nouveau = statut == null ? "" : statut.trim().toUpperCase();
+        if (!java.util.List.of("ACTIF", "SUSPENDU", "TERMINE", "RESILIE").contains(nouveau)) {
+            throw new BusinessException("Statut de contrat inconnu : " + statut + " (ACTIF, SUSPENDU, TERMINE, RESILIE).");
+        }
+        contrat.setStatut(nouveau);
         return ContratResponse.fromEntity(contratRepository.save(contrat));
     }
 

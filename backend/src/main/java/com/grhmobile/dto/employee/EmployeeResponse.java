@@ -23,10 +23,26 @@ public record EmployeeResponse(
     LocalDate dateFin,
     String photoUrl,
     Boolean presentAujourdHui,
-    Double salaire
+    Double salaire,
+    Long posteId,
+    Long departementId,
+    String departement,
+    String managerMatricule,
+    String managerNom,
+    String motDePasseTemporaire
 ) {
 
     public static EmployeeResponse fromEntity(Employe employe, boolean presentAujourdHui) {
+        return fromEntity(employe, presentAujourdHui, true, null);
+    }
+
+    /**
+     * @param showSalary    false pour masquer le salaire aux profils non habilités
+     * @param tempPassword  mot de passe temporaire, renvoyé uniquement à la création
+     */
+    public static EmployeeResponse fromEntity(Employe employe, boolean presentAujourdHui,
+                                              boolean showSalary, String tempPassword) {
+        Employe manager = employe.getManager();
         return new EmployeeResponse(
             employe.getId(),
             employe.getMatricule(),
@@ -46,7 +62,13 @@ public record EmployeeResponse(
             employe.getDateFinContrat(),
             employe.getPhotoUrl(),
             presentAujourdHui,
-            employe.getSalaireBrutBase() != null ? employe.getSalaireBrutBase().doubleValue() : null
+            showSalary && employe.getSalaireBrutBase() != null ? employe.getSalaireBrutBase().doubleValue() : null,
+            employe.getPosteRef() != null ? employe.getPosteRef().getId() : null,
+            employe.getDepartement() != null ? employe.getDepartement().getId() : null,
+            employe.getDepartement() != null ? employe.getDepartement().getNom() : null,
+            manager != null ? manager.getMatricule() : null,
+            manager != null ? manager.getPrenom() + " " + manager.getNom() : null,
+            tempPassword
         );
     }
 }

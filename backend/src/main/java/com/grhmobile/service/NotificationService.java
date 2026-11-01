@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import com.grhmobile.repository.AppSettingRepository;
 import java.time.OffsetDateTime;
 import java.util.List;
 import java.util.Map;
@@ -20,10 +21,13 @@ public class NotificationService {
 
     private final NotificationRepository notificationRepository;
     private final UtilisateurRepository utilisateurRepository;
+    private final AppSettingRepository appSettingRepository;
 
     public NotificationService(
             NotificationRepository notificationRepository,
-            UtilisateurRepository utilisateurRepository) {
+            UtilisateurRepository utilisateurRepository,
+            AppSettingRepository appSettingRepository) {
+        this.appSettingRepository = appSettingRepository;
         this.notificationRepository = notificationRepository;
         this.utilisateurRepository = utilisateurRepository;
     }
@@ -37,6 +41,10 @@ public class NotificationService {
     /** Crée une notification avec redirection vers une route Flutter. */
     @Transactional
     public void create(Long utilisateurId, String titre, String message, String type, String redirectTo) {
+        boolean enabled = appSettingRepository.findByKey("NOTIFICATIONS").map(s -> s.isEnabled()).orElse(true);
+        if (!enabled) {
+            return;
+        }
         Utilisateur utilisateur = utilisateurRepository.findById(utilisateurId)
             .orElseThrow(() -> new ResourceNotFoundException("Utilisateur introuvable."));
         Notification notification = new Notification();

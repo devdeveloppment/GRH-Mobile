@@ -27,6 +27,7 @@ public class ReportController {
     }
 
     @GetMapping("/export")
+    @PreAuthorize("@acl.can('VIEW_REPORTS')")
     public ResponseEntity<byte[]> export(@RequestParam(defaultValue = "pdf") String format) {
         ReportExport export = reportService.export(format);
         return ResponseEntity.ok()
@@ -35,7 +36,7 @@ public class ReportController {
             .body(export.content());
     }
 
-    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER', 'DIRECTION')")
+    @PreAuthorize("@acl.can('VIEW_REPORTS')")
     @PostMapping("/generate")
     public ResponseEntity<byte[]> generate(@RequestBody GenerateReportRequest request) {
         ReportExport export = reportService.generateReport(request);

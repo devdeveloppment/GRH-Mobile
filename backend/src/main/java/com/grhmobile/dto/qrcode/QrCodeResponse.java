@@ -11,17 +11,20 @@ public record QrCodeResponse(
     String nomComplet,
     String token,
     OffsetDateTime createdAt,
-    OffsetDateTime updatedAt
+    OffsetDateTime updatedAt,
+    java.time.Instant expiresAt
 ) {
-    public static QrCodeResponse fromEntity(EmployeQrCode qr) {
+    /** @param signedToken jeton dynamique signé (valable quelques dizaines de secondes) */
+    public static QrCodeResponse fromEntity(EmployeQrCode qr, String signedToken, java.time.Instant expiresAt) {
         return new QrCodeResponse(
             qr.getId(),
             qr.getEmploye().getId(),
             qr.getEmploye().getMatricule(),
             qr.getEmploye().getPrenom() + " " + qr.getEmploye().getNom(),
-            qr.getToken(),
+            signedToken,
             qr.getCreatedAt(),
-            qr.getUpdatedAt()
+            qr.getUpdatedAt(),
+            expiresAt
         );
     }
 }

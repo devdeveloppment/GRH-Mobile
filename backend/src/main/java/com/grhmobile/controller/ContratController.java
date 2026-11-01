@@ -23,6 +23,7 @@ public class ContratController {
     }
 
     @GetMapping("/employees/{matricule}/contrats")
+    @PreAuthorize("@acl.canViewPayroll(#matricule)")
     public Map<String, Object> listByEmploye(@PathVariable String matricule) {
         List<ContratResponse> items = contratService.listByMatricule(matricule);
         return Map.of("items", items, "total", items.size());

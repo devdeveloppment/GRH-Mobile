@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import com.grhmobile.audit.Auditable;
 import com.grhmobile.dto.employee.EmployeeRequest;
 import com.grhmobile.dto.employee.EmployeeResponse;
 import com.grhmobile.dto.recrutement.*;
@@ -20,6 +21,11 @@ import java.util.Map;
 
 @Service
 public class RecrutementService {
+
+    private static final java.util.List<String> STATUTS_CANDIDATURE =
+        java.util.List.of("RECUE", "PRESELECTIONNE", "ENTRETIEN", "RETENU", "REFUSE");
+    private static final java.util.List<String> STATUTS_OFFRE =
+        java.util.List.of("BROUILLON", "PUBLIEE", "FERMEE", "POURVUE", "ANNULEE");
 
     private final OffreEmploiRepository offreRepository;
     private final CandidatureRepository candidatureRepository;
@@ -64,6 +70,15 @@ public class RecrutementService {
         return Map.of("items", items, "total", items.size());
     }
 
+    @Transactional(readOnly = true)
+    public OffreResponse getOffrePubliee(Long id) {
+        OffreEmploi offre = findOffreById(id);
+        if (!"PUBLIEE".equals(offre.getStatut())) {
+            throw new ResourceNotFoundException("Cette offre n'est plus disponible.");
+        }
+        return OffreResponse.fromEntity(offre);
+    }
+
     @Transactional
     public OffreResponse createOffre(OffreRequest request) {
         OffreEmploi offre = new OffreEmploi();
@@ -84,7 +99,11 @@ public class RecrutementService {
     @Transactional
     public OffreResponse updateStatutOffre(Long id, String statut) {
         OffreEmploi offre = findOffreById(id);
-        offre.setStatut(statut.trim().toUpperCase());
+        String nouveauStatut = statut == null ? "" : statut.trim().toUpperCase();
+        if (!STATUTS_OFFRE.contains(nouveauStatut)) {
+            throw new BusinessException("Statut d'offre inconnu : " + statut);
+        }
+        offre.setStatut(nouveauStatut);
         return OffreResponse.fromEntity(offreRepository.save(offre));
     }
 
@@ -141,10 +160,14 @@ public class RecrutementService {
         return CandidatureResponse.fromEntity(candidatureRepository.save(c));
     }
 
+    @Auditable(action = "HIRE_CANDIDATE", entite = "Candidature")
     @Transactional
     public Map<String, Object> embaucher(Long candidatureId, String poste, String service,
                                          String typeContrat, BigDecimal salaire) {
         Candidature c = findCandidatureById(candidatureId);
+        if ("REFUSE".equals(c.getStatut())) {
+            throw new BusinessException("Impossible d'embaucher un candidat refusé.");
+        }
         EmployeeRequest req = new EmployeeRequest(
             c.getNom(),
             c.getPrenom(),
@@ -161,7 +184,10 @@ public class RecrutementService {
             null,
             null,
             null,
-            salaire != null ? salaire : BigDecimal.ZERO
+            salaire != null ? salaire : BigDecimal.ZERO,
+            null,
+            null,
+            null
         );
         EmployeeResponse employe = employeeService.create(req);
         c.setStatut("RETENU");
@@ -180,7 +206,12 @@ public class RecrutementService {
     @Transactional
     public CandidatureResponse updateStatutCandidature(Long id, String statut, Integer note, String commentaire) {
         Candidature c = findCandidatureById(id);
-        c.setStatut(statut.trim().toUpperCase());
+        String nouveauStatut = statut == null ? "" : statut.trim().toUpperCase();
+        if (!STATUTS_CANDIDATURE.contains(nouveauStatut)) {
+            throw new BusinessException("Statut de candidature inconnu : " + statut
+                + ". Valeurs possibles : " + String.join(", ", STATUTS_CANDIDATURE) + ".");
+        }
+        c.setStatut(nouveauStatut);
         if (note != null) c.setNote(note);
         if (commentaire != null) c.setCommentaire(commentaire);
         return CandidatureResponse.fromEntity(candidatureRepository.save(c));

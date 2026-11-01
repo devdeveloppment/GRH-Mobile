@@ -3,7 +3,6 @@ package com.grhmobile.service;
 import com.grhmobile.dto.audit.AuditLogResponse;
 import com.grhmobile.dto.common.PagedResponse;
 import com.grhmobile.entity.AuditLog;
-import com.grhmobile.entity.Utilisateur;
 import com.grhmobile.repository.AuditLogRepository;
 import com.grhmobile.repository.UtilisateurRepository;
 
@@ -23,14 +22,14 @@ public class AuditLogService {
     private final UtilisateurRepository utilisateurRepository;
 
     public AuditLogService(AuditLogRepository auditLogRepository,
-                           UtilisateurRepository utilisateurRepository) {
+            UtilisateurRepository utilisateurRepository) {
         this.auditLogRepository = auditLogRepository;
         this.utilisateurRepository = utilisateurRepository;
     }
 
     @Transactional
     public void log(Long acteurId, String action, String entite, Long entiteId,
-                    String avant, String apres, String ip) {
+            String avant, String apres, String ip) {
         AuditLog log = new AuditLog();
         if (acteurId != null) {
             utilisateurRepository.findById(acteurId).ifPresent(log::setActeur);
@@ -44,19 +43,40 @@ public class AuditLogService {
         auditLogRepository.save(log);
     }
 
+    /**
+     * Recherche paginée des entrées d'audit.
+     *
+     * @param entite      filtre optionnel sur le type d'entité
+     * @param action      filtre optionnel sur l'action (LIKE %action%)
+     * @param acteurEmail filtre optionnel sur l'email de l'acteur (correspondance
+     *                    partielle)
+     * @param debut       date de début (incluse)
+     * @param fin         date de fin (incluse)
+     * @param page        numéro de page (1-indexé côté client)
+     * @param limit       taille de page
+     */
     @Transactional(readOnly = true)
     public PagedResponse<AuditLogResponse> search(String entite, String action,
-                                                   Long acteurId, OffsetDateTime debut,
-                                                   OffsetDateTime fin, int page, int limit) {
+            String acteurEmail, OffsetDateTime debut,
+            OffsetDateTime fin, int page, int limit) {
+        // Normalise l'action pour une recherche LIKE
+        String actionPattern = (action != null && !action.isBlank()) ? "%" + action + "%" : null;
+        // Normalise l'email vide en null
+        String emailFilter = (acteurEmail != null && !acteurEmail.isBlank()) ? acteurEmail : null;
+
         Page<AuditLog> result = auditLogRepository.search(
-            entite, action != null ? "%" + action + "%" : null,
-            acteurId, debut, fin,
-            PageRequest.of(Math.max(page - 1, 0), limit, Sort.by("createdAt").descending())
-        );
+                (entite != null && !entite.isBlank()) ? entite : null,
+                actionPattern,
+                emailFilter,
+                debut,
+                fin,
+                PageRequest.of(Math.max(page - 1, 0), limit, Sort.by("createdAt").descending()));
+
         List<AuditLogResponse> items = result.getContent()
-            .stream()
-            .map(AuditLogResponse::fromEntity)
-            .toList();
+                .stream()
+                .map(AuditLogResponse::fromEntity)
+                .toList();
+
         return new PagedResponse<>(items, result.getTotalElements(), page, limit);
     }
 }

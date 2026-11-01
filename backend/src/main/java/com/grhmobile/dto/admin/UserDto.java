@@ -11,10 +11,16 @@ public record UserDto(
     String role,
     boolean actif,
     OffsetDateTime dateCreation,
-    String photoUrl
+    String photoUrl,
+    String motDePasseTemporaire
 ) {
+    public static UserDto fromEntity(Utilisateur u, String motDePasseTemporaire) {
+        return new UserDto(u.getId(), u.getNom(), u.getPrenom(), u.getEmail(),
+                u.getRole().name(), u.isActif(), u.getDateCreation(), u.getPhotoUrl(), motDePasseTemporaire);
+    }
+
     public static UserDto fromEntity(Utilisateur u) {
         return new UserDto(u.getId(), u.getNom(), u.getPrenom(), u.getEmail(),
-                u.getRole().name(), u.isActif(), u.getDateCreation(), u.getPhotoUrl());
+                u.getRole().name(), u.isActif(), u.getDateCreation(), u.getPhotoUrl(), null);
     }
 }

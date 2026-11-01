@@ -31,6 +31,10 @@ public record EmployeeRequest(
     LocalDate dateFin,
     String photoUrl,
     @NotNull(message = "Le salaire est obligatoire.")
-    BigDecimal salaire
+    @jakarta.validation.constraints.PositiveOrZero(message = "Le salaire ne peut pas être négatif.")
+    BigDecimal salaire,
+    Long posteId,
+    Long departementId,
+    String managerMatricule
 ) {
 }

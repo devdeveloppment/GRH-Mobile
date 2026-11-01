@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import com.grhmobile.repository.FormationRepository;
 import java.math.BigDecimal;
 import java.math.RoundingMode;
 import java.time.LocalDate;
@@ -44,13 +45,16 @@ public class DashboardService {
     private final PresenceRepository presenceRepository;
     private final CongeRepository congeRepository;
     private final FichePaieRepository fichePaieRepository;
+    private final FormationRepository formationRepository;
 
     public DashboardService(
         EmployeRepository employeRepository,
         PresenceRepository presenceRepository,
         CongeRepository congeRepository,
-        FichePaieRepository fichePaieRepository
+        FichePaieRepository fichePaieRepository,
+        FormationRepository formationRepository
     ) {
+        this.formationRepository = formationRepository;
         this.employeRepository = employeRepository;
         this.presenceRepository = presenceRepository;
         this.congeRepository = congeRepository;
@@ -70,8 +74,11 @@ public class DashboardService {
         long pendingLeaves = congeRepository.countByStatut(StatutConge.EN_ATTENTE);
         long payslipsThisMonth = fichePaieRepository.countByPeriode(FichePaie.formatPeriode(currentMonth));
 
+        // Masse salariale mensuelle des seuls employés actifs
         BigDecimal payrollMass = employees.stream()
+            .filter(employee -> "ACTIF".equalsIgnoreCase(employee.getStatut()))
             .map(Employe::getSalaireBrutBase)
+            .filter(java.util.Objects::nonNull)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         long totalCheckinsToday = presenceRepository.countByDate(today);
@@ -93,7 +100,7 @@ public class DashboardService {
             approvedLeaves,
             turnoverRate,
             buildWeeklyAttendance(weeklyPresences),
-            buildPayrollEvolution(employees),
+            buildPayrollEvolution(),
             buildDepartmentBreakdown(employees),
             buildRecentActivities(leaves, weeklyPresences)
         );
@@ -119,15 +126,25 @@ public class DashboardService {
             .toList();
     }
 
-    private List<DashboardPointDto> buildPayrollEvolution(List<Employe> employees) {
+    /** Masse salariale brute réellement calculée (fiches de paie) sur les 6 derniers mois. */
+    private List<DashboardPointDto> buildPayrollEvolution() {
+        YearMonth end = YearMonth.now();
+        YearMonth start = end.minusMonths(5);
+        Map<String, BigDecimal> totals = new LinkedHashMap<>();
+        for (int i = 0; i < 6; i++) {
+            totals.put(FichePaie.formatPeriode(start.plusMonths(i)), BigDecimal.ZERO);
+        }
+        fichePaieRepository.findByPeriodeBetweenOrderByPeriodeAscEmployeNomAsc(
+                FichePaie.formatPeriode(start), FichePaie.formatPeriode(end))
+            .forEach(fiche -> totals.computeIfPresent(fiche.getPeriode(),
+                (key, sum) -> sum.add(fiche.getSalaireBrut() != null ? fiche.getSalaireBrut() : BigDecimal.ZERO)));
         List<DashboardPointDto> points = new ArrayList<>();
-        BigDecimal base = employees.stream().map(Employe::getSalaireBrutBase).reduce(BigDecimal.ZERO, BigDecimal::add);
-        for (int i = 5; i >= 0; i--) {
-            YearMonth period = YearMonth.now().minusMonths(i);
-            BigDecimal adjusted = base.multiply(BigDecimal.valueOf(0.92 + (5 - i) * 0.02));
+        int index = 0;
+        for (Map.Entry<String, BigDecimal> entry : totals.entrySet()) {
+            YearMonth period = start.plusMonths(index++);
             points.add(new DashboardPointDto(
                 period.getMonth().getDisplayName(TextStyle.SHORT, FRENCH),
-                adjusted.setScale(0, RoundingMode.HALF_UP).doubleValue()
+                entry.getValue().setScale(0, RoundingMode.HALF_UP).doubleValue()
             ));
         }
         return points;
@@ -188,14 +205,18 @@ public class DashboardService {
         LocalDate today = LocalDate.now();
         List<Employe> employees = employeRepository.findAll();
         List<Conge> leaves = congeRepository.findAll();
-        List<Presence> monthlyPresences = presenceRepository.findByDateBetweenOrderByDateAsc(today.minusMonths(1), today);
+        List<Presence> monthlyPresences = presenceRepository.findByDateBetweenOrderByDateAsc(
+            YearMonth.now().minusMonths(5).atDay(1), today);
 
         // KPI Summary
         long totalEmployees = employees.stream().filter(e -> "ACTIF".equalsIgnoreCase(e.getStatut())).count();
         long presentToday = presenceRepository.countByDateAndStatut(today, StatutPresence.PRESENT);
         double attendanceRate = totalEmployees == 0 ? 0 : (presentToday * 100d) / totalEmployees;
         long pendingLeaves = congeRepository.countByStatut(StatutConge.EN_ATTENTE);
-        BigDecimal payrollMass = employees.stream().map(Employe::getSalaireBrutBase)
+        BigDecimal payrollMass = employees.stream()
+            .filter(e -> "ACTIF".equalsIgnoreCase(e.getStatut()))
+            .map(Employe::getSalaireBrutBase)
+            .filter(java.util.Objects::nonNull)
             .reduce(BigDecimal.ZERO, BigDecimal::add);
 
         // Charts
@@ -212,7 +233,7 @@ public class DashboardService {
         QuickStatsDto quickStats = buildQuickStats(employees);
 
         // Payroll breakdown
-        List<DashboardPointDto> payrollBreakdown = buildPayrollBreakdown(employees);
+        List<DashboardPointDto> payrollBreakdown = buildPayrollBreakdown();
 
         return new EnhancedDashboardResponse(
             totalEmployees,
@@ -228,25 +249,22 @@ public class DashboardService {
         );
     }
 
+    /** Nombre de pointages « présent » par mois sur les 6 derniers mois (libellés réels). */
     private List<DashboardPointDto> buildAttendanceEvolution(List<Presence> presences) {
-        Map<String, Long> monthlyData = new LinkedHashMap<>();
-        String[] months = {"Jan", "Fév", "Mar", "Avr", "Mai", "Juin"};
-        
-        for (String month : months) {
-            monthlyData.put(month, 0L);
+        YearMonth start = YearMonth.now().minusMonths(5);
+        Map<YearMonth, Long> monthly = new LinkedHashMap<>();
+        for (int i = 0; i < 6; i++) {
+            monthly.put(start.plusMonths(i), 0L);
         }
-
         for (Presence presence : presences) {
             if (presence.getStatut() == StatutPresence.PRESENT) {
-                int monthIdx = presence.getDate().getMonthValue() - LocalDate.now().getMonthValue() + 5;
-                if (monthIdx >= 0 && monthIdx < 6) {
-                    monthlyData.computeIfPresent(months[monthIdx], (k, v) -> v + 1);
-                }
+                monthly.computeIfPresent(YearMonth.from(presence.getDate()), (k, v) -> v + 1);
             }
         }
-
-        return monthlyData.entrySet().stream()
-            .map(e -> new DashboardPointDto(e.getKey(), e.getValue().doubleValue()))
+        return monthly.entrySet().stream()
+            .map(e -> new DashboardPointDto(
+                e.getKey().getMonth().getDisplayName(TextStyle.SHORT, FRENCH),
+                e.getValue().doubleValue()))
             .toList();
     }
 
@@ -289,11 +307,11 @@ public class DashboardService {
     private QuickStatsDto buildQuickStats(List<Employe> employees) {
         long activeContracts = employees.stream().filter(e -> "ACTIF".equalsIgnoreCase(e.getStatut())).count();
         long probationary = employees.stream()
-            .filter(e -> e.getDateEmbauche() != null && 
+            .filter(e -> "ACTIF".equalsIgnoreCase(e.getStatut()) && e.getDateEmbauche() != null && 
                 e.getDateEmbauche().plusMonths(3).isAfter(LocalDate.now()))
             .count();
         long departures = employees.stream().filter(e -> "ARCHIVE".equalsIgnoreCase(e.getStatut())).count();
-        long trainings = 0; // À compléter selon ta structure
+        long trainings = formationRepository.findByStatutOrderByDateDebutDesc("EN_COURS").size();
 
         long cdi = employees.stream()
             .filter(e -> e.getTypeContrat() == TypeContrat.CDI)
@@ -308,18 +326,34 @@ public class DashboardService {
         return new QuickStatsDto(activeContracts, probationary, departures, trainings, cdi, cdd, internship);
     }
 
-    private List<DashboardPointDto> buildPayrollBreakdown(List<Employe> employees) {
-        BigDecimal baseSalary = employees.stream()
-            .map(Employe::getSalaireBrutBase).reduce(BigDecimal.ZERO, BigDecimal::add);
-        BigDecimal bonuses = baseSalary.multiply(BigDecimal.valueOf(0.15));
-        BigDecimal allowances = baseSalary.multiply(BigDecimal.valueOf(0.10));
-        BigDecimal socialCharges = baseSalary.multiply(BigDecimal.valueOf(0.42));
-
+    /**
+     * Ventilation issue des fiches de paie de la dernière période calculée
+     * (aucune estimation : liste vide si aucune paie n'a été calculée).
+     */
+    private List<DashboardPointDto> buildPayrollBreakdown() {
+        YearMonth period = YearMonth.now();
+        List<FichePaie> fiches = List.of();
+        for (int i = 0; i < 12 && fiches.isEmpty(); i++) {
+            fiches = fichePaieRepository.findByPeriodeOrderByEmployeNomAsc(FichePaie.formatPeriode(period.minusMonths(i)));
+        }
+        if (fiches.isEmpty()) {
+            return List.of();
+        }
+        BigDecimal brut = sum(fiches, FichePaie::getSalaireBrut);
+        BigDecimal indemnites = sum(fiches, FichePaie::getIndemnites);
+        BigDecimal cotisations = sum(fiches, FichePaie::getCotisations);
+        BigDecimal impots = sum(fiches, FichePaie::getImpots);
+        BigDecimal net = sum(fiches, FichePaie::getSalaireNet);
         return List.of(
-            new DashboardPointDto("Salaire de base", baseSalary.doubleValue()),
-            new DashboardPointDto("Primes", bonuses.doubleValue()),
-            new DashboardPointDto("Indemnités", allowances.doubleValue()),
-            new DashboardPointDto("Charges sociales", socialCharges.doubleValue())
+            new DashboardPointDto("Salaire brut", brut.doubleValue()),
+            new DashboardPointDto("Indemnités", indemnites.doubleValue()),
+            new DashboardPointDto("Cotisations sociales", cotisations.doubleValue()),
+            new DashboardPointDto("Impôts", impots.doubleValue()),
+            new DashboardPointDto("Net à payer", net.doubleValue())
         );
+    }
+
+    private static BigDecimal sum(List<FichePaie> fiches, java.util.function.Function<FichePaie, BigDecimal> getter) {
+        return fiches.stream().map(getter).filter(java.util.Objects::nonNull).reduce(BigDecimal.ZERO, BigDecimal::add);
     }
 }

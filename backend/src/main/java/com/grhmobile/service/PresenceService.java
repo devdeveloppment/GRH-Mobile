@@ -1,5 +1,13 @@
 package com.grhmobile.service;
 
+import com.grhmobile.security.QrTokenSigner;
+import com.grhmobile.security.AccessControlService;
+import com.grhmobile.repository.EmployeRepository;
+import com.grhmobile.exception.ResourceNotFoundException;
+import com.grhmobile.exception.BusinessException;
+import java.util.stream.Collectors;
+import java.util.Set;
+import java.util.Comparator;
 import java.time.Duration;
 import java.time.LocalDate;
 import java.time.LocalDateTime;
@@ -30,19 +38,30 @@ import org.springframework.transaction.annotation.Transactional;
 @Service
 public class PresenceService {
 
+    private static final int MAX_ATTACHMENT_BYTES = 5 * 1024 * 1024;
+
     private final PresenceRepository presenceRepository;
     private final EmployeeService employeeService;
     private final AuthenticatedUserService authenticatedUserService;
     private final EmployeQrCodeRepository qrCodeRepository;
     private final NotificationService notificationService;
+    private final QrTokenSigner qrTokenSigner;
+    private final AccessControlService acl;
+    private final EmployeRepository employeRepository;
 
     public PresenceService(
         PresenceRepository presenceRepository,
         EmployeeService employeeService,
         AuthenticatedUserService authenticatedUserService,
         EmployeQrCodeRepository qrCodeRepository,
-        NotificationService notificationService
+        NotificationService notificationService,
+        QrTokenSigner qrTokenSigner,
+        AccessControlService acl,
+        EmployeRepository employeRepository
     ) {
+        this.qrTokenSigner = qrTokenSigner;
+        this.acl = acl;
+        this.employeRepository = employeRepository;
         this.presenceRepository = presenceRepository;
         this.employeeService = employeeService;
         this.authenticatedUserService = authenticatedUserService;
@@ -50,13 +69,41 @@ public class PresenceService {
         this.notificationService = notificationService;
     }
 
+    /**
+     * Présences sur une période (30 derniers jours par défaut), filtrables par statut.
+     * Un manager ne voit que son équipe.
+     */
     @Transactional(readOnly = true)
-    public Map<String, Object> listAll() {
-        List<PresenceResponse> items = presenceRepository.findTop50ByOrderByDateDesc()
-            .stream()
+    public Map<String, Object> listAll(LocalDate debut, LocalDate fin, String statut) {
+        LocalDate to = fin != null ? fin : LocalDate.now();
+        LocalDate from = debut != null ? debut : to.minusDays(30);
+        if (from.isAfter(to)) {
+            throw new BusinessException("La date de début doit précéder la date de fin.");
+        }
+        StatutPresence filtre = null;
+        if (statut != null && !statut.isBlank()) {
+            try {
+                filtre = StatutPresence.valueOf(statut.trim().toUpperCase());
+            } catch (IllegalArgumentException exception) {
+                throw new BusinessException("Statut de présence inconnu : " + statut);
+            }
+        }
+        List<Presence> source = presenceRepository.findByDateBetweenOrderByDateAsc(from, to);
+        if (acl.isManager()) {
+            Employe me = acl.currentEmploye()
+                .orElseThrow(() -> new BusinessException("Employé associé introuvable."));
+            Set<Long> team = employeRepository.findTeam(me.getId()).stream()
+                .map(Employe::getId)
+                .collect(Collectors.toSet());
+            source = source.stream().filter(p -> team.contains(p.getEmploye().getId())).toList();
+        }
+        final StatutPresence statutFiltre = filtre;
+        List<PresenceResponse> items = source.stream()
+            .filter(p -> statutFiltre == null || p.getStatut() == statutFiltre)
+            .sorted(Comparator.comparing(Presence::getDate).reversed())
             .map(PresenceResponse::fromEntity)
             .toList();
-        return Map.of("items", items);
+        return Map.of("items", items, "debut", from.toString(), "fin", to.toString());
     }
 
     @Transactional(readOnly = true)
@@ -101,9 +148,21 @@ public class PresenceService {
         // Mettre à jour en fonction du type de pointage
         LocalDateTime now = LocalDateTime.now();
         if ("ENTREE".equalsIgnoreCase(request.type())) {
+            if (presence.getHeureArrivee() != null) {
+                throw new BusinessException("Votre arrivée a déjà été enregistrée aujourd'hui.");
+            }
             presence.setHeureArrivee(now);
+            presence.setStatut(StatutPresence.PRESENT);
         } else if ("SORTIE".equalsIgnoreCase(request.type())) {
+            if (presence.getHeureArrivee() == null) {
+                throw new BusinessException("Enregistrez d'abord votre arrivée.");
+            }
+            if (presence.getHeureDepart() != null) {
+                throw new BusinessException("Votre départ a déjà été enregistré aujourd'hui.");
+            }
             presence.setHeureDepart(now);
+        } else {
+            throw new BusinessException("Type de pointage inconnu : utilisez ENTREE ou SORTIE.");
         }
 
         // Sauvegarder la localisation
@@ -164,11 +223,16 @@ public class PresenceService {
 
     @Transactional
     public QrScanResponse scanPointage(QrScanRequest request) {
-        // Valider le token QR
-        EmployeQrCode qrCode = qrCodeRepository.findByToken(request.token())
-            .orElseThrow(() -> new IllegalArgumentException("QR Code invalide ou expiré."));
+        // Valider le jeton QR dynamique (signature + fraîcheur)
+        String baseToken = qrTokenSigner.verify(request.token())
+            .orElseThrow(() -> new BusinessException("QR Code invalide ou expiré. Demandez à l'employé d'actualiser son QR code."));
+        EmployeQrCode qrCode = qrCodeRepository.findByToken(baseToken)
+            .orElseThrow(() -> new BusinessException("QR Code invalide ou expiré."));
 
         Employe employe = qrCode.getEmploye();
+        if (acl.isSelf(employe)) {
+            throw new BusinessException("Vous ne pouvez pas scanner votre propre QR code.");
+        }
         LocalDate today = LocalDate.now();
 
         Presence presence = presenceRepository
@@ -224,7 +288,7 @@ public class PresenceService {
     public JustifyAbsenceResponse justifyAbsence(Long presenceId, JustifyAbsenceRequest request) {
         // Récupérer l'enregistrement Presence
         Presence presence = presenceRepository.findById(presenceId)
-            .orElseThrow(() -> new IllegalArgumentException("Absence non trouvée"));
+            .orElseThrow(() -> new ResourceNotFoundException("Absence non trouvée"));
 
         // Vérifier que c'est bien une absence en attente
         if (presence.getStatut() != StatutPresence.ABSENT_EN_ATTENTE) {
@@ -237,11 +301,16 @@ public class PresenceService {
 
         // Sauvegarder la pièce jointe si présente
         if (request.pieceJointe() != null && !request.pieceJointe().isBlank()) {
+            byte[] content;
             try {
-                presence.setPieceJointe(Base64.getDecoder().decode(request.pieceJointe()));
+                content = Base64.getDecoder().decode(request.pieceJointe());
             } catch (IllegalArgumentException e) {
-                throw new IllegalArgumentException("Pièce jointe invalide (base64 invalide)");
+                throw new BusinessException("Pièce jointe invalide (base64 invalide)");
             }
+            if (content.length > MAX_ATTACHMENT_BYTES) {
+                throw new BusinessException("La pièce jointe ne doit pas dépasser 5 Mo.");
+            }
+            presence.setPieceJointe(content);
         }
 
         // Sauvegarder

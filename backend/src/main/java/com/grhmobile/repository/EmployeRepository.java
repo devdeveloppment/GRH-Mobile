@@ -52,4 +52,17 @@ public interface EmployeRepository extends JpaRepository<Employe, Long> {
     );
 
     List<Employe> findAllByStatutIgnoreCase(String statut);
+
+    /** Équipe d'un manager : subordonnés directs et membres des départements qu'il dirige. */
+    @Query("""
+        SELECT e FROM Employe e
+        LEFT JOIN e.departement d
+        WHERE e.id <> :managerId
+          AND (e.manager.id = :managerId OR d.manager.id = :managerId)
+        ORDER BY e.nom ASC, e.prenom ASC
+        """)
+    List<Employe> findTeam(@Param("managerId") Long managerId);
+
+    @Query(value = "SELECT nextval('employe_matricule_seq')", nativeQuery = true)
+    Long nextMatriculeSequence();
 }

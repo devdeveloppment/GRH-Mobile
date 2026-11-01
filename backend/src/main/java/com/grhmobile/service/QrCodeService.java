@@ -1,5 +1,6 @@
 package com.grhmobile.service;
 
+import com.grhmobile.security.QrTokenSigner;
 import com.grhmobile.dto.qrcode.QrCodeResponse;
 import com.grhmobile.entity.Employe;
 import com.grhmobile.entity.EmployeQrCode;
@@ -16,12 +17,15 @@ public class QrCodeService {
     private final EmployeQrCodeRepository qrCodeRepository;
     private final EmployeeService employeeService;
     private final AuthenticatedUserService authenticatedUserService;
+    private final QrTokenSigner qrTokenSigner;
 
     public QrCodeService(
         EmployeQrCodeRepository qrCodeRepository,
         EmployeeService employeeService,
-        AuthenticatedUserService authenticatedUserService
+        AuthenticatedUserService authenticatedUserService,
+        QrTokenSigner qrTokenSigner
     ) {
+        this.qrTokenSigner = qrTokenSigner;
         this.qrCodeRepository = qrCodeRepository;
         this.employeeService = employeeService;
         this.authenticatedUserService = authenticatedUserService;
@@ -35,7 +39,12 @@ public class QrCodeService {
         EmployeQrCode qrCode = qrCodeRepository.findByEmployeId(employe.getId())
             .orElseGet(() -> createQrCode(employe));
 
-        return QrCodeResponse.fromEntity(qrCode);
+        return toResponse(qrCode);
+    }
+
+    private QrCodeResponse toResponse(EmployeQrCode qrCode) {
+        String signed = qrTokenSigner.sign(qrCode.getToken());
+        return QrCodeResponse.fromEntity(qrCode, signed, qrTokenSigner.expiresAt(signed));
     }
 
     @Transactional
@@ -49,7 +58,7 @@ public class QrCodeService {
         qrCode.setToken(UUID.randomUUID().toString());
         qrCode = qrCodeRepository.save(qrCode);
 
-        return QrCodeResponse.fromEntity(qrCode);
+        return toResponse(qrCode);
     }
 
     // Appelé à la création d'un employé ou au premier accès

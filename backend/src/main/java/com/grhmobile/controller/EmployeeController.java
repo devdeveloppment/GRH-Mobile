@@ -24,6 +24,7 @@ import com.grhmobile.service.PresenceService;
 import jakarta.validation.Valid;
 import org.springframework.http.HttpStatus;
 import org.springframework.security.access.prepost.PreAuthorize;
+import org.springframework.transaction.annotation.Transactional;
 import org.springframework.web.bind.annotation.DeleteMapping;
 import org.springframework.web.bind.annotation.GetMapping;
 import org.springframework.web.bind.annotation.PathVariable;
@@ -77,7 +78,20 @@ public class EmployeeController {
         return employeeService.getByUserId(userId);
     }
 
+    /** Annuaire interne : coordonnées professionnelles des employés actifs, sans donnée sensible. */
+    @GetMapping("/annuaire")
+    public Map<String, Object> annuaire() {
+        return Map.of("items", employeeService.annuaire());
+    }
+
+    @GetMapping("/my-team")
+    @PreAuthorize("hasAnyRole('MANAGER','RH_MANAGER')")
+    public Map<String, Object> myTeam() {
+        return Map.of("items", employeeService.listMyTeam());
+    }
+
     @GetMapping
+    @PreAuthorize("hasAnyRole('RH_MANAGER','PAYROLL_OFFICER','DIRECTION','MANAGER','RECRUITER','TRAINER')")
     public PagedResponse<EmployeeResponse> list(
         @RequestParam(defaultValue = "1") int page,
         @RequestParam(defaultValue = "20") int limit,
@@ -89,46 +103,51 @@ public class EmployeeController {
     }
 
     @GetMapping("/{matricule}")
+    @PreAuthorize("@acl.canViewEmployee(#matricule)")
     public EmployeeResponse get(@PathVariable String matricule) {
         return employeeService.getByMatricule(matricule);
     }
 
     @PostMapping
     @ResponseStatus(HttpStatus.CREATED)
-    @PreAuthorize("hasRole('RH_MANAGER')")
+    @PreAuthorize("@acl.can('MANAGE_EMPLOYEES')")
     public EmployeeResponse create(@Valid @RequestBody EmployeeRequest request) {
         return employeeService.create(request);
     }
 
     @PutMapping("/{matricule}")
-    @PreAuthorize("hasRole('RH_MANAGER')")
+    @PreAuthorize("@acl.can('MANAGE_EMPLOYEES')")
     public EmployeeResponse update(@PathVariable String matricule, @Valid @RequestBody EmployeeRequest request) {
         return employeeService.update(matricule, request);
     }
 
     @DeleteMapping("/{matricule}")
     @ResponseStatus(HttpStatus.NO_CONTENT)
-    @PreAuthorize("hasAnyRole('ADMIN', 'RH_MANAGER')")
+    @PreAuthorize("@acl.can('MANAGE_EMPLOYEES')")
     public void archive(@PathVariable String matricule) {
         employeeService.archive(matricule);
     }
 
     @GetMapping("/{matricule}/presences")
+    @PreAuthorize("@acl.canViewEmployee(#matricule)")
     public Map<String, Object> presences(@PathVariable String matricule) {
         return Map.of("items", presenceService.listByMatricule(matricule));
     }
 
     @GetMapping("/{matricule}/conges")
+    @PreAuthorize("@acl.canViewEmployee(#matricule)")
     public Map<String, Object> conges(@PathVariable String matricule) {
         return Map.of("items", congeService.listByMatricule(matricule));
     }
 
     @GetMapping("/{matricule}/paie")
+    @PreAuthorize("@acl.canViewPayroll(#matricule)")
     public Map<String, Object> paie(@PathVariable String matricule) {
         return Map.of("items", paieService.listByMatricule(matricule));
     }
 
     @GetMapping("/{matricule}/documents")
+    @PreAuthorize("@acl.canViewEmployee(#matricule)")
     public Map<String, Object> documents(@PathVariable String matricule) {
         Employe employe = employeeService.findByMatricule(matricule);
         return Map.of("items", documentRepository.findByEmployeIdOrderByCreatedAtDesc(employe.getId())
@@ -136,6 +155,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/{matricule}/competences")
+    @PreAuthorize("@acl.canViewEmployee(#matricule)")
     public Map<String, Object> competences(@PathVariable String matricule) {
         Employe employe = employeeService.findByMatricule(matricule);
         return Map.of("items", competenceRepository.findByEmployeIdOrderByNiveauDesc(employe.getId())
@@ -170,6 +190,7 @@ public class EmployeeController {
     }
 
     @GetMapping("/me/evaluations")
+    @Transactional(readOnly = true)
     public Map<String, Object> myEvaluations() {
         Long userId = authenticatedUserService.currentUser().getId();
         Employe employe = employeeService.findByUserId(userId);

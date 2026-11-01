@@ -12,6 +12,8 @@ public record DocumentDto(
     OffsetDateTime date
 ) {
     public static DocumentDto fromEntity(Document d) {
-        return new DocumentDto(d.getId(), d.getNom(), d.getType(), d.getTailleKo(), d.getUrl(), d.getCreatedAt());
+        // L'URL renvoyée est celle du téléchargement sécurisé, jamais le chemin de stockage
+        return new DocumentDto(d.getId(), d.getNom(), d.getType(), d.getTailleKo(),
+            "/documents/" + d.getId() + "/download", d.getCreatedAt());
     }
 }

@@ -37,7 +37,7 @@ public class AuditAspect {
         Object result = pjp.proceed();
 
         try {
-            String apres = result != null ? objectMapper.writeValueAsString(result) : null;
+            String apres = serialize(result != null ? result : sanitizedArgs(pjp.getArgs()));
             Long entiteId = extractId(result);
             auditLogService.log(acteurId, auditable.action(), auditable.entite(), entiteId, null, apres, ip);
         } catch (Exception ignored) {
@@ -53,6 +53,40 @@ public class AuditAspect {
         } catch (Exception e) {
             return null;
         }
+    }
+
+    /** Sérialise en retirant les champs sensibles (mots de passe). */
+    private String serialize(Object value) throws Exception {
+        if (value == null) {
+            return null;
+        }
+        com.fasterxml.jackson.databind.JsonNode node = objectMapper.valueToTree(value);
+        stripSecrets(node);
+        return objectMapper.writeValueAsString(node);
+    }
+
+    private void stripSecrets(com.fasterxml.jackson.databind.JsonNode node) {
+        if (node instanceof com.fasterxml.jackson.databind.node.ObjectNode object) {
+            object.remove(java.util.List.of("motDePasse", "motDePasseTemporaire", "password", "token"));
+            object.forEach(this::stripSecrets);
+        } else if (node != null && node.isArray()) {
+            node.forEach(this::stripSecrets);
+        }
+    }
+
+    private Object sanitizedArgs(Object[] args) {
+        if (args == null || args.length == 0) {
+            return null;
+        }
+        java.util.List<Object> kept = new java.util.ArrayList<>();
+        for (Object arg : args) {
+            if (arg instanceof org.springframework.web.multipart.MultipartFile file) {
+                kept.add(java.util.Map.of("fichier", String.valueOf(file.getOriginalFilename())));
+            } else {
+                kept.add(arg);
+            }
+        }
+        return kept;
     }
 
     private String resolveIp() {
