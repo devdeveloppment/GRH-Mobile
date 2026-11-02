@@ -3,6 +3,8 @@ import 'package:grh_mobile/core/services/api_service.dart';
 import 'package:grh_mobile/core/constants/app_globals.dart';
 import 'package:flutter/material.dart';
 import 'package:dio/dio.dart';
+import 'package:grh_mobile/core/offline/file_attente_hors_ligne.dart';
+import 'package:grh_mobile/core/offline/hors_ligne_provider.dart';
 import 'dart:async';
 
 import 'package:flutter/foundation.dart';
@@ -97,17 +99,27 @@ class CongeNotifier extends ChangeNotifier {
     String? motif,
   }) async {
     String day(DateTime d) => d.toIso8601String().substring(0, 10);
+    final donnees = {
+      'typeConge': typeConge,
+      'dateDebut': day(dateDebut),
+      'dateFin': day(dateFin),
+      'nombreJours': dateFin.difference(dateDebut).inDays + 1,
+      'motif': motif,
+    };
+    try {
+      await _ref.read(apiServiceProvider).post<Map<String, dynamic>>('/conges', data: donnees);
+    } catch (e) {
+      if (estErreurReseau(e)) {
+        // Hors ligne : la demande est conservée (chiffrée) et envoyée au retour du réseau.
+        await _ref.read(fileHorsLigneProvider).ajouter(OperationHorsLigne.demandeConge, donnees);
+        _notify('Hors ligne : demande enregistrée, elle sera envoyée au retour du réseau.');
+        return true;
+      }
+      // Refus du serveur : message d'erreur habituel (aucune mise en file d'attente).
+      return _run(() => Future<Object?>.error(e), success: '', failure: "La demande n'a pas pu être envoyée.");
+    }
     return _run(
-      () => _ref.read(apiServiceProvider).post<Map<String, dynamic>>(
-        '/conges',
-        data: {
-          'typeConge': typeConge,
-          'dateDebut': day(dateDebut),
-          'dateFin': day(dateFin),
-          'nombreJours': dateFin.difference(dateDebut).inDays + 1,
-          'motif': motif,
-        },
-      ),
+      () async => null,
       success: 'Demande de congé envoyée.',
       failure: "La demande n'a pas pu être envoyée.",
     );

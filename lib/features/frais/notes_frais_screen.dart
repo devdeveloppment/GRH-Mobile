@@ -1,6 +1,8 @@
 import 'package:dio/dio.dart';
 import 'package:file_picker/file_picker.dart';
 import 'package:flutter/material.dart';
+import 'package:grh_mobile/core/offline/file_attente_hors_ligne.dart';
+import 'package:grh_mobile/core/offline/hors_ligne_provider.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:grh_mobile/core/constants/app_colors.dart';
 import 'package:grh_mobile/core/constants/app_routes.dart';
@@ -343,7 +345,18 @@ class _NoteFraisFormState extends ConsumerState<_NoteFraisForm> {
         'description': _description.text.trim(),
         if (_file != null) 'justificatif': MultipartFile.fromBytes(_file!.bytes!, filename: _file!.name),
       };
-      await ref.read(apiServiceProvider).postFormData<Map<String, dynamic>>('/notes-frais', formData: FormData.fromMap(data));
+      try {
+        await ref.read(apiServiceProvider).postFormData<Map<String, dynamic>>('/notes-frais', formData: FormData.fromMap(data));
+      } catch (e) {
+        // Hors ligne et sans justificatif : la note est conservée et envoyée au retour du réseau.
+        // Avec un justificatif, le fichier n'est pas stocké localement : l'envoi exige le réseau.
+        if (!estErreurReseau(e) || _file != null) rethrow;
+        await ref.read(fileHorsLigneProvider).ajouter(OperationHorsLigne.noteFrais, data);
+        if (mounted) {
+          ScaffoldMessenger.of(context).showSnackBar(const SnackBar(
+              content: Text('Hors ligne : note enregistrée, elle sera envoyée au retour du réseau.')));
+        }
+      }
       if (mounted) Navigator.pop(context, true);
     } catch (e) {
       setState(() => _error = ApiService.messageOf(e, "L'envoi a échoué."));

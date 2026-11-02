@@ -1,5 +1,6 @@
 
 import 'package:flutter/material.dart';
+import 'package:grh_mobile/core/offline/bandeau_synchronisation.dart';
 import 'package:flutter_dotenv/flutter_dotenv.dart';
 import 'package:flutter_localizations/flutter_localizations.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
@@ -34,6 +35,13 @@ class GrhMobileApp extends ConsumerWidget {
         debugShowCheckedModeBanner: false,
         scaffoldMessengerKey: rootScaffoldMessengerKey,
         theme: AppTheme.lightTheme,
+        // Bandeau d'état du mode hors ligne, au-dessus de toutes les pages.
+        builder: (context, child) => Column(
+          children: [
+            const BandeauSynchronisation(),
+            Expanded(child: child ?? const SizedBox.shrink()),
+          ],
+        ),
         themeMode: ThemeMode.light,
         locale: const Locale('fr', 'TG'),
         supportedLocales: const [Locale('fr', 'TG'), Locale('fr', 'FR')],
