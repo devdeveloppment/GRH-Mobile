@@ -20,6 +20,20 @@ final myPaieNotifierProvider = ChangeNotifierProvider.autoDispose<PaieNotifier>(
 });
 
 class PaieNotifier extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Une requête peut se terminer après la destruction du notifier (déconnexion, changement d'écran).
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   PaieNotifier(this._ref, {this.mineOnly = false});
 
   final Ref _ref;

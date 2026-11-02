@@ -18,6 +18,20 @@ final congeNotifierProvider =
 });
 
 class CongeNotifier extends ChangeNotifier {
+  bool _disposed = false;
+
+  @override
+  void dispose() {
+    _disposed = true;
+    super.dispose();
+  }
+
+  /// Une requête peut se terminer après la destruction du notifier (déconnexion, changement d'écran).
+  @override
+  void notifyListeners() {
+    if (!_disposed) super.notifyListeners();
+  }
+
   CongeNotifier(this._ref);
 
   final Ref _ref;
@@ -66,6 +80,8 @@ class CongeNotifier extends ChangeNotifier {
               'items': demandes.map((item) => item.toJson()).toList(growable: false),
             },
           );
+    } on DioException {
+      // 401 (session expirée, déjà traitée par l'intercepteur) ou réseau : on garde les données en cache.
     } finally {
       isLoading = false;
       notifyListeners();

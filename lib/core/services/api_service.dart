@@ -38,7 +38,14 @@ class ApiService {
         onError: (error, handler) async {
           final statusCode = error.response?.statusCode;
           final isLogin = error.requestOptions.path.endsWith('/auth/login');
-          if (statusCode == 401 && !isLogin) {
+          // Un 401 sur un ancien jeton (requête partie avant une déconnexion/reconnexion)
+          // ne doit pas effacer la nouvelle session.
+          final sentAuth = error.requestOptions.headers['Authorization'];
+          final current = await _secureStorage.read(key: tokenStorageKey);
+          final staleToken = current != null && sentAuth != 'Bearer $current';
+          if (statusCode == 401 && !isLogin && staleToken) {
+            // Rien à faire : la session courante est différente.
+          } else if (statusCode == 401 && !isLogin) {
             await _secureStorage.delete(key: tokenStorageKey);
             await _secureStorage.delete(key: userStorageKey);
             onUnauthorized?.call();

@@ -270,7 +270,11 @@ class _AuditCard extends StatelessWidget {
             style: TextStyle(color: color, fontWeight: FontWeight.bold, fontSize: 12),
           ),
         ),
-        title: Row(
+        // Wrap : les libellés d'action longs passent à la ligne sur mobile au lieu de déborder.
+        title: Wrap(
+          spacing: 8,
+          runSpacing: 4,
+          crossAxisAlignment: WrapCrossAlignment.center,
           children: [
             Container(
               padding: const EdgeInsets.symmetric(horizontal: 8, vertical: 2),
@@ -283,7 +287,6 @@ class _AuditCard extends StatelessWidget {
                 style: TextStyle(color: color, fontSize: 11, fontWeight: FontWeight.bold),
               ),
             ),
-            const SizedBox(width: 8),
             Text(
               entite + (entiteId != null ? ' #$entiteId' : ''),
               style: const TextStyle(fontWeight: FontWeight.w600, fontSize: 13),

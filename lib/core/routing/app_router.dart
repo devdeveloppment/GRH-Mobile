@@ -14,6 +14,9 @@ import 'package:grh_mobile/features/dashboard/direction_dashboard.dart';
 import 'package:grh_mobile/features/dashboard/employee_workspace_screen.dart';
 import 'package:grh_mobile/features/dashboard/rh_dashboard_modern.dart';
 import 'package:grh_mobile/features/assistant/assistant_screen.dart';
+import 'package:grh_mobile/features/integration/integration_screen.dart';
+import 'package:grh_mobile/features/paie/paie_configuration_screen.dart';
+import 'package:grh_mobile/features/plateforme/plateforme_entreprises_screen.dart';
 import 'package:grh_mobile/features/frais/notes_frais_screen.dart';
 import 'package:grh_mobile/features/parametrage/parametrage_rh_screen.dart';
 import 'package:grh_mobile/features/employees/employee_detail_screen.dart';
@@ -42,7 +45,9 @@ final appRouterProvider = Provider<GoRouter>((ref) {
   final auth = ref.watch(authNotifierProvider);
 
   bool canAccess(String location, UserRole role) {
-    // Super admin et admin accèdent à tout
+    // La plateforme (entreprises clientes) est réservée au super-administrateur.
+    if (location.startsWith('/plateforme')) return role == UserRole.superAdmin;
+    // Super admin et admin accèdent à tout le reste
     if (role.isAdmin) return true;
 
     switch (role) {
@@ -55,6 +60,7 @@ final appRouterProvider = Provider<GoRouter>((ref) {
             location == AppRoutes.profile;
       case UserRole.payrollOfficer:
         return location == AppRoutes.paie ||
+            location == AppRoutes.paieConfiguration ||
             location == AppRoutes.contrats ||
             location == AppRoutes.notesFrais ||
             location == AppRoutes.rapports ||
@@ -102,7 +108,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
     if (location == AppRoutes.assistant) return true;
     if (canAccess(location, user.role)) return true;
     if (user.hasPermission('MANAGE_EMPLOYEES') && location.startsWith(AppRoutes.employees)) return true;
-    if (user.hasPermission('MANAGE_PAIE') && location == AppRoutes.paie) return true;
+    if (user.hasPermission('MANAGE_PAIE') &&
+        (location == AppRoutes.paie || location == AppRoutes.paieConfiguration)) {
+      return true;
+    }
+    if (user.hasPermission('MANAGE_EMPLOYEES') && location == AppRoutes.integration) return true;
     if (user.hasPermission('VIEW_REPORTS') && location == AppRoutes.rapports) return true;
     if (user.hasPermission('MANAGE_LEAVES') && location == AppRoutes.conges) return true;
     if (user.hasPermission('MANAGE_USERS') && location == AppRoutes.adminUsers) return true;
@@ -194,6 +204,12 @@ final appRouterProvider = Provider<GoRouter>((ref) {
           builder: (_, __) => const NotesFraisScreen()),
       GoRoute(path: AppRoutes.assistant,
           builder: (_, __) => const AssistantScreen()),
+      GoRoute(path: AppRoutes.paieConfiguration,
+          builder: (_, __) => const PaieConfigurationScreen()),
+      GoRoute(path: AppRoutes.integration,
+          builder: (_, __) => const IntegrationScreen()),
+      GoRoute(path: AppRoutes.plateforme,
+          builder: (_, __) => const PlateformeEntreprisesScreen()),
 
       // ─── Admin ─────────────────────────────────────────────────────────────
       GoRoute(path: AppRoutes.adminDashboard,
