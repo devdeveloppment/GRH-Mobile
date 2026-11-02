@@ -41,7 +41,8 @@ public class SecurityConfig {
         AuthenticationProvider authenticationProvider,
         CorsConfigurationSource corsConfigurationSource,
         com.grhmobile.security.LimiteurRequetes limiteurRequetes,
-        @org.springframework.beans.factory.annotation.Value("${app.securite.limitation.active:true}") boolean limitationActive
+        @org.springframework.beans.factory.annotation.Value("${app.securite.limitation.active:true}") boolean limitationActive,
+        org.springframework.jdbc.core.JdbcTemplate jdbcTemplate
     ) throws Exception {
         http
             .cors(cors -> cors.configurationSource(corsConfigurationSource))
@@ -69,6 +70,8 @@ public class SecurityConfig {
             .addFilterBefore(jwtAuthenticationFilter, UsernamePasswordAuthenticationFilter.class)
             .addFilterAfter(new com.grhmobile.security.LimitationRequetesFilter(limiteurRequetes, limitationActive),
                 JwtAuthenticationFilter.class)
+            .addFilterAfter(new com.grhmobile.security.IdempotenceFilter(jdbcTemplate),
+                com.grhmobile.security.LimitationRequetesFilter.class)
             .addFilterBefore(new com.grhmobile.tenant.TenantRequestFilter(entrepriseRepository), JwtAuthenticationFilter.class);
 
         return http.build();

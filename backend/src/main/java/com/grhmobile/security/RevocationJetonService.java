@@ -46,6 +46,7 @@ public class RevocationJetonService {
     public void purger() {
         int n = jdbcTemplate.update("DELETE FROM jetons_revoques WHERE expire_le < now()");
         int m = jdbcTemplate.update("DELETE FROM limites_requetes WHERE fenetre_debut < now() - interval '1 day'");
+        jdbcTemplate.update("DELETE FROM requetes_idempotentes WHERE cree_le < now() - interval '7 days'");
         if (n + m > 0) {
             log.info("Purge : {} jeton(s) révoqué(s) expiré(s), {} compteur(s) de limitation", n, m);
         }
