@@ -61,6 +61,8 @@ public class SecurityConfig {
                 .requestMatchers("/actuator/health", "/actuator/info").permitAll()
                 .requestMatchers("/swagger-ui/**", "/v3/api-docs/**").permitAll()
                 .requestMatchers(HttpMethod.POST, "/api/auth/login").permitAll()
+                // Notifications des fournisseurs de paiement : authentifiées par leur signature.
+                .requestMatchers(HttpMethod.POST, "/api/paiements/notifications/*").permitAll()
                 .requestMatchers("/uploads/photos/**").permitAll()
                 // Candidature externe : consultation des offres publiées et dépôt de dossier
                 .requestMatchers(HttpMethod.GET, "/api/public/offres", "/api/public/offres/*").permitAll()

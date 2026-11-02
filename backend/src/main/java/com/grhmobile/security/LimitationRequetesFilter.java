@@ -44,7 +44,8 @@ public class LimitationRequetesFilter extends OncePerRequestFilter {
         new Regle("assistant", "POST", "/api/assistant/questions", 30, 3600),
         new Regle("export", null, "/api/reports/**", 30, 600),
         new Regle("plateforme", null, "/api/plateforme/**", 120, 60),
-        new Regle("import", "POST", "/api/import/**", 20, 600)
+        new Regle("import", "POST", "/api/import/**", 20, 600),
+        new Regle("paiement-notification", "POST", "/api/paiements/notifications/*", 300, 60)
     );
 
     /** Tout envoi de fichier (multipart), quel que soit le point d'entrée. */
